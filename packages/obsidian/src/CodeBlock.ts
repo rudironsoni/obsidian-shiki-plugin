@@ -1,5 +1,5 @@
 import { type MarkdownPostProcessorContext, MarkdownRenderChild } from 'obsidian';
-import type ShikiPlugin from 'src/main';
+import type ShikiPlugin from 'packages/obsidian/src/main';
 
 export class CodeBlock extends MarkdownRenderChild {
 	plugin: ShikiPlugin;

@@ -1,10 +1,10 @@
-import type ShikiPlugin from 'src/main';
-import { SHIKI_INLINE_REGEX } from 'src/main';
+import type ShikiPlugin from 'packages/obsidian/src/main';
+import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
 import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { type EditorState, type Range } from '@codemirror/state';
 import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
-import { Cm6_Util } from 'src/codemirror/Cm6_Util';
+import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
 import { type ThemedToken } from 'shiki';
 import { editorLivePreviewField } from 'obsidian';
 
@@ -31,7 +31,7 @@ interface RemoveDecoration {
 	to: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
 export function createCm6Plugin(plugin: ShikiPlugin) {
 	return ViewPlugin.fromClass(
 		class Cm6ViewPlugin {

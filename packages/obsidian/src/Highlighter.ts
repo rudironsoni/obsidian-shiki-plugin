@@ -1,5 +1,5 @@
-import { ExpressiveCodeEngine, ExpressiveCodeTheme } from '@expressive-code/core';
-import type ShikiPlugin from 'src/main';
+import { ExpressiveCodeEngine } from '@expressive-code/core';
+import type ShikiPlugin from 'packages/obsidian/src/main';
 import {
 	bundledLanguages,
 	createHighlighter,
@@ -9,16 +9,11 @@ import {
 	type BundledLanguage,
 	type ThemedToken,
 } from 'shiki';
-import { ThemeMapper } from 'src/themes/ThemeMapper';
-import { pluginShiki } from '@expressive-code/plugin-shiki';
-import { pluginCollapsibleSections } from '@expressive-code/plugin-collapsible-sections';
-import { pluginTextMarkers } from '@expressive-code/plugin-text-markers';
-import { pluginLineNumbers } from '@expressive-code/plugin-line-numbers';
-import { pluginFrames } from '@expressive-code/plugin-frames';
-import { getECTheme } from 'src/themes/ECTheme';
+import { ThemeMapper } from 'packages/obsidian/src/themes/ThemeMapper';
 import { normalizePath, Notice } from 'obsidian';
-import { DEFAULT_SETTINGS } from 'src/settings/Settings';
-import { toHtml } from '@expressive-code/core/hast';
+import { DEFAULT_SETTINGS } from 'packages/obsidian/src/settings/Settings';
+import { toDom } from 'hast-util-to-dom';
+import { createEcEngineConfig } from 'packages/ec-core/src/Config';
 
 interface CustomTheme {
 	name: string;
@@ -39,7 +34,7 @@ export class CodeHighlighter {
 	themeMapper: ThemeMapper;
 
 	ec!: ExpressiveCodeEngine;
-	ecElements!: HTMLElement[];
+	ecStyleElement: HTMLElement | undefined;
 	supportedLanguages!: string[];
 	shiki!: Highlighter;
 	customThemes!: CustomTheme[];
@@ -148,45 +143,31 @@ export class CodeHighlighter {
 	}
 
 	async loadEC(): Promise<void> {
-		const useThemeColors = this.plugin.loadedSettings.preferThemeColors && !this.themeMapper.usingObsidianTheme();
+		this.ec = new ExpressiveCodeEngine(
+			createEcEngineConfig({
+				theme: await this.themeMapper.getThemeForEC(),
+				customLanguages: this.customLanguages,
+				settings: this.plugin.loadedSettings,
+				usingObsidianTheme: this.themeMapper.usingObsidianTheme(),
+			}),
+		);
 
-		this.ec = new ExpressiveCodeEngine({
-			themes: [new ExpressiveCodeTheme(await this.themeMapper.getThemeForEC())],
-			plugins: [
-				pluginShiki({
-					langs: this.customLanguages,
-				}),
-				pluginCollapsibleSections(),
-				pluginTextMarkers(),
-				pluginLineNumbers(),
-				pluginFrames(),
-			],
-			styleOverrides: getECTheme(useThemeColors),
-			minSyntaxHighlightingColorContrast: 0,
-			themeCssRoot: 'div.expressive-code',
-			defaultProps: {
-				showLineNumbers: this.plugin.loadedSettings.ecDefaultShowLineNumbers,
-				wrap: this.plugin.loadedSettings.ecDefaultWrap,
-				frame: this.plugin.loadedSettings.ecDefaultFrame,
-			},
-		});
-
-		this.ecElements = [];
-
-		const styles = (await this.ec.getBaseStyles()) + (await this.ec.getThemeStyles());
-		this.ecElements.push(document.head.createEl('style', { text: styles }));
-
-		const jsModules = await this.ec.getJsModules();
-		for (const jsModule of jsModules) {
-			this.ecElements.push(document.head.createEl('script', { attr: { type: 'module' }, text: jsModule }));
+		if (this.ecStyleElement) {
+			this.ecStyleElement.remove();
+			this.ecStyleElement = undefined;
 		}
+
+		// Since they come directly from EC, and depend on runtime settings/theme selection, there is no other way than to attach them dynamically.
+		// Note that the static EC styles and scripts are bundled with the plugin and don't need to be loaded like this.
+		const themeStyles = await this.ec.getThemeStyles();
+		this.ecStyleElement = document.head.createEl('style', { text: themeStyles });
 	}
 
 	unloadEC(): void {
-		for (const el of this.ecElements) {
-			el.remove();
+		if (this.ecStyleElement) {
+			this.ecStyleElement.remove();
+			this.ecStyleElement = undefined;
 		}
-		this.ecElements = [];
 	}
 
 	async loadShiki(): Promise<void> {
@@ -213,7 +194,8 @@ export class CodeHighlighter {
 			meta,
 		});
 
-		container.innerHTML = toHtml(this.themeMapper.fixAST(result.renderedGroupAst));
+		container.empty();
+		container.append(toDom(this.themeMapper.fixAST(result.renderedGroupAst)));
 	}
 
 	async getHighlightTokens(code: string, lang: string): Promise<TokensResult | undefined> {

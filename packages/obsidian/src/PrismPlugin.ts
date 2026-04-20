@@ -1,33 +1,67 @@
-/* eslint-disable */
-
 /*
  * Taken from https://github.com/PrismJS/prism/blob/master/plugins/filter-highlight-all/prism-filter-highlight-all.js
  */
 
-export function filterHighlightAllPlugin(Prism: any): void {
-	if (typeof Prism === 'undefined' || typeof document === 'undefined') {
+import type * as Prism from 'prismjs';
+
+export type PrismFilterHighlightEnv = Prism.Environment & {
+	element: Element;
+	language: string;
+};
+
+type PrismFilterHighlightCondition = (value: PrismFilterHighlightEnv) => boolean;
+
+interface PrismFilterHighlightApi {
+	add(condition: PrismFilterHighlightCondition): void;
+	addSelector(selector: string): void;
+	reject: {
+		add(condition: PrismFilterHighlightCondition): void;
+		addSelector(selector: string): void;
+	};
+	filterKnown: boolean;
+}
+
+interface PrismBeforeAllElementsHighlightEnv extends Prism.Environment {
+	elements: Element[];
+}
+
+export type PrismWithFilterHighlightAll = typeof Prism & {
+	util: typeof Prism.util & {
+		currentScript(): HTMLScriptElement | null;
+		getLanguage(element: Element): string;
+	};
+	plugins: typeof Prism.plugins & {
+		filterHighlightAll?: PrismFilterHighlightApi;
+	};
+	hooks: typeof Prism.hooks & {
+		add(name: 'before-all-elements-highlight', callback: (env: PrismBeforeAllElementsHighlightEnv) => void): void;
+	};
+};
+
+export function filterHighlightAllPlugin(prism: PrismWithFilterHighlightAll): PrismFilterHighlightApi | undefined {
+	if (typeof document === 'undefined') {
 		return;
 	}
 
-	const script = Prism.util.currentScript();
+	const script = prism.util.currentScript();
 
 	/**
 	 * @type {Array<(element: HTMLElement) => boolean>}
 	 */
-	const filters: any[] = [];
+	const filters: ((element: Element) => boolean)[] = [];
 
-	const config: any = (Prism.plugins.filterHighlightAll = {
+	const config: PrismFilterHighlightApi = (prism.plugins.filterHighlightAll = {
 		/**
 		 * Adds a new filter for the elements of `highlightAll` and `highlightAllUnder` such that only elements for
 		 * which the given function returns `true` will be highlighted.
 		 *
 		 * @param {(value: { element: HTMLElement, language: string }) => boolean} condition
 		 */
-		add: function (condition: any): void {
-			filters.push(function (element: any) {
+		add: function (condition: PrismFilterHighlightCondition): void {
+			filters.push(function (element: Element) {
 				return condition({
 					element: element,
-					language: Prism.util.getLanguage(element),
+					language: prism.util.getLanguage(element),
 				});
 			});
 		},
@@ -38,8 +72,8 @@ export function filterHighlightAllPlugin(Prism: any): void {
 		 *
 		 * @param {string} selector
 		 */
-		addSelector: function (selector: any): void {
-			filters.push(function (element: any) {
+		addSelector: function (selector: string): void {
+			filters.push(function (element: Element) {
 				return element.matches(selector);
 			});
 		},
@@ -51,11 +85,11 @@ export function filterHighlightAllPlugin(Prism: any): void {
 			 *
 			 * @param {(value: { element: HTMLElement, language: string }) => boolean} condition
 			 */
-			add: function (condition: any): void {
-				filters.push(function (element: any) {
+			add: function (condition: PrismFilterHighlightCondition): void {
+				filters.push(function (element: Element) {
 					return !condition({
 						element: element,
-						language: Prism.util.getLanguage(element),
+						language: prism.util.getLanguage(element),
 					});
 				});
 			},
@@ -66,8 +100,8 @@ export function filterHighlightAllPlugin(Prism: any): void {
 			 *
 			 * @param {string} selector
 			 */
-			addSelector: function (selector: any): void {
-				filters.push(function (element: any) {
+			addSelector: function (selector: string): void {
+				filters.push(function (element: Element) {
 					return !element.matches(selector);
 				});
 			},
@@ -84,8 +118,8 @@ export function filterHighlightAllPlugin(Prism: any): void {
 		filterKnown: !!script && script.hasAttribute('data-filter-known'),
 	});
 
-	config.add(function filterKnown(env: any) {
-		return !config.filterKnown || typeof Prism.languages[env.language] === 'object';
+	config.add(function filterKnown(env: PrismFilterHighlightEnv) {
+		return !config.filterKnown || typeof prism.languages[env.language] === 'object';
 	});
 
 	if (script) {
@@ -107,7 +141,7 @@ export function filterHighlightAllPlugin(Prism: any): void {
 	 * @param {HTMLElement} element
 	 * @returns {boolean}
 	 */
-	function combinedFilter(element: any): boolean {
+	function combinedFilter(element: Element): boolean {
 		for (let i: number = 0, l = filters.length; i < l; i++) {
 			if (!filters[i](element)) {
 				return false;
@@ -116,7 +150,9 @@ export function filterHighlightAllPlugin(Prism: any): void {
 		return true;
 	}
 
-	Prism.hooks.add('before-all-elements-highlight', function (env: any) {
+	prism.hooks.add('before-all-elements-highlight', function (env: PrismBeforeAllElementsHighlightEnv) {
 		env.elements = env.elements.filter(combinedFilter);
 	});
+
+	return config;
 }
