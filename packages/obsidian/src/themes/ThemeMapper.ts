@@ -60,10 +60,10 @@ export class ThemeMapper {
 	}
 
 	getThemeIdentifier(): string {
-		if (document.body.classList.contains('theme-light')) {
-			return this.plugin.loadedSettings.lightTheme;
-		} else {
+		if (this.plugin.app.isDarkMode()) {
 			return this.plugin.loadedSettings.darkTheme;
+		} else {
+			return this.plugin.loadedSettings.lightTheme;
 		}
 	}
 

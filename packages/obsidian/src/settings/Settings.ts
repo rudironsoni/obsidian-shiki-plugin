@@ -12,7 +12,7 @@ export interface Settings {
 	customThemeFolder: string;
 	customLanguageFolder: string;
 	/**
-	 * @deprecated use darkTheme and lightTheme instead
+	 * Old theme setting, from before we had separate light/dark theme settings. Will me migrated on load.
 	 */
 	theme: string | undefined;
 	darkTheme: string;
