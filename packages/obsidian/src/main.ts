@@ -36,7 +36,7 @@ export default class ShikiPlugin extends Plugin {
 
 		this.deferStartupWork((): void => {
 			void this.registerCm6Plugin().catch(error => {
-				console.warn('Unable to register Shiki CodeMirror integration.', error);
+				console.warn('Unable to register Shiki editor integration.', error);
 			});
 		});
 
@@ -103,6 +103,7 @@ export default class ShikiPlugin extends Plugin {
 	async registerCm6Plugin(): Promise<void> {
 		const { createCm6Plugin } = await loadHighlighterEntry(this);
 		this.registerEditorExtension([createCm6Plugin(this)]);
+		this.app.workspace.updateOptions();
 	}
 
 	async registerPrismPlugin(): Promise<void> {

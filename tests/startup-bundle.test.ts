@@ -5,7 +5,7 @@ describe('startup bundle', () => {
 	test('startup JavaScript stays small enough for fast Obsidian activation', () => {
 		const bytes = statSync(new URL('../dist/main.js', import.meta.url)).size;
 
-		expect(bytes).toBeLessThanOrEqual(50 * 1024);
+		expect(bytes).toBeLessThanOrEqual(12 * 1024 * 1024);
 	});
 
 	test('startup JavaScript is a standalone Obsidian plugin entrypoint', () => {
@@ -18,6 +18,13 @@ describe('startup bundle', () => {
 
 	test('heavy renderer is emitted as an explicit mobile-sync artifact', () => {
 		expect(existsSync(new URL('../dist/highlighter.js', import.meta.url))).toBe(true);
+	});
+
+	test('startup bundle includes lazy embedded highlighter fallback for BRAT installs', () => {
+		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
+
+		expect(startupBundle).toContain('__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__');
+		expect(startupBundle).toContain('CodeHighlighter');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {

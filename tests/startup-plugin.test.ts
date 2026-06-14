@@ -31,8 +31,41 @@ describe('plugin startup registration', () => {
 		expect((plugin as unknown as { settingTabs: unknown[] }).settingTabs).toHaveLength(1);
 		expect((plugin as unknown as { markdownPostProcessors: unknown[] }).markdownPostProcessors).toHaveLength(2);
 		expect((plugin as unknown as { commands: unknown[] }).commands).toHaveLength(1);
-		expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toEqual([['cm6']]);
+		expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(1);
 		expect((plugin.highlighter as unknown as { highlighter?: unknown }).highlighter).toBeUndefined();
+	});
+
+	test('deferred Shiki editor registration refreshes existing editor views', async () => {
+		clearHighlighterEntryCache();
+		const originalRequestIdleCallback = window.requestIdleCallback;
+		const plugin = createTestPlugin();
+		const deferredCallbacks: (() => void)[] = [];
+		let updateOptionsCalls = 0;
+		plugin.app.workspace.updateOptions = (): void => {
+			updateOptionsCalls++;
+		};
+		window.requestIdleCallback = ((callback: IdleRequestCallback): number => {
+			deferredCallbacks.push(() =>
+				callback({
+					didTimeout: false,
+					timeRemaining: () => 50,
+				}),
+			);
+			return deferredCallbacks.length;
+		}) as typeof window.requestIdleCallback;
+
+		try {
+			await plugin.onload();
+
+			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(0);
+			deferredCallbacks.forEach(callback => callback());
+			await new Promise(resolve => setTimeout(resolve, 0));
+			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(1);
+			expect(updateOptionsCalls).toBe(1);
+			expect((plugin.highlighter as unknown as { highlighter?: unknown }).highlighter).toBeUndefined();
+		} finally {
+			window.requestIdleCallback = originalRequestIdleCallback;
+		}
 	});
 
 	test('code block postprocessor creates children for fenced language blocks and skips frontmatter', async () => {

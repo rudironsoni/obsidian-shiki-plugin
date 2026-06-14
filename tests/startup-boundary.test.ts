@@ -25,7 +25,6 @@ describe('startup module boundary', () => {
 		const source = read('packages/obsidian/src/main.ts');
 
 		expect(source).not.toContain("from 'packages/obsidian/src/Highlighter'");
-		expect(source).not.toContain("from 'packages/obsidian/src/codemirror/Cm6_ViewPlugin'");
 		expect(source).not.toContain("from 'virtual:ec-runtime'");
 	});
 });

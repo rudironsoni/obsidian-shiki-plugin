@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { clearHighlighterEntryCache, loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
 
+declare global {
+	var __SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__: string | undefined;
+}
+
 describe('highlighter entry loader', () => {
 	afterEach(() => {
 		clearHighlighterEntryCache();
@@ -53,5 +57,35 @@ describe('highlighter entry loader', () => {
 		await loadHighlighterEntry(createPlugin('.obsidian/plugins/two') as never);
 
 		expect(requestedPaths).toEqual(['.obsidian/plugins/one/highlighter.js', '.obsidian/plugins/two/highlighter.js']);
+	});
+
+	test('loads embedded sidecar when BRAT did not install highlighter.js', async () => {
+		clearHighlighterEntryCache();
+		const previousEmbeddedSource = globalThis.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__;
+		globalThis.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__ =
+			'exports.CodeHighlighter = class EmbeddedCodeHighlighter {}; exports.createCm6Plugin = () => "embedded-cm6"; exports.filterHighlightAllPlugin = () => "embedded-prism";';
+
+		const plugin = {
+			manifest: { id: 'shiki-highlighter', dir: '.obsidian/plugins/shiki-highlighter' },
+			app: {
+				vault: {
+					adapter: {
+						read: async (): Promise<string> => {
+							throw new Error('highlighter.js is not installed');
+						},
+					},
+				},
+			},
+		};
+
+		try {
+			const entry = await loadHighlighterEntry(plugin as never);
+
+			expect(entry.CodeHighlighter.name).toBe('EmbeddedCodeHighlighter');
+			expect((entry.createCm6Plugin as unknown as () => string)()).toBe('embedded-cm6');
+			expect((entry.filterHighlightAllPlugin as unknown as () => string)()).toBe('embedded-prism');
+		} finally {
+			globalThis.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__ = previousEmbeddedSource;
+		}
 	});
 });

@@ -1,5 +1,7 @@
 import path from 'node:path';
 import { builtinModules } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { defineConfig, type UserConfig } from 'vite';
 import { ExpressiveCodeEngine } from '@expressive-code/core';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -15,6 +17,7 @@ const externalNodeBuiltins = builtinModules.filter(moduleName => !polyfilledNode
 
 const entryFile = 'packages/obsidian/src/main.ts';
 const highlighterEntryFile = 'packages/obsidian/src/highlighter-entry.ts';
+const highlighterBundleFile = 'dist/highlighter.js';
 const EC_RUNTIME_MODULE_ID = 'virtual:ec-runtime';
 const EC_STYLES_MODULE_ID = 'virtual:ec-styles.css';
 const EC_RUNTIME_RESOLVED_ID = `\0${EC_RUNTIME_MODULE_ID}`;
@@ -80,6 +83,10 @@ export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
 	const buildEntry = process.env.SHIKI_BUILD_ENTRY === 'highlighter' ? 'highlighter' : 'main';
+	const embeddedHighlighterSource =
+		buildEntry === 'main' && process.env.SHIKI_EMBED_HIGHLIGHTER === 'true' && existsSync(highlighterBundleFile)
+			? gzipSync(readFileSync(highlighterBundleFile)).toString('base64')
+			: '';
 	const external = [
 		'obsidian',
 		'electron',
@@ -120,6 +127,9 @@ export default defineConfig(({ mode }) => {
 			alias: {
 				packages: path.resolve(__dirname, './packages'),
 			},
+		},
+		define: {
+			__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__: JSON.stringify(embeddedHighlighterSource),
 		},
 		build: {
 			lib: {

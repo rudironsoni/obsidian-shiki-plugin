@@ -29,6 +29,7 @@ mock.module('obsidian', () => ({
 			},
 			workspace: {
 				on: () => ({}),
+				updateOptions: () => {},
 			},
 			openWithDefaultApp: () => {},
 		};

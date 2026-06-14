@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite build --mode=development --watch",
 		"clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-		"build": "bun run typecheck && bun run clean:dist && vite build --mode=production && SHIKI_BUILD_ENTRY=highlighter vite build --mode=production",
+		"build": "bun run typecheck && bun run clean:dist && SHIKI_BUILD_ENTRY=highlighter vite build --mode=production && SHIKI_EMBED_HIGHLIGHTER=true vite build --mode=production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "bun test",
 		"test:log": "LOG_TESTS=true bun test",

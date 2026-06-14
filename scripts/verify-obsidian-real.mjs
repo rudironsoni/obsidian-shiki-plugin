@@ -7,6 +7,7 @@ const PORT = Number(process.env.OBSIDIAN_REMOTE_DEBUGGING_PORT ?? 9230);
 const VAULT = process.env.OBSIDIAN_VERIFY_VAULT ?? '/private/tmp/obsidian-shiki-real-verify-vault';
 const USER_DATA = process.env.OBSIDIAN_VERIFY_USER_DATA ?? '/private/tmp/obsidian-shiki-real-verify-user-data';
 const PLUGIN_ID = 'shiki-highlighter';
+const BRAT_INSTALL = process.env.OBSIDIAN_VERIFY_BRAT_INSTALL === 'true';
 
 function assert(condition, message, detail) {
 	if (!condition) {
@@ -21,7 +22,13 @@ function prepareVault() {
 
 	const pluginDir = path.join(VAULT, '.obsidian/plugins', PLUGIN_ID);
 	mkdirSync(pluginDir, { recursive: true });
-	cpSync('dist', pluginDir, { recursive: true });
+	if (BRAT_INSTALL) {
+		for (const file of ['main.js', 'manifest.json', 'styles.css']) {
+			cpSync(path.join('dist', file), path.join(pluginDir, file));
+		}
+	} else {
+		cpSync('dist', pluginDir, { recursive: true });
+	}
 
 	mkdirSync(path.join(VAULT, 'customLanguages'), { recursive: true });
 	cpSync('exampleVault/customLanguages/odin.json', path.join(VAULT, 'customLanguages/odin.json'));
@@ -220,6 +227,15 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				hasLineNumbers: !!el.querySelector('.ln'),
 			}));
 			const inline = [...document.querySelectorAll('.shiki-inline')].map(el => el.textContent);
+			if (file) await app.workspace.getLeaf(false).openFile(file, { state: { mode: 'source', source: false } });
+			await new Promise(resolve => setTimeout(resolve, 5000));
+			await plugin.updateCm6Plugin();
+			await new Promise(resolve => setTimeout(resolve, 500));
+			const editorTokens = [...document.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
+				text: el.textContent,
+				className: el.className,
+				style: el.getAttribute('style'),
+			}));
 			return {
 				isMobile: app.isMobile,
 				loadError,
@@ -235,6 +251,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				measurements,
 				codeBlocks,
 				inline,
+				editorTokens,
 			};
 		})()`,
 	);
@@ -271,6 +288,7 @@ function validateResult(label, result) {
 		`${label}: inline highlighting missing`,
 		result,
 	);
+	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
 	assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 }
 
