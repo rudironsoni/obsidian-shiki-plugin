@@ -27,4 +27,33 @@ describe('startup bundle', () => {
 		expect(workflow).toContain('dist/*.css');
 		expect(workflow).not.toContain('dist/main.js');
 	});
+
+	test('release workflow marks every SemVer prerelease tag as prerelease', () => {
+		const workflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
+
+		expect(workflow).toContain('github.ref_name');
+		expect(workflow).toContain('== *-*');
+	});
+
+	test('beta workflow publishes typed branches with computed SemVer tags', () => {
+		const workflow = readFileSync(new URL('../.github/workflows/beta-release.yml', import.meta.url), 'utf8');
+
+		expect(workflow).toContain("'feature/**'");
+		expect(workflow).toContain("'feature-*'");
+		expect(workflow).toContain("'fix/**'");
+		expect(workflow).toContain("'bug/**'");
+		expect(workflow).toContain("'chore/**'");
+		expect(workflow).toContain("'deps/**'");
+		expect(workflow).toContain('uses: anothrNick/github-tag-action@1.75.0');
+		expect(workflow).toContain('DRY_RUN: true');
+		expect(workflow).toContain('PRERELEASE: true');
+		expect(workflow).toContain('DEFAULT_BUMP: ${{ (startsWith(github.ref_name,');
+		expect(workflow).toContain('Apply beta version to plugin manifests');
+		expect(workflow).toContain('BETA_VERSION: ${{ steps.beta-version.outputs.new_tag }}');
+		expect(workflow).toContain('tag_name: ${{ steps.beta-version.outputs.new_tag }}');
+		expect(workflow).toContain('prerelease: true');
+		expect(workflow).toContain('target_commitish: ${{ github.sha }}');
+		expect(workflow).toContain('dist/*.js');
+		expect(workflow).toContain('dist/*.css');
+	});
 });
