@@ -22,9 +22,15 @@ async function getEmbeddedHighlighterSource(plugin: ShikiPlugin, pluginDir: stri
 		return decompressGzipBase64(__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__);
 	}
 
-	const styles = await plugin.app.vault.adapter.read(`${pluginDir}/styles.css`);
-	const match = /\/\* shiki-highlighter-fallback:([A-Za-z0-9+/=]+) \*\//.exec(styles);
-	return match ? decompressGzipBase64(match[1]) : '';
+	for (const fileName of ['highlighter.css', 'styles.css']) {
+		const styles = await plugin.app.vault.adapter.read(`${pluginDir}/${fileName}`);
+		const match = /\/\* shiki-highlighter-fallback:([A-Za-z0-9+/=]+) \*\//.exec(styles);
+		if (match) {
+			return decompressGzipBase64(match[1]);
+		}
+	}
+
+	return '';
 }
 
 function loadHighlighterSource(source: string): HighlighterEntryModule {

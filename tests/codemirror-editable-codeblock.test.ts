@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	buildEditableCodeBlockDecorations,
+	normalizeEditableCodeBlockScrollWidths,
 	parseFenceInfo,
 	shouldUpdateCodeBlockDecorations,
+	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 import type { TokensResult } from 'shiki';
@@ -99,5 +101,43 @@ describe('editable CodeMirror code block decorations', () => {
 				}),
 			}),
 		);
+	});
+
+	test('syncs horizontal scroll across every line in the same editable code block', () => {
+		const root = document.createElement('div');
+		const first = document.createElement('div');
+		const second = document.createElement('div');
+		const outside = document.createElement('div');
+		first.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		second.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		outside.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		first.dataset.shikiEditingBlockId = '100-200';
+		second.dataset.shikiEditingBlockId = '100-200';
+		outside.dataset.shikiEditingBlockId = '300-400';
+		root.append(first, second, outside);
+
+		first.scrollLeft = 72;
+		syncEditableCodeBlockScroll(root, first);
+
+		expect(second.scrollLeft).toBe(72);
+		expect(outside.scrollLeft).toBe(0);
+	});
+
+	test('gives short lines enough scrollable width to follow the whole editable code block', () => {
+		const root = document.createElement('div');
+		const first = document.createElement('div');
+		const second = document.createElement('div');
+		first.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		second.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		first.dataset.shikiEditingBlockId = '100-200';
+		second.dataset.shikiEditingBlockId = '100-200';
+		Object.defineProperty(first, 'scrollWidth', { configurable: true, value: 1200 });
+		Object.defineProperty(second, 'scrollWidth', { configurable: true, value: 700 });
+		root.append(first, second);
+
+		normalizeEditableCodeBlockScrollWidths(root);
+
+		expect(first.style.getPropertyValue('--shiki-editing-scroll-spacer')).toBe('1200px');
+		expect(second.style.getPropertyValue('--shiki-editing-scroll-spacer')).toBe('1200px');
 	});
 });

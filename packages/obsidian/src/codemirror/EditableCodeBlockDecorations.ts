@@ -60,10 +60,46 @@ export function parseFenceInfo(content: string): FenceInfo {
 	};
 }
 
+export function syncEditableCodeBlockScroll(root: ParentNode, source: HTMLElement): void {
+	const blockId = source.dataset.shikiEditingBlockId;
+	if (!blockId) {
+		return;
+	}
+
+	for (const line of root.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
+		if (line !== source && line.dataset.shikiEditingBlockId === blockId) {
+			line.scrollLeft = source.scrollLeft;
+		}
+	}
+}
+
+export function normalizeEditableCodeBlockScrollWidths(root: ParentNode): void {
+	const blocks = new Map<string, HTMLElement[]>();
+	for (const line of root.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
+		const blockId = line.dataset.shikiEditingBlockId;
+		if (!blockId) {
+			continue;
+		}
+
+		const lines = blocks.get(blockId) ?? [];
+		lines.push(line);
+		blocks.set(blockId, lines);
+		line.style.setProperty('--shiki-editing-scroll-spacer', '0px');
+	}
+
+	for (const lines of blocks.values()) {
+		const maxScrollWidth = Math.max(...lines.map(line => line.scrollWidth));
+		for (const line of lines) {
+			line.style.setProperty('--shiki-editing-scroll-spacer', `${maxScrollWidth}px`);
+		}
+	}
+}
+
 export function buildEditableCodeBlockDecorations(block: EditableCodeBlock, highlight: TokensResult): Range<Decoration>[] {
 	const decorations: Range<Decoration>[] = [];
 	const tokens = highlight.tokens.flat(1);
 	const lineStarts = block.lineStarts.length > 0 ? block.lineStarts : [block.from];
+	const blockId = `${block.from}-${block.to}`;
 
 	for (let index = 0; index < lineStarts.length; index++) {
 		const lineStart = lineStarts[index];
@@ -80,6 +116,7 @@ export function buildEditableCodeBlockDecorations(block: EditableCodeBlock, high
 				attributes: {
 					class: classes.join(' '),
 					style: `background-color: ${highlight.bg ?? 'var(--shiki-code-background)'}; color: ${highlight.fg ?? 'var(--shiki-code-normal)'}`,
+					'data-shiki-editing-block-id': blockId,
 				},
 			}).range(lineStart),
 		);

@@ -9,8 +9,10 @@ import { type ThemedToken } from 'shiki';
 import { editorLivePreviewField } from 'obsidian';
 import {
 	buildEditableCodeBlockDecorations,
+	normalizeEditableCodeBlockScrollWidths,
 	parseFenceInfo,
 	shouldUpdateCodeBlockDecorations,
+	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 
@@ -45,10 +47,30 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 		class Cm6ViewPlugin {
 			decorations: DecorationSet;
 			view: EditorView;
+			private readonly scrollBoundLines = new WeakSet<HTMLElement>();
+			private syncingEditableCodeBlockScroll = false;
+			private readonly handleEditableCodeBlockScroll = (event: Event): void => {
+				if (this.syncingEditableCodeBlockScroll) {
+					return;
+				}
+
+				const target = event.target;
+				if (!(target instanceof HTMLElement) || !target.classList.contains('shiki-editing-codeblock-nowrap')) {
+					return;
+				}
+
+				this.syncingEditableCodeBlockScroll = true;
+				try {
+					syncEditableCodeBlockScroll(this.view.dom, target);
+				} finally {
+					this.syncingEditableCodeBlockScroll = false;
+				}
+			};
 
 			constructor(view: EditorView) {
 				this.view = view;
 				this.decorations = Decoration.none;
+				view.dom.addEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				views.add(this);
 				void this.updateWidgets(view);
 
@@ -238,11 +260,22 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					requestAnimationFrame(() => {
 						if (this.view.state.doc === capturedState.doc) {
 							this.view.dispatch(this.view.state.update({}));
+							requestAnimationFrame(() => this.bindEditableCodeBlockScrollLines());
 						}
 					});
 				}
 
 				// console.log('Traversed syntax tree in', performance.now() - t1, 'ms');
+			}
+
+			bindEditableCodeBlockScrollLines(): void {
+				normalizeEditableCodeBlockScrollWidths(this.view.dom);
+				for (const line of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line')) {
+					if (!this.scrollBoundLines.has(line)) {
+						line.addEventListener('scroll', this.handleEditableCodeBlockScroll);
+						this.scrollBoundLines.add(line);
+					}
+				}
 			}
 
 			findActiveEditableCodeBlock(view: EditorView): InsertDecoration | null {
@@ -417,6 +450,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * Triggered by codemirror when the view plugin is destroyed.
 			 */
 			destroy(): void {
+				this.view.dom.removeEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				views.delete(this);
 				this.decorations = Decoration.none;
 			}

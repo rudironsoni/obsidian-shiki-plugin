@@ -88,7 +88,7 @@ function prepareVault({ resetUserData }) {
 			'~~~',
 			'',
 			'```cs',
-			'List<int[]> intervals = [[1, 3], [2, 6], [8, 10], [15, 18]];',
+			'List<int[]> intervals = [[1, 3], [2, 6], [8, 10], [15, 18], [21, 34], [55, 89], [144, 233], [377, 610], [987, 1597]];',
 			'var startIndex = 0;',
 			'intervals.Sort((a, b) => a[startIndex] - b[startIndex]);',
 			'```',
@@ -656,16 +656,37 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				text: el.textContent,
 				className: el.className,
 				style: el.getAttribute('style'),
+				blockId: el.getAttribute('data-shiki-editing-block-id'),
 				overflowX: getComputedStyle(el).overflowX,
 				clientWidth: el.clientWidth,
 				scrollWidth: el.scrollWidth,
 			}));
+			const csharpLine = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-codeblock-line')].find(el =>
+				el.textContent?.includes('List<int[]> intervals')
+			);
+			let editableScrollSync = null;
+			if (csharpLine) {
+				const blockId = csharpLine.getAttribute('data-shiki-editing-block-id');
+				const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${blockId}"]\`)];
+				csharpLine.scrollLeft = 96;
+				csharpLine.dispatchEvent(new Event('scroll', { bubbles: false }));
+				await new Promise(resolve => requestAnimationFrame(resolve));
+				editableScrollSync = {
+					blockId,
+					lineCount: blockLines.length,
+					sourceScrollLeft: csharpLine.scrollLeft,
+					scrollLefts: blockLines.map(el => el.scrollLeft),
+					hasOverflowingLine: blockLines.some(el => el.scrollWidth > el.clientWidth),
+					allLinesClipToBlock: blockLines.every(el => el.getBoundingClientRect().right <= el.closest('.cm-content').getBoundingClientRect().right + 1),
+				};
+			}
 			const editableLineNumbers = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-line-number')].map(el => el.textContent);
 			return {
 				...state,
 				editorTokens,
 				fencedEditorTokens,
 				editableCodeBlockLines,
+				editableScrollSync,
 				editableLineNumbers,
 			};
 		})()`,
@@ -726,6 +747,15 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		`${label}: editable fenced code block lines are not horizontally contained`,
 		result,
 	);
+	assert(result.editableScrollSync !== null, `${label}: editable fenced code block scroll sync was not measured`, result);
+	assert(result.editableScrollSync.lineCount >= 2, `${label}: editable fenced code block scroll group was incomplete`, result);
+	assert(result.editableScrollSync.hasOverflowingLine, `${label}: editable fenced code block did not expose horizontal overflow`, result);
+	assert(
+		result.editableScrollSync.scrollLefts.every(scrollLeft => scrollLeft === result.editableScrollSync.sourceScrollLeft),
+		`${label}: editable fenced code block lines did not scroll as one block`,
+		result,
+	);
+	assert(result.editableScrollSync.allLinesClipToBlock, `${label}: editable fenced code block painted past the editor boundary`, result);
 	if (enforcePluginLoadMs) {
 		assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 	}

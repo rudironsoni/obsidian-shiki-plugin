@@ -119,7 +119,7 @@ describe('highlighter entry loader', () => {
 		try {
 			const entry = await loadHighlighterEntry(plugin as never);
 
-			expect(requestedPaths).toEqual(['.obsidian/plugins/shiki-highlighter/highlighter.js', '.obsidian/plugins/shiki-highlighter/styles.css']);
+			expect(requestedPaths).toEqual(['.obsidian/plugins/shiki-highlighter/highlighter.js', '.obsidian/plugins/shiki-highlighter/highlighter.css']);
 			expect(entry.CodeHighlighter.name).toBe('CssFallbackHighlighter');
 			expect((entry.createCm6Plugin as unknown as () => string)()).toBe('css-cm6');
 			expect((entry.filterHighlightAllPlugin as unknown as () => string)()).toBe('css-prism');

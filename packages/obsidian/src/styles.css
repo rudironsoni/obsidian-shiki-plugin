@@ -94,12 +94,16 @@ span.shiki-ul {
 
 .cm-content .shiki-editing-codeblock-line {
 	box-sizing: border-box;
+	display: block;
 	font-variant-ligatures: no-contextual;
 	background-color: var(--shiki-code-background);
 	border-inline: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
 	padding-inline: 0.85em;
+	width: 100%;
 	max-width: 100%;
 	overflow-y: hidden;
+	contain: paint;
+	touch-action: pan-x pan-y;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: none;
 }
@@ -125,6 +129,12 @@ span.shiki-ul {
 .cm-content .shiki-editing-codeblock-nowrap {
 	white-space: pre;
 	overflow-x: auto;
+}
+
+.cm-content .shiki-editing-codeblock-nowrap::after {
+	display: inline-block;
+	width: var(--shiki-editing-scroll-spacer, 0px);
+	content: '';
 }
 
 .cm-content .shiki-editing-codeblock-wrap {

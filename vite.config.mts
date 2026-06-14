@@ -87,7 +87,7 @@ function embeddedHighlighterCssFallbackPlugin(source: string, outDir: string) {
 				return;
 			}
 
-			appendFileSync(path.join(outDir, 'styles.css'), `\n/* shiki-highlighter-fallback:${source} */\n`);
+			appendFileSync(path.join(outDir, 'highlighter.css'), `\n/* shiki-highlighter-fallback:${source} */\n`);
 		},
 	};
 }

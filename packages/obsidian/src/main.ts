@@ -22,15 +22,12 @@ export default class ShikiPlugin extends Plugin {
 	private cm6PluginRegistered = false;
 	private codeBlockProcessorsRegistered = false;
 	private prismPluginRegistered = false;
-	private settingsLoaded: Promise<void> = Promise.resolve();
+	private settingsLoaded: Promise<void> | undefined;
 
 	async onload(): Promise<void> {
 		this.unloaded = false;
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
-		this.settingsLoaded = this.loadSettings().then(() => {
-			this.loadedSettings = structuredClone(this.settings);
-		});
 		this.highlighter = new LazyHighlighter(this);
 		this.activeCodeBlocks = new Map();
 		this.updateCm6Plugin = async (): Promise<void> => {};
@@ -98,6 +95,7 @@ export default class ShikiPlugin extends Plugin {
 	}
 
 	async reloadHighlighter(): Promise<void> {
+		await this.ensureSettingsLoaded();
 		this.loadedSettings = structuredClone(this.settings);
 
 		await this.highlighter.reload();
@@ -249,10 +247,14 @@ export default class ShikiPlugin extends Plugin {
 	}
 
 	async ensureSettingsLoaded(): Promise<void> {
+		this.settingsLoaded ??= this.loadSettings().then(() => {
+			this.loadedSettings = structuredClone(this.settings);
+		});
 		await this.settingsLoaded;
 	}
 
 	async saveSettingsAndReloadHighlighter(): Promise<void> {
+		this.settingsLoaded ??= Promise.resolve();
 		await this.ensureSettingsLoaded();
 		await this.saveSettings();
 		await this.reloadHighlighter();
