@@ -7,11 +7,21 @@ function createTestPlugin(): ShikiPlugin {
 	const plugin = new TestPlugin();
 	plugin.app.vault.adapter.read = async (path: string): Promise<string> => {
 		if (path.endsWith('highlighter.js')) {
-			return 'exports.CodeHighlighter = class CodeHighlighter { async load() {} obsidianSafeLanguageNames() { return ["ts"]; } async unload() {} }; exports.createCm6Plugin = () => "cm6"; exports.filterHighlightAllPlugin = () => ({ reject: { addSelector: () => {} } });';
+			return 'exports.CodeHighlighter = class CodeHighlighter { async load() {} obsidianSafeLanguageNames() { return ["ts"]; } async unload() {} }; exports.CodeBlock = class CodeBlock { constructor(plugin, el, source, language, ctx) { this.plugin = plugin; this.el = el; this.source = source; this.language = language; this.ctx = ctx; } }; exports.InlineCodeBlock = class InlineCodeBlock { constructor(plugin, el, source, language, ctx) { this.plugin = plugin; this.el = el; this.source = source; this.language = language; this.ctx = ctx; } }; exports.createCm6Plugin = () => "cm6"; exports.filterHighlightAllPlugin = () => ({ reject: { addSelector: () => {} } }); exports.loadCustomThemeOptions = async () => []; exports.ShikiSettingsTab = class ShikiSettingsTab { constructor(plugin) { this.plugin = plugin; } display() {} };';
 		}
 		return '';
 	};
 	return plugin;
+}
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+	for (let i = 0; i < 20; i++) {
+		if (predicate()) {
+			return;
+		}
+		await new Promise(resolve => setTimeout(resolve, 0));
+	}
+	expect(predicate()).toBe(true);
 }
 
 describe('plugin startup registration', () => {
@@ -65,7 +75,7 @@ describe('plugin startup registration', () => {
 
 			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(0);
 			deferredCallbacks.forEach(callback => callback());
-			await new Promise(resolve => setTimeout(resolve, 0));
+			await waitFor(() => (plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors.length === 1);
 			expect((plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors).toHaveLength(1);
 			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(1);
 			expect(updateOptionsCalls).toBe(2);

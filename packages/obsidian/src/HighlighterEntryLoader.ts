@@ -12,13 +12,19 @@ async function decompressGzipBase64(source: string): Promise<string> {
 	return await new Response(stream).text();
 }
 
-async function getEmbeddedHighlighterSource(): Promise<string> {
+async function getEmbeddedHighlighterSource(plugin: ShikiPlugin, pluginDir: string): Promise<string> {
 	const runtimeGlobal = globalThis as typeof globalThis & { __SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__?: string };
-	return typeof runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__ === 'string' && runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__
-		? runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__
-		: __SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__
-			? await decompressGzipBase64(__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__)
-			: '';
+	if (typeof runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__ === 'string' && runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__) {
+		return runtimeGlobal.__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE__;
+	}
+
+	if (typeof __SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__) {
+		return decompressGzipBase64(__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__);
+	}
+
+	const styles = await plugin.app.vault.adapter.read(`${pluginDir}/styles.css`);
+	const match = /\/\* shiki-highlighter-fallback:([A-Za-z0-9+/=]+) \*\//.exec(styles);
+	return match ? decompressGzipBase64(match[1]) : '';
 }
 
 function loadHighlighterSource(source: string): HighlighterEntryModule {
@@ -44,7 +50,7 @@ export async function loadHighlighterEntry(plugin: ShikiPlugin): Promise<Highlig
 				try {
 					return loadHighlighterSource(await plugin.app.vault.adapter.read(`${pluginDir}/highlighter.js`));
 				} catch (error) {
-					const embeddedSource = await getEmbeddedHighlighterSource();
+					const embeddedSource = await getEmbeddedHighlighterSource(plugin, pluginDir);
 					if (embeddedSource) {
 						return loadHighlighterSource(embeddedSource);
 					}

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { builtinModules } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 import { defineConfig, type UserConfig } from 'vite';
 import { ExpressiveCodeEngine } from '@expressive-code/core';
@@ -79,6 +79,19 @@ function expressiveCodeBundlePlugin() {
 	};
 }
 
+function embeddedHighlighterCssFallbackPlugin(source: string, outDir: string) {
+	return {
+		name: 'embedded-highlighter-css-fallback',
+		writeBundle(): void {
+			if (!source) {
+				return;
+			}
+
+			appendFileSync(path.join(outDir, 'styles.css'), `\n/* shiki-highlighter-fallback:${source} */\n`);
+		},
+	};
+}
+
 export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
@@ -111,6 +124,7 @@ export default defineConfig(({ mode }) => {
 				protocolImports: true,
 			}),
 			expressiveCodeBundlePlugin(),
+			embeddedHighlighterCssFallbackPlugin(embeddedHighlighterSource, outDir),
 			banner({
 				outDir,
 				content: getBuildBanner(prod ? 'Release Build' : 'Dev Build', version => version),
@@ -129,7 +143,7 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		define: {
-			__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__: JSON.stringify(embeddedHighlighterSource),
+			__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__: JSON.stringify(''),
 		},
 		build: {
 			lib: {

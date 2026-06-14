@@ -1,11 +1,8 @@
-import { debounce, loadPrism, Plugin, TFile } from 'obsidian';
-import { CodeBlock } from 'packages/obsidian/src/CodeBlock';
+import { debounce, loadPrism, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
-import { ShikiSettingsTab } from 'packages/obsidian/src/settings/SettingsTab';
-import { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
 import { LazyHighlighter, type ThemeOption } from 'packages/obsidian/src/LazyHighlighter';
 import { loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
-import { loadCustomThemeOptions } from 'packages/obsidian/src/settings/CustomThemeOptions';
+import type { CodeBlock, InlineCodeBlock } from 'packages/obsidian/src/highlighter-entry';
 import type { PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlugin';
 
 import 'packages/obsidian/src/styles.css';
@@ -25,16 +22,20 @@ export default class ShikiPlugin extends Plugin {
 	private cm6PluginRegistered = false;
 	private codeBlockProcessorsRegistered = false;
 	private prismPluginRegistered = false;
+	private settingsLoaded: Promise<void> = Promise.resolve();
 
 	async onload(): Promise<void> {
 		this.unloaded = false;
-		await this.loadSettings();
+		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
+		this.settingsLoaded = this.loadSettings().then(() => {
+			this.loadedSettings = structuredClone(this.settings);
+		});
 		this.highlighter = new LazyHighlighter(this);
 		this.activeCodeBlocks = new Map();
 		this.updateCm6Plugin = async (): Promise<void> => {};
 
-		this.addSettingTab(new ShikiSettingsTab(this));
+		this.addSettingTab(new LazyShikiSettingsTab(this));
 
 		this.registerInlineCodeProcessor();
 
@@ -151,6 +152,7 @@ export default class ShikiPlugin extends Plugin {
 		}
 
 		const languages = await this.highlighter.obsidianSafeLanguageNames();
+		const { CodeBlock } = await loadHighlighterEntry(this);
 		if (this.unloaded || this.codeBlockProcessorsRegistered) {
 			return;
 		}
@@ -197,6 +199,7 @@ export default class ShikiPlugin extends Plugin {
 					continue;
 				}
 
+				const { InlineCodeBlock } = await loadHighlighterEntry(this);
 				const codeBlock = new InlineCodeBlock(this, codeElm, match[2], match[1], ctx);
 
 				ctx.addChild(codeBlock);
@@ -206,7 +209,7 @@ export default class ShikiPlugin extends Plugin {
 
 	onunload(): void {
 		this.unloaded = true;
-		void this.highlighter.unload();
+		void this.highlighter?.unload();
 	}
 
 	addActiveCodeBlock(codeBlock: CodeBlock | InlineCodeBlock): void {
@@ -245,21 +248,29 @@ export default class ShikiPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	async ensureSettingsLoaded(): Promise<void> {
+		await this.settingsLoaded;
+	}
+
 	async saveSettingsAndReloadHighlighter(): Promise<void> {
+		await this.ensureSettingsLoaded();
 		await this.saveSettings();
 		await this.reloadHighlighter();
 	}
 
 	async getSupportedLanguages(): Promise<string[]> {
+		await this.ensureSettingsLoaded();
 		return this.highlighter.supportedLanguages();
 	}
 
 	async loadCustomThemeOptions(): Promise<void> {
+		await this.ensureSettingsLoaded();
 		const folder = this.loadedSettings.customThemeFolder;
 		if (this.customThemeOptionsLoadedFrom === folder) {
 			return;
 		}
 
+		const { loadCustomThemeOptions } = await loadHighlighterEntry(this);
 		this.customThemeOptions = await loadCustomThemeOptions(this);
 		this.customThemeOptionsLoadedFrom = folder;
 	}
@@ -277,5 +288,24 @@ export default class ShikiPlugin extends Plugin {
 		}
 
 		window.setTimeout(guardedCallback, 1000);
+	}
+}
+
+class LazyShikiSettingsTab extends PluginSettingTab {
+	private plugin: ShikiPlugin;
+
+	constructor(plugin: ShikiPlugin) {
+		super(plugin.app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		this.containerEl.empty();
+		void this.plugin.ensureSettingsLoaded().then(async () => {
+			const { ShikiSettingsTab } = await loadHighlighterEntry(this.plugin);
+			const settingsTab = new ShikiSettingsTab(this.plugin);
+			settingsTab.containerEl = this.containerEl;
+			settingsTab.display();
+		});
 	}
 }

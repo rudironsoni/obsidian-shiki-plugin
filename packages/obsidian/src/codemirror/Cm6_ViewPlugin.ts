@@ -40,6 +40,7 @@ interface RemoveDecoration {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
 export function createCm6Plugin(plugin: ShikiPlugin) {
+	const views = new Set<{ view: EditorView; updateWidgets(view: EditorView): Promise<void> }>();
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
 			decorations: DecorationSet;
@@ -48,10 +49,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			constructor(view: EditorView) {
 				this.view = view;
 				this.decorations = Decoration.none;
+				views.add(this);
 				void this.updateWidgets(view);
 
 				plugin.updateCm6Plugin = (): Promise<void> => {
-					return this.updateWidgets(this.view);
+					return Promise.all([...views].map(instance => instance.updateWidgets(instance.view))).then(() => undefined);
 				};
 			}
 
@@ -190,6 +192,20 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					},
 				});
 
+				const activeEditableCodeBlock = this.findActiveEditableCodeBlock(view);
+				if (
+					activeEditableCodeBlock &&
+					!decorationUpdates.some(
+						update =>
+							update.type === DecorationUpdateType.Insert &&
+							update.editableCodeBlock &&
+							update.from === activeEditableCodeBlock.from &&
+							update.to === activeEditableCodeBlock.to,
+					)
+				) {
+					decorationUpdates.push(activeEditableCodeBlock);
+				}
+
 				for (const node of decorationUpdates) {
 					try {
 						if (node.type === DecorationUpdateType.Remove) {
@@ -199,8 +215,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 								? await this.buildEditableCodeBlockDecorations(node.from, node.to, node.lang, node.content, node.editableCodeBlock)
 								: await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
 							// If the document changed while we were awaiting, the positions we captured
-							// from the syntax tree are stale. Abort to avoid applying out-of-range decorations.
-							if (this.view.state !== capturedState) {
+							// are stale. Selection and viewport changes are safe; they are common while
+							// activating editable Live Preview blocks.
+							if (this.view.state.doc !== capturedState.doc) {
 								return;
 							}
 							this.removeDecoration(node.from, node.to);
@@ -216,16 +233,73 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					}
 				}
 
-				if (decorationUpdates.length > 0 && this.view.state === capturedState) {
+				if (decorationUpdates.length > 0 && this.view.state.doc === capturedState.doc) {
 					// Use requestAnimationFrame to avoid "Calls to EditorView.update are not allowed while an update is in progress"
 					requestAnimationFrame(() => {
-						if (this.view.state === capturedState) {
+						if (this.view.state.doc === capturedState.doc) {
 							this.view.dispatch(this.view.state.update({}));
 						}
 					});
 				}
 
 				// console.log('Traversed syntax tree in', performance.now() - t1, 'ms');
+			}
+
+			findActiveEditableCodeBlock(view: EditorView): InsertDecoration | null {
+				const doc = view.state.doc;
+				const cursor = doc.lineAt(view.state.selection.main.head);
+				let startLine = cursor.number;
+				let startFence: RegExpExecArray | null = null;
+
+				while (startLine > 0) {
+					const line = doc.line(startLine);
+					const match = /^(\s*)(```|~~~)\s*([^\s`]*)\s*(.*)$/.exec(line.text);
+					if (match) {
+						startFence = match;
+						break;
+					}
+					startLine--;
+				}
+
+				if (!startFence || startLine === cursor.number) {
+					return null;
+				}
+
+				const fenceMarker = startFence[2];
+				let endLine = startLine + 1;
+				while (endLine <= doc.lines) {
+					const line = doc.line(endLine);
+					if (line.text.trimStart().startsWith(fenceMarker)) {
+						break;
+					}
+					endLine++;
+				}
+
+				if (endLine > doc.lines || cursor.number >= endLine || endLine <= startLine + 1) {
+					return null;
+				}
+
+				const openingLine = doc.line(startLine);
+				const bodyStart = doc.line(startLine + 1);
+				const bodyEnd = doc.line(endLine - 1);
+				const fenceInfo = parseFenceInfo(openingLine.text);
+
+				if (fenceInfo.language === '') {
+					return null;
+				}
+
+				return {
+					type: DecorationUpdateType.Insert,
+					from: bodyStart.from,
+					to: bodyEnd.to,
+					lang: fenceInfo.language,
+					content: doc.sliceString(bodyStart.from, bodyEnd.to),
+					editableCodeBlock: {
+						showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || fenceInfo.showLineNumbers,
+						wrap: plugin.loadedSettings.ecDefaultWrap || fenceInfo.wrap,
+						lineStarts: Array.from({ length: endLine - startLine - 1 }, (_, index) => doc.line(startLine + 1 + index).from),
+					},
+				};
 			}
 
 			async buildEditableCodeBlockDecorations(
@@ -343,6 +417,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * Triggered by codemirror when the view plugin is destroyed.
 			 */
 			destroy(): void {
+				views.delete(this);
 				this.decorations = Decoration.none;
 			}
 		},

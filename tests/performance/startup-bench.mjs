@@ -147,7 +147,7 @@ Module._load = (request, parent, isMain) => {
 };
 
 const startedAt = performance.now();
-const mod = require('../dist/main.js');
+const mod = require('../../dist/main.js');
 const loadedAt = performance.now();
 const PluginClass = mod.default;
 const plugin = new PluginClass();

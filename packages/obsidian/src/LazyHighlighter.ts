@@ -28,6 +28,7 @@ export class LazyHighlighter {
 		}
 
 		this.loading ??= (async (): Promise<CodeHighlighter> => {
+			await this.plugin.ensureSettingsLoaded();
 			const { CodeHighlighter } = await loadHighlighterEntry(this.plugin);
 			const highlighter = new CodeHighlighter(this.plugin);
 			await highlighter.load();
