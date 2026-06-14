@@ -30,24 +30,13 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			...builtInThemes,
 		};
 
-		new Setting(this.containerEl).setName('All setting changes require a reload of the highlighter').addButton(button => {
-			button
-				.setCta()
-				.setButtonText('Reload Highlighter')
-				.onClick(async () => {
-					button.setDisabled(true);
-					await this.plugin.reloadHighlighter();
-					button.setDisabled(false);
-				});
-		});
-
 		new Setting(this.containerEl)
 			.setName('Inline Syntax Highlighting')
 			.setDesc('Enables syntax highlighting for inline code blocks via `{lang} code`.')
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.inlineHighlighting).onChange(async value => {
 					this.plugin.settings.inlineHighlighting = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -59,7 +48,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.ecDefaultShowLineNumbers).onChange(async value => {
 					this.plugin.settings.ecDefaultShowLineNumbers = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -69,7 +58,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.ecDefaultWrap).onChange(async value => {
 					this.plugin.settings.ecDefaultWrap = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -85,7 +74,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				});
 				dropdown.setValue(this.plugin.settings.ecDefaultFrame).onChange(async value => {
 					this.plugin.settings.ecDefaultFrame = value as FrameType;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -98,7 +87,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				dropdown.addOptions(themes);
 				dropdown.setValue(this.plugin.settings.darkTheme).onChange(async value => {
 					this.plugin.settings.darkTheme = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -109,7 +98,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				dropdown.addOptions(themes);
 				dropdown.setValue(this.plugin.settings.lightTheme).onChange(async value => {
 					this.plugin.settings.lightTheme = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -121,7 +110,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customThemeFolder)
 					.onChange(async value => {
 						this.plugin.settings.customThemeFolder = value;
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettingsAndReloadHighlighter();
 					})
 					.then(textbox => {
 						textbox.inputEl.addClass('shiki-custom-theme-folder');
@@ -134,7 +123,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.preferThemeColors).onChange(async value => {
 					this.plugin.settings.preferThemeColors = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -148,7 +137,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customLanguageFolder)
 					.onChange(async value => {
 						this.plugin.settings.customLanguageFolder = value;
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettingsAndReloadHighlighter();
 					})
 					.then(textbox => {
 						textbox.inputEl.addClass('shiki-custom-language-folder');
@@ -166,7 +155,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 
 					const modal = new StringSelectModal(this.plugin, languages, language => {
 						this.plugin.settings.disabledLanguages.push(language);
-						void this.plugin.saveSettings();
+						void this.plugin.saveSettingsAndReloadHighlighter();
 						this.display();
 					});
 					modal.open();
@@ -180,7 +169,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setWarning()
 					.onClick(() => {
 						this.plugin.settings.disabledLanguages = this.plugin.settings.disabledLanguages.filter(x => x !== language);
-						void this.plugin.saveSettings();
+						void this.plugin.saveSettingsAndReloadHighlighter();
 						this.display();
 					});
 			});

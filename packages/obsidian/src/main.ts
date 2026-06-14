@@ -245,6 +245,11 @@ export default class ShikiPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	async saveSettingsAndReloadHighlighter(): Promise<void> {
+		await this.saveSettings();
+		await this.reloadHighlighter();
+	}
+
 	async getSupportedLanguages(): Promise<string[]> {
 		return this.highlighter.supportedLanguages();
 	}

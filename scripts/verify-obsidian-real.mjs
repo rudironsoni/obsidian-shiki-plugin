@@ -264,6 +264,20 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			themeSelection.dark = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
 			document.body.className = originalClassName;
 			plugin.loadedSettings = originalSettings;
+			const dynamicThemeSelection = {};
+			const savedSettings = structuredClone(plugin.settings);
+			plugin.settings.darkTheme = 'github-dark-default';
+			plugin.settings.lightTheme = 'github-light-default';
+			await plugin.saveSettingsAndReloadHighlighter();
+			document.body.classList.remove('theme-dark', 'theme-light');
+			document.body.classList.add('theme-light');
+			dynamicThemeSelection.light = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			document.body.classList.remove('theme-dark', 'theme-light');
+			document.body.classList.add('theme-dark');
+			dynamicThemeSelection.dark = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			document.body.className = originalClassName;
+			plugin.settings = savedSettings;
+			await plugin.saveSettingsAndReloadHighlighter();
 			const viewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			const codeBlocks = [...viewRoot.querySelectorAll('.el-pre div.expressive-code')].map(el => ({
 				text: el.textContent,
@@ -308,6 +322,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				customLanguageOdinSupported: languages.includes('odin'),
 				disabledLanguageReturns: disabledTokens ?? null,
 				themeSelection,
+				dynamicThemeSelection,
 				measurements,
 				codeBlocks,
 				livePreviewCodeBlocks,
@@ -331,6 +346,8 @@ function validateResult(label, result) {
 	assert(result.disabledLanguageReturns === null, `${label}: disabled language still returned tokens`, result);
 	assert(result.themeSelection.light === 'runtime-selected-light-theme', `${label}: light mode did not use saved light theme setting`, result);
 	assert(result.themeSelection.dark === 'runtime-selected-dark-theme', `${label}: dark mode did not use saved dark theme setting`, result);
+	assert(result.dynamicThemeSelection.light === 'github-light-default', `${label}: dynamic light theme setting was not applied`, result);
+	assert(result.dynamicThemeSelection.dark === 'github-dark-default', `${label}: dynamic dark theme setting was not applied`, result);
 	assert(result.codeBlocks.length === 4, `${label}: expected exactly one rendered block for each fenced block`, result);
 	assert(
 		result.codeBlocks.some(block => block.text.includes('Startup check') && block.hasLineNumbers),

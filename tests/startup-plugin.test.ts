@@ -199,4 +199,45 @@ describe('plugin startup registration', () => {
 		expect((children[0] as { language: string; source: string }).language).toBe('ts');
 		expect((children[0] as { language: string; source: string }).source).toBe('const x = 1');
 	});
+
+	test('settings changes save, refresh loaded settings, reload highlighter, and rerender active blocks', async () => {
+		const plugin = createTestPlugin();
+		await plugin.onload();
+		let savedSettings: unknown;
+		let reloads = 0;
+		let cm6Updates = 0;
+		let rerenders = 0;
+		plugin.saveData = async (data: unknown): Promise<void> => {
+			savedSettings = structuredClone(data);
+		};
+		plugin.highlighter = {
+			reload: async (): Promise<void> => {
+				reloads++;
+			},
+		} as never;
+		plugin.updateCm6Plugin = async (): Promise<void> => {
+			cm6Updates++;
+		};
+		plugin.activeCodeBlocks = new Map([
+			[
+				'note.md',
+				[
+					{
+						forceRerender: async (): Promise<void> => {
+							rerenders++;
+						},
+					} as never,
+				],
+			],
+		]);
+
+		plugin.settings.darkTheme = 'selected-dark-theme';
+		await plugin.saveSettingsAndReloadHighlighter();
+
+		expect((savedSettings as { darkTheme: string }).darkTheme).toBe('selected-dark-theme');
+		expect(plugin.loadedSettings.darkTheme).toBe('selected-dark-theme');
+		expect(reloads).toBe(1);
+		expect(rerenders).toBe(1);
+		expect(cm6Updates).toBe(1);
+	});
 });

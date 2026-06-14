@@ -15,6 +15,14 @@ describe('startup module boundary', () => {
 		expect(source).not.toContain('@codemirror/');
 	});
 
+	test('settings tab applies changes dynamically without a manual reload row', () => {
+		const source = read('packages/obsidian/src/settings/SettingsTab.ts');
+
+		expect(source).not.toContain('All setting changes require a reload of the highlighter');
+		expect(source).not.toContain('Reload Highlighter');
+		expect(source).toContain('saveSettingsAndReloadHighlighter');
+	});
+
 	test('default settings do not import theme mapper', () => {
 		const source = read('packages/obsidian/src/settings/Settings.ts');
 
