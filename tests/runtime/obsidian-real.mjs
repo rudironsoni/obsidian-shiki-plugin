@@ -934,6 +934,11 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 	assert(result.editableCodeBlockLines.length > 0, `${label}: editable fenced code block Shiki surface missing`, result);
 	assert(result.editableLineNumbers.length > 0, `${label}: editable fenced code block Shiki line numbers missing`, result);
 	assert(
+		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-nowrap')),
+		`${label}: editable fenced code block was not rendered with Shiki line wrap disabled`,
+		result,
+	);
+	assert(
 		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-wrap') || ['auto', 'scroll'].includes(line.overflowX)),
 		`${label}: editable fenced code block lines are not horizontally contained`,
 		result,

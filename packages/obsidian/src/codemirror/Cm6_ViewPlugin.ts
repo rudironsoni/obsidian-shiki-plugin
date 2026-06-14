@@ -164,10 +164,18 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 			private readonly handleEditableCodeBlockGlobalTouchStart = (event: TouchEvent): void => {
 				this.editableCodeBlockTouchPan = this.getEditableCodeBlockTouchPan(event);
+				if (this.editableCodeBlockTouchPan) {
+					event.stopPropagation();
+					event.stopImmediatePropagation();
+				}
 			};
 
 			private readonly handleEditableCodeBlockGlobalPointerDown = (event: PointerEvent): void => {
 				this.editableCodeBlockPointerPan = this.getEditableCodeBlockPointerPan(event);
+				if (this.editableCodeBlockPointerPan) {
+					event.stopPropagation();
+					event.stopImmediatePropagation();
+				}
 			};
 
 			private readonly handleEditableCodeBlockTouchStart = (event: TouchEvent): void => {

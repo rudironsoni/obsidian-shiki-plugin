@@ -34,8 +34,9 @@ describe('startup bundle', () => {
 	test('editable code block CSS owns horizontal mobile pan gestures', () => {
 		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
 
-		expect(styles).toContain('touch-action:pan-y');
+		expect(styles).toContain('touch-action:pan-x');
 		expect(styles).toContain('overscroll-behavior-x:contain');
+		expect(styles).toContain('-webkit-overflow-scrolling:touch');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {
