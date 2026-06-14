@@ -52,6 +52,7 @@ class MockPlugin {
 
 	addSettingTab() {}
 	registerMarkdownPostProcessor() {}
+	registerMarkdownCodeBlockProcessor() {}
 	registerEditorExtension() {}
 	registerEvent() {}
 	addCommand() {}

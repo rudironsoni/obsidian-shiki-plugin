@@ -1,14 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { clearHighlighterEntryCache } from 'packages/obsidian/src/HighlighterEntryLoader';
 import ShikiPlugin from 'packages/obsidian/src/main';
-import { DEFAULT_DARK_SHIKI_THEME, DEFAULT_LIGHT_SHIKI_THEME, OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
 function createTestPlugin(): ShikiPlugin {
 	const TestPlugin = ShikiPlugin as unknown as new () => ShikiPlugin;
 	const plugin = new TestPlugin();
 	plugin.app.vault.adapter.read = async (path: string): Promise<string> => {
 		if (path.endsWith('highlighter.js')) {
-			return 'exports.CodeHighlighter = class CodeHighlighter {}; exports.createCm6Plugin = () => "cm6"; exports.filterHighlightAllPlugin = () => ({ reject: { addSelector: () => {} } });';
+			return 'exports.CodeHighlighter = class CodeHighlighter { async load() {} obsidianSafeLanguageNames() { return ["ts"]; } async unload() {} }; exports.createCm6Plugin = () => "cm6"; exports.filterHighlightAllPlugin = () => ({ reject: { addSelector: () => {} } });';
 		}
 		return '';
 	};
@@ -22,18 +21,24 @@ describe('plugin startup registration', () => {
 
 	test('onload registers settings, processors, commands, and deferred integrations without loading highlighter', async () => {
 		clearHighlighterEntryCache();
+		const originalRequestIdleCallback = window.requestIdleCallback;
 		const plugin = createTestPlugin();
+		window.requestIdleCallback = (() => 1) as typeof window.requestIdleCallback;
 
-		await plugin.onload();
-		await new Promise(resolve => setTimeout(resolve, 60));
+		try {
+			await plugin.onload();
 
-		expect(plugin.highlighter).toBeDefined();
-		expect(plugin.customThemeOptions).toEqual([]);
-		expect((plugin as unknown as { settingTabs: unknown[] }).settingTabs).toHaveLength(1);
-		expect((plugin as unknown as { markdownPostProcessors: unknown[] }).markdownPostProcessors).toHaveLength(2);
-		expect((plugin as unknown as { commands: unknown[] }).commands).toHaveLength(1);
-		expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(1);
-		expect((plugin.highlighter as unknown as { highlighter?: unknown }).highlighter).toBeUndefined();
+			expect(plugin.highlighter).toBeDefined();
+			expect(plugin.customThemeOptions).toEqual([]);
+			expect((plugin as unknown as { settingTabs: unknown[] }).settingTabs).toHaveLength(1);
+			expect((plugin as unknown as { markdownPostProcessors: unknown[] }).markdownPostProcessors).toHaveLength(1);
+			expect((plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors).toHaveLength(0);
+			expect((plugin as unknown as { commands: unknown[] }).commands).toHaveLength(1);
+			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(0);
+			expect((plugin.highlighter as unknown as { highlighter?: unknown }).highlighter).toBeUndefined();
+		} finally {
+			window.requestIdleCallback = originalRequestIdleCallback;
+		}
 	});
 
 	test('deferred Shiki editor registration refreshes existing editor views', async () => {
@@ -61,42 +66,92 @@ describe('plugin startup registration', () => {
 			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(0);
 			deferredCallbacks.forEach(callback => callback());
 			await new Promise(resolve => setTimeout(resolve, 0));
+			expect((plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors).toHaveLength(1);
 			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(1);
-			expect(updateOptionsCalls).toBe(1);
-			expect((plugin.highlighter as unknown as { highlighter?: unknown }).highlighter).toBeUndefined();
+			expect(updateOptionsCalls).toBe(2);
 		} finally {
 			window.requestIdleCallback = originalRequestIdleCallback;
 		}
 	});
 
-	test('old Obsidian theme defaults migrate to visible Shiki themes', async () => {
+	test('deferred startup work does not register integrations after unload', async () => {
+		clearHighlighterEntryCache();
+		const originalRequestIdleCallback = window.requestIdleCallback;
 		const plugin = createTestPlugin();
-		let saved = false;
-		plugin.loadData = async (): Promise<unknown> => ({
-			darkTheme: OBSIDIAN_THEME_IDENTIFIER,
-			lightTheme: OBSIDIAN_THEME_IDENTIFIER,
-		});
-		plugin.saveData = async (): Promise<void> => {
-			saved = true;
-		};
+		const deferredCallbacks: (() => void)[] = [];
+		window.requestIdleCallback = ((callback: IdleRequestCallback): number => {
+			deferredCallbacks.push(() =>
+				callback({
+					didTimeout: false,
+					timeRemaining: () => 50,
+				}),
+			);
+			return deferredCallbacks.length;
+		}) as typeof window.requestIdleCallback;
 
-		await plugin.loadSettings();
+		try {
+			await plugin.onload();
+			plugin.onunload();
+			deferredCallbacks.forEach(callback => callback());
+			await new Promise(resolve => setTimeout(resolve, 0));
 
-		expect(plugin.settings.darkTheme).toBe(DEFAULT_DARK_SHIKI_THEME);
-		expect(plugin.settings.lightTheme).toBe(DEFAULT_LIGHT_SHIKI_THEME);
-		expect(saved).toBe(true);
+			expect((plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors).toHaveLength(0);
+			expect((plugin as unknown as { editorExtensions: unknown[] }).editorExtensions).toHaveLength(0);
+		} finally {
+			window.requestIdleCallback = originalRequestIdleCallback;
+		}
 	});
 
-	test('code block postprocessor creates children for fenced language blocks and skips frontmatter', async () => {
+	test('async code block registration aborts when unload happens while Shiki is loading', async () => {
+		clearHighlighterEntryCache();
+		const originalRequestIdleCallback = window.requestIdleCallback;
 		const plugin = createTestPlugin();
-		await plugin.onload();
-		const processor = (plugin as unknown as { markdownPostProcessors: ((el: HTMLElement, ctx: unknown) => void)[] }).markdownPostProcessors[1];
-		const root = document.createElement('div');
-		root.innerHTML = [
-			'<pre><code class="language-ts">const x = 1;</code></pre>',
-			'<pre class="mod-frontmatter"><code class="language-yaml">title: x</code></pre>',
-			'<pre><code>plain</code></pre>',
-		].join('');
+		let resolveLanguages!: (languages: string[]) => void;
+		const languages = new Promise<string[]>(resolve => {
+			resolveLanguages = resolve;
+		});
+
+		window.requestIdleCallback = (() => 1) as typeof window.requestIdleCallback;
+
+		try {
+			await plugin.onload();
+			plugin.highlighter = {
+				obsidianSafeLanguageNames: () => languages,
+				unload: async (): Promise<void> => {},
+			} as never;
+
+			const registration = plugin.registerCodeBlockProcessors();
+			plugin.onunload();
+			resolveLanguages(['ts']);
+			await registration;
+
+			expect((plugin as unknown as { markdownCodeBlockProcessors: unknown[] }).markdownCodeBlockProcessors).toHaveLength(0);
+		} finally {
+			window.requestIdleCallback = originalRequestIdleCallback;
+		}
+	});
+
+	test('code block processor renders into Obsidian-provided block container and skips frontmatter', async () => {
+		const originalRequestIdleCallback = window.requestIdleCallback;
+		const plugin = createTestPlugin();
+		window.requestIdleCallback = (() => 1) as typeof window.requestIdleCallback;
+		let processor!: (source: string, el: HTMLElement, ctx: unknown) => void;
+
+		try {
+			await plugin.onload();
+			plugin.highlighter = {
+				obsidianSafeLanguageNames: async (): Promise<string[]> => ['ts'],
+				unload: async (): Promise<void> => {},
+			} as never;
+			await plugin.registerCodeBlockProcessors();
+			processor = (
+				plugin as unknown as { markdownCodeBlockProcessors: { language: string; processor: (source: string, el: HTMLElement, ctx: unknown) => void }[] }
+			).markdownCodeBlockProcessors[0].processor;
+		} finally {
+			window.requestIdleCallback = originalRequestIdleCallback;
+		}
+
+		const container = document.createElement('div');
 		const children: unknown[] = [];
 		const ctx = {
 			sourcePath: 'note.md',
@@ -106,11 +161,22 @@ describe('plugin startup registration', () => {
 			getSectionInfo: () => null,
 		};
 
-		processor(root, ctx);
+		processor('const x = 1;', container, ctx);
 
 		expect(children).toHaveLength(1);
 		expect((children[0] as { language: string; source: string }).language).toBe('ts');
 		expect((children[0] as { language: string; source: string }).source).toBe('const x = 1;');
+
+		const frontmatterParent = document.createElement('div');
+		frontmatterParent.classList.add('mod-frontmatter');
+		const frontmatterContainer = document.createElement('div');
+		frontmatterParent.appendChild(frontmatterContainer);
+		processor('title: x', frontmatterContainer, ctx);
+		expect(children).toHaveLength(1);
+
+		plugin.onunload();
+		processor('const stale = true;', container, ctx);
+		expect(children).toHaveLength(1);
 	});
 
 	test('inline postprocessor respects inline code syntax and ignores normal inline code', async () => {

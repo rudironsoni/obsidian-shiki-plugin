@@ -35,6 +35,7 @@ mock.module('obsidian', () => ({
 		};
 		settingTabs: unknown[] = [];
 		markdownPostProcessors: unknown[] = [];
+		markdownCodeBlockProcessors: unknown[] = [];
 		commands: unknown[] = [];
 		events: unknown[] = [];
 		editorExtensions: unknown[] = [];
@@ -51,6 +52,10 @@ mock.module('obsidian', () => ({
 
 		registerMarkdownPostProcessor(processor: unknown): void {
 			this.markdownPostProcessors.push(processor);
+		}
+
+		registerMarkdownCodeBlockProcessor(language: unknown, processor: unknown, sortOrder: unknown): void {
+			this.markdownCodeBlockProcessors.push({ language, processor, sortOrder });
 		}
 
 		registerEditorExtension(extension: unknown): void {

@@ -3,9 +3,13 @@ import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const OBSIDIAN_APP = process.env.OBSIDIAN_APP ?? '/Applications/Obsidian.app/Contents/MacOS/Obsidian';
+const OBSIDIAN_APP_BUNDLE =
+	process.env.OBSIDIAN_APP_BUNDLE ?? (OBSIDIAN_APP.endsWith('/Contents/MacOS/Obsidian') ? path.resolve(path.dirname(OBSIDIAN_APP), '../..') : OBSIDIAN_APP);
+const OBSIDIAN_LAUNCH_MODE = process.env.OBSIDIAN_LAUNCH_MODE ?? (process.platform === 'darwin' ? 'open' : 'exec');
 const PORT = Number(process.env.OBSIDIAN_REMOTE_DEBUGGING_PORT ?? 9230);
 const VAULT = process.env.OBSIDIAN_VERIFY_VAULT ?? '/private/tmp/obsidian-shiki-real-verify-vault';
 const USER_DATA = process.env.OBSIDIAN_VERIFY_USER_DATA ?? '/private/tmp/obsidian-shiki-real-verify-user-data';
+const PLUGIN_SOURCE_DIR = process.env.OBSIDIAN_VERIFY_PLUGIN_DIR ?? 'dist';
 const PLUGIN_ID = 'shiki-highlighter';
 const BRAT_INSTALL = process.env.OBSIDIAN_VERIFY_BRAT_INSTALL === 'true';
 
@@ -24,10 +28,10 @@ function prepareVault() {
 	mkdirSync(pluginDir, { recursive: true });
 	if (BRAT_INSTALL) {
 		for (const file of ['main.js', 'manifest.json', 'styles.css']) {
-			cpSync(path.join('dist', file), path.join(pluginDir, file));
+			cpSync(path.join(PLUGIN_SOURCE_DIR, file), path.join(pluginDir, file));
 		}
 	} else {
-		cpSync('dist', pluginDir, { recursive: true });
+		cpSync(PLUGIN_SOURCE_DIR, pluginDir, { recursive: true });
 	}
 
 	mkdirSync(path.join(VAULT, 'customLanguages'), { recursive: true });
@@ -112,11 +116,30 @@ async function waitForTarget() {
 		try {
 			const targets = await fetch(`http://127.0.0.1:${PORT}/json`).then(response => response.json());
 			const page = targets.find(target => target.type === 'page' && target.webSocketDebuggerUrl);
-			if (page) return page.webSocketDebuggerUrl;
+			if (page) return page;
 		} catch {}
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
 	throw new Error('Timed out waiting for Obsidian DevTools target.');
+}
+
+function launchObsidian() {
+	const args = [`--remote-debugging-port=${PORT}`, `--user-data-dir=${USER_DATA}`];
+	if (OBSIDIAN_LAUNCH_MODE === 'open') {
+		return spawn('open', ['-na', OBSIDIAN_APP_BUNDLE, '--args', ...args], {
+			stdio: ['ignore', 'pipe', 'pipe'],
+		});
+	}
+	return spawn(OBSIDIAN_APP, args, {
+		stdio: ['ignore', 'pipe', 'pipe'],
+	});
+}
+
+async function closeTarget(target) {
+	if (!target?.id) return;
+	try {
+		await fetch(`http://127.0.0.1:${PORT}/json/close/${target.id}`);
+	} catch {}
 }
 
 async function evaluate(wsUrl, expression) {
@@ -191,7 +214,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			}
 		}
 		await new Promise(resolve => setTimeout(resolve, 1500));
-		activeWsUrl = await waitForTarget();
+		activeWsUrl = (await waitForTarget()).webSocketDebuggerUrl;
 	}
 
 	return evaluate(
@@ -209,7 +232,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			}
 			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
 			const file = app.vault.getAbstractFileByPath('feature-test.md');
-			if (file) await app.workspace.getLeaf(true).openFile(file, { state: { mode: 'preview' } });
+			if (file) await app.workspace.getLeaf(false).openFile(file, { state: { mode: 'preview' } });
 			await new Promise(resolve => setTimeout(resolve, 5000));
 			const tokenStart = performance.now();
 			const tokens = await plugin.highlighter.getHighlightTokens('const x: number = 1', 'ts');
@@ -228,16 +251,26 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const disabledTokens = await plugin.highlighter.getHighlightTokens('const disabled = true', 'ts');
 			plugin.settings.disabledLanguages = originalDisabled;
 			plugin.loadedSettings = structuredClone(plugin.settings);
-			const codeBlocks = [...document.querySelectorAll('div.expressive-code')].map(el => ({
+			const viewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const codeBlocks = [...viewRoot.querySelectorAll('.el-pre div.expressive-code')].map(el => ({
 				text: el.textContent,
 				hasLineNumbers: !!el.querySelector('.ln'),
+				parentClassName: el.parentElement?.className ?? '',
+				grandParentClassName: el.parentElement?.parentElement?.className ?? '',
+				previousSibling: el.previousElementSibling?.tagName ?? null,
+				nextSibling: el.nextElementSibling?.tagName ?? null,
 			}));
-			const inline = [...document.querySelectorAll('.shiki-inline')].map(el => el.textContent);
+			const inline = [...viewRoot.querySelectorAll('.shiki-inline')].map(el => el.textContent);
 			if (file) await app.workspace.getLeaf(false).openFile(file, { state: { mode: 'source', source: false } });
 			await new Promise(resolve => setTimeout(resolve, 5000));
 			await plugin.updateCm6Plugin();
 			await new Promise(resolve => setTimeout(resolve, 500));
-			const editorTokens = [...document.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const livePreviewCodeBlocks = [...editorRoot.querySelectorAll('.cm-preview-code-block div.expressive-code')].map(el => ({
+				text: el.textContent,
+				hasLineNumbers: !!el.querySelector('.ln'),
+			}));
+			const editorTokens = [...editorRoot.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
 				text: el.textContent,
 				className: el.className,
 				style: el.getAttribute('style'),
@@ -263,6 +296,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				disabledLanguageReturns: disabledTokens ?? null,
 				measurements,
 				codeBlocks,
+				livePreviewCodeBlocks,
 				inline,
 				editorTokens,
 				fencedEditorTokens,
@@ -276,17 +310,12 @@ function validateResult(label, result) {
 	assert(result.pluginLoaded, `${label}: plugin was not loaded`, result);
 	assert(result.settingsTabLoaded, `${label}: settings tab was not loaded`, result);
 	assert(result.highlighterLoaded, `${label}: highlighter did not lazy-load`, result);
-	assert(
-		result.themes.dark !== 'obsidian-theme' && result.themes.light !== 'obsidian-theme',
-		`${label}: old Obsidian theme defaults were not migrated`,
-		result,
-	);
 	assert(result.activeFile === 'feature-test.md', `${label}: feature note was not active`, result);
 	assert(result.tokenSummary.lines === 1 && result.tokenSummary.firstLineTokens > 0, `${label}: tokenization failed`, result);
 	assert(result.renderedText.includes('Perf') && result.renderedText.includes('const z'), `${label}: direct EC render failed`, result);
 	assert(result.customLanguageOdinSupported, `${label}: custom language was not available`, result);
 	assert(result.disabledLanguageReturns === null, `${label}: disabled language still returned tokens`, result);
-	assert(result.codeBlocks.length >= 3, `${label}: expected rendered fenced code blocks`, result);
+	assert(result.codeBlocks.length === 4, `${label}: expected exactly one rendered block for each fenced block`, result);
 	assert(
 		result.codeBlocks.some(block => block.text.includes('Startup check') && block.hasLineNumbers),
 		`${label}: EC metadata did not render`,
@@ -307,37 +336,50 @@ function validateResult(label, result) {
 		`${label}: inline highlighting missing`,
 		result,
 	);
-	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
-	assert(result.fencedEditorTokens.length > 0, `${label}: fenced C# editor Shiki highlighting missing`, result);
+	assert(result.livePreviewCodeBlocks.length === 4, `${label}: expected one live-preview rendered block for each fenced block`, result);
 	assert(
-		result.fencedEditorTokens.some(token => token.style && !token.style.includes('var(--shiki-code')),
-		`${label}: fenced C# editor tokens still use Obsidian color variables`,
+		result.livePreviewCodeBlocks.some(block => block.text.includes('List<int[]>') && block.text.includes('intervals.Sort')),
+		`${label}: live-preview C# block missing`,
 		result,
 	);
+	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
 	assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 }
 
 async function main() {
-	assert(existsSync('dist/main.js') && existsSync('dist/highlighter.js'), 'dist artifacts are missing. Run bun run build first.');
+	assert(
+		existsSync(path.join(PLUGIN_SOURCE_DIR, 'main.js')) && (BRAT_INSTALL || existsSync(path.join(PLUGIN_SOURCE_DIR, 'highlighter.js'))),
+		'plugin artifacts are missing. Run bun run build first or set OBSIDIAN_VERIFY_PLUGIN_DIR.',
+		{ pluginSourceDir: PLUGIN_SOURCE_DIR, bratInstall: BRAT_INSTALL },
+	);
 	prepareVault();
-	const obsidian = spawn(OBSIDIAN_APP, [`--remote-debugging-port=${PORT}`, `--user-data-dir=${USER_DATA}`], {
-		stdio: ['ignore', 'pipe', 'pipe'],
-	});
+	const obsidian = launchObsidian();
+	const output = [];
+	obsidian.stdout.on('data', data => output.push(data.toString()));
+	obsidian.stderr.on('data', data => output.push(data.toString()));
+	let target = null;
 	let stopped = false;
-	const stop = () => {
+	const stop = async () => {
 		if (!stopped) {
 			stopped = true;
+			await closeTarget(target);
 			obsidian.kill();
 		}
 	};
-	process.on('exit', stop);
+	process.on('exit', () => {
+		obsidian.kill();
+	});
 	process.on('SIGINT', () => {
-		stop();
+		obsidian.kill();
 		process.exit(130);
 	});
 
 	try {
-		const wsUrl = await waitForTarget();
+		target = await waitForTarget().catch(error => {
+			error.message = `${error.message}\nLaunch mode: ${OBSIDIAN_LAUNCH_MODE}\nLaunch output:\n${output.join('')}`;
+			throw error;
+		});
+		const wsUrl = target.webSocketDebuggerUrl;
 		const trust = await trustVault(wsUrl);
 		const desktop = await verifyFeatureSet(wsUrl, false);
 		validateResult('desktop', desktop);
@@ -345,7 +387,7 @@ async function main() {
 		validateResult('mobile-emulation', mobile);
 		console.log(JSON.stringify({ trust, desktop, mobile }, null, 2));
 	} finally {
-		stop();
+		await stop();
 	}
 }
 

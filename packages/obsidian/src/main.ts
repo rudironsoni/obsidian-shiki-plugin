@@ -7,7 +7,6 @@ import { LazyHighlighter, type ThemeOption } from 'packages/obsidian/src/LazyHig
 import { loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
 import { loadCustomThemeOptions } from 'packages/obsidian/src/settings/CustomThemeOptions';
 import type { PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlugin';
-import { DEFAULT_DARK_SHIKI_THEME, DEFAULT_LIGHT_SHIKI_THEME, OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
 import 'packages/obsidian/src/styles.css';
 import 'virtual:ec-styles.css';
@@ -22,8 +21,13 @@ export default class ShikiPlugin extends Plugin {
 	updateCm6Plugin!: () => Promise<void>;
 	customThemeOptions: ThemeOption[] = [];
 	customThemeOptionsLoadedFrom: string | undefined;
+	private unloaded = true;
+	private cm6PluginRegistered = false;
+	private codeBlockProcessorsRegistered = false;
+	private prismPluginRegistered = false;
 
 	async onload(): Promise<void> {
+		this.unloaded = false;
 		await this.loadSettings();
 		this.loadedSettings = structuredClone(this.settings);
 		this.highlighter = new LazyHighlighter(this);
@@ -33,7 +37,12 @@ export default class ShikiPlugin extends Plugin {
 		this.addSettingTab(new ShikiSettingsTab(this));
 
 		this.registerInlineCodeProcessor();
-		this.registerCodeBlockPostProcessor();
+
+		this.deferStartupWork((): void => {
+			void this.registerCodeBlockProcessors().catch(error => {
+				console.warn('Unable to register Shiki code block processors.', error);
+			});
+		});
 
 		this.deferStartupWork((): void => {
 			void this.registerCm6Plugin().catch(error => {
@@ -102,36 +111,81 @@ export default class ShikiPlugin extends Plugin {
 	}
 
 	async registerCm6Plugin(): Promise<void> {
+		if (this.unloaded || this.cm6PluginRegistered) {
+			return;
+		}
+
 		const { createCm6Plugin } = await loadHighlighterEntry(this);
+		if (this.unloaded || this.cm6PluginRegistered) {
+			return;
+		}
+
 		this.registerEditorExtension([createCm6Plugin(this)]);
+		this.cm6PluginRegistered = true;
 		this.app.workspace.updateOptions();
 	}
 
 	async registerPrismPlugin(): Promise<void> {
+		if (this.unloaded || this.prismPluginRegistered) {
+			return;
+		}
+
 		const { filterHighlightAllPlugin } = await loadHighlighterEntry(this);
+		if (this.unloaded || this.prismPluginRegistered) {
+			return;
+		}
+
 		const prism = (await loadPrism()) as PrismWithFilterHighlightAll;
+		if (this.unloaded || this.prismPluginRegistered) {
+			return;
+		}
+
 		const filterHighlightAll = filterHighlightAllPlugin(prism);
 		filterHighlightAll?.reject.addSelector('div.expressive-code pre code');
+		this.prismPluginRegistered = true;
 	}
 
-	registerCodeBlockPostProcessor(): void {
-		this.registerMarkdownPostProcessor((el, ctx) => {
-			const codeBlocks = el.findAll('pre > code[class*="language-"]');
-			for (const codeElm of codeBlocks) {
-				if (codeElm.parentElement?.classList.contains('mod-frontmatter')) {
-					continue;
-				}
+	async registerCodeBlockProcessors(): Promise<void> {
+		if (this.unloaded || this.codeBlockProcessorsRegistered) {
+			return;
+		}
 
-				const language = [...codeElm.classList].find(className => className.startsWith('language-'))?.substring('language-'.length);
-				if (!language) {
-					continue;
-				}
+		const languages = await this.highlighter.obsidianSafeLanguageNames();
+		if (this.unloaded || this.codeBlockProcessorsRegistered) {
+			return;
+		}
 
-				const containerEl = codeElm.parentElement ?? codeElm;
-				const codeBlock = new CodeBlock(this, containerEl, codeElm.textContent ?? '', language, ctx);
-				ctx.addChild(codeBlock);
+		for (const language of languages) {
+			if (this.unloaded) {
+				return;
 			}
-		});
+
+			try {
+				this.registerMarkdownCodeBlockProcessor(
+					language,
+					async (source, el, ctx) => {
+						if (this.unloaded) {
+							return;
+						}
+
+						// we need to avoid making the hidden frontmatter code block visible
+						if (el.parentElement?.classList.contains('mod-frontmatter')) {
+							return;
+						}
+
+						const codeBlock = new CodeBlock(this, el, source, language, ctx);
+
+						ctx.addChild(codeBlock);
+					},
+					1000,
+				);
+			} catch (e) {
+				console.warn(`Failed to register code block processor for ${language}.`, e);
+			}
+		}
+
+		this.codeBlockProcessorsRegistered = true;
+		this.app.workspace.updateOptions();
 	}
 
 	registerInlineCodeProcessor(): void {
@@ -151,6 +205,7 @@ export default class ShikiPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		this.unloaded = true;
 		void this.highlighter.unload();
 	}
 
@@ -177,12 +232,6 @@ export default class ShikiPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as Settings;
-
-		if (this.settings.darkTheme === OBSIDIAN_THEME_IDENTIFIER && this.settings.lightTheme === OBSIDIAN_THEME_IDENTIFIER) {
-			this.settings.darkTheme = DEFAULT_DARK_SHIKI_THEME;
-			this.settings.lightTheme = DEFAULT_LIGHT_SHIKI_THEME;
-			await this.saveSettings();
-		}
 
 		// migrate the theme to darkTheme and lightTheme
 		if (this.settings.theme !== undefined) {
@@ -211,11 +260,17 @@ export default class ShikiPlugin extends Plugin {
 	}
 
 	private deferStartupWork(callback: () => void): void {
+		const guardedCallback = (): void => {
+			if (!this.unloaded) {
+				callback();
+			}
+		};
+
 		if (typeof window.requestIdleCallback === 'function') {
-			window.requestIdleCallback(callback, { timeout: 1000 });
+			window.requestIdleCallback(guardedCallback, { timeout: 1000 });
 			return;
 		}
 
-		window.setTimeout(callback, 50);
+		window.setTimeout(guardedCallback, 1000);
 	}
 }

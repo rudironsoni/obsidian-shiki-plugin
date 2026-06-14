@@ -58,6 +58,10 @@ export class LazyHighlighter {
 		return (await this.load()).supportedLanguages;
 	}
 
+	async obsidianSafeLanguageNames(): Promise<string[]> {
+		return (await this.load()).obsidianSafeLanguageNames();
+	}
+
 	async renderWithEc(code: string, language: string, meta: string, container: HTMLElement): Promise<void> {
 		await (await this.load()).renderWithEc(code, language, meta, container);
 	}

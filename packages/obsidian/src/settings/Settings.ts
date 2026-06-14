@@ -1,4 +1,4 @@
-import { DEFAULT_DARK_SHIKI_THEME, DEFAULT_LIGHT_SHIKI_THEME } from 'packages/obsidian/src/Constants';
+import { OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
 export enum FrameType {
 	Code = 'code',
@@ -29,8 +29,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	customThemeFolder: '',
 	customLanguageFolder: '',
 	theme: undefined,
-	darkTheme: DEFAULT_DARK_SHIKI_THEME,
-	lightTheme: DEFAULT_LIGHT_SHIKI_THEME,
+	darkTheme: OBSIDIAN_THEME_IDENTIFIER,
+	lightTheme: OBSIDIAN_THEME_IDENTIFIER,
 	preferThemeColors: true,
 	inlineHighlighting: true,
 	ecDefaultShowLineNumbers: false,
