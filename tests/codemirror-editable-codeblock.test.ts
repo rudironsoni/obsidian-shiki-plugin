@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	buildEditableCodeBlockDecorations,
+	createEditableCodeBlockTouchPan,
+	findEditableCodeBlockScrollSource,
 	normalizeEditableCodeBlockScrollWidths,
 	panEditableCodeBlockScroll,
 	parseFenceInfo,
@@ -148,6 +150,42 @@ describe('editable CodeMirror code block decorations', () => {
 		expect(didPanHorizontally).toBe(true);
 		expect(first.scrollLeft).toBe(72);
 		expect(second.scrollLeft).toBe(72);
+	});
+
+	test('starts editable code block pan from widest overflowing line in touched block', () => {
+		const root = document.createElement('div');
+		const shortLine = document.createElement('div');
+		const wideLine = document.createElement('div');
+		const outside = document.createElement('div');
+		shortLine.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		wideLine.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		outside.className = 'shiki-editing-codeblock-line shiki-editing-codeblock-nowrap';
+		shortLine.dataset.shikiEditingBlockId = '100-200';
+		wideLine.dataset.shikiEditingBlockId = '100-200';
+		outside.dataset.shikiEditingBlockId = '300-400';
+		Object.defineProperty(shortLine, 'clientWidth', { configurable: true, value: 320 });
+		Object.defineProperty(shortLine, 'scrollWidth', { configurable: true, value: 320 });
+		Object.defineProperty(wideLine, 'clientWidth', { configurable: true, value: 320 });
+		Object.defineProperty(wideLine, 'scrollWidth', { configurable: true, value: 900 });
+		Object.defineProperty(outside, 'clientWidth', { configurable: true, value: 320 });
+		Object.defineProperty(outside, 'scrollWidth', { configurable: true, value: 1200 });
+		wideLine.scrollLeft = 24;
+		root.append(shortLine, wideLine, outside);
+
+		expect(findEditableCodeBlockScrollSource(root, shortLine)).toBe(wideLine);
+
+		const pan = createEditableCodeBlockTouchPan(root, shortLine, 100, 100);
+		expect(pan).toEqual({
+			source: wideLine,
+			startX: 100,
+			startY: 100,
+			startScrollLeft: 24,
+		});
+
+		expect(panEditableCodeBlockScroll(root, pan!, 40, 98)).toBe(true);
+		expect(shortLine.scrollLeft).toBe(84);
+		expect(wideLine.scrollLeft).toBe(84);
+		expect(outside.scrollLeft).toBe(0);
 	});
 
 	test('gives short lines enough scrollable width to follow the whole editable code block', () => {

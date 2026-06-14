@@ -9,6 +9,7 @@ import { type ThemedToken } from 'shiki';
 import { editorLivePreviewField, Platform } from 'obsidian';
 import {
 	buildEditableCodeBlockDecorations,
+	createEditableCodeBlockTouchPan,
 	type EditableCodeBlockTouchPan,
 	normalizeEditableCodeBlockScrollWidths,
 	panEditableCodeBlockScroll,
@@ -54,12 +55,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			private editableCodeBlockTouchPan: EditableCodeBlockTouchPan | null = null;
 			private syncingEditableCodeBlockScroll = false;
 
-			private findEditableCodeBlockScrollLine(target: EventTarget | null): HTMLElement | null {
-				if (!(target instanceof Element)) {
+			private getEditableCodeBlockScrollLineFromElement(element: Element | null): HTMLElement | null {
+				if (!element) {
 					return null;
 				}
 
-				const line = target.closest<HTMLElement>('.shiki-editing-codeblock-nowrap');
+				const line = element.closest<HTMLElement>('.shiki-editing-codeblock-nowrap');
 				if (!line || !this.view.dom.contains(line)) {
 					return null;
 				}
@@ -67,18 +68,65 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				return line;
 			}
 
+			private findEditableCodeBlockScrollLine(target: EventTarget | Event | null, clientX?: number, clientY?: number): HTMLElement | null {
+				if (target instanceof Element) {
+					const targetLine = this.getEditableCodeBlockScrollLineFromElement(target);
+					if (targetLine) {
+						return targetLine;
+					}
+				}
+
+				if (target instanceof Event) {
+					for (const pathTarget of target.composedPath()) {
+						if (pathTarget instanceof Element) {
+							const pathLine = this.getEditableCodeBlockScrollLineFromElement(pathTarget);
+							if (pathLine) {
+								return pathLine;
+							}
+						}
+					}
+				}
+
+				if (clientX !== undefined && clientY !== undefined) {
+					for (const pointElement of document.elementsFromPoint(clientX, clientY)) {
+						const pointLine = this.getEditableCodeBlockScrollLineFromElement(pointElement);
+						if (pointLine) {
+							return pointLine;
+						}
+					}
+				}
+
+				return null;
+			}
+
 			private getEditableCodeBlockTouchPan(event: TouchEvent): EditableCodeBlockTouchPan | null {
-				const target = this.findEditableCodeBlockScrollLine(event.target);
 				const touch = event.touches[0];
-				if (!target || !touch || target.scrollWidth <= target.clientWidth) {
+				const target = touch ? this.findEditableCodeBlockScrollLine(event, touch.clientX, touch.clientY) : null;
+				if (!target || !touch) {
+					return null;
+				}
+
+				return createEditableCodeBlockTouchPan(this.view.dom, target, touch.clientX, touch.clientY);
+			}
+
+			private getEditableCodeBlockPointerPan(event: PointerEvent): (EditableCodeBlockTouchPan & { pointerId: number }) | null {
+				if (event.pointerType === 'mouse') {
+					return null;
+				}
+
+				const target = this.findEditableCodeBlockScrollLine(event, event.clientX, event.clientY);
+				if (!target) {
+					return null;
+				}
+
+				const pan = createEditableCodeBlockTouchPan(this.view.dom, target, event.clientX, event.clientY);
+				if (!pan) {
 					return null;
 				}
 
 				return {
-					source: target,
-					startX: touch.clientX,
-					startY: touch.clientY,
-					startScrollLeft: target.scrollLeft,
+					...pan,
+					pointerId: event.pointerId,
 				};
 			}
 
@@ -117,6 +165,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				this.editableCodeBlockTouchPan = this.getEditableCodeBlockTouchPan(event);
 			};
 
+			private readonly handleEditableCodeBlockGlobalPointerDown = (event: PointerEvent): void => {
+				this.editableCodeBlockPointerPan = this.getEditableCodeBlockPointerPan(event);
+			};
+
 			private readonly handleEditableCodeBlockTouchStart = (event: TouchEvent): void => {
 				const pan = this.getEditableCodeBlockTouchPan(event);
 				if (!pan) {
@@ -150,25 +202,15 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			};
 
 			private readonly handleEditableCodeBlockPointerDown = (event: PointerEvent): void => {
-				if (event.pointerType === 'mouse') {
-					return;
-				}
-
-				const target = this.findEditableCodeBlockScrollLine(event.target);
-				if (!target || target.scrollWidth <= target.clientWidth) {
+				const pan = this.getEditableCodeBlockPointerPan(event);
+				if (!pan) {
 					this.editableCodeBlockPointerPan = null;
 					return;
 				}
 
-				this.editableCodeBlockPointerPan = {
-					pointerId: event.pointerId,
-					source: target,
-					startX: event.clientX,
-					startY: event.clientY,
-					startScrollLeft: target.scrollLeft,
-				};
+				this.editableCodeBlockPointerPan = pan;
 				try {
-					target.setPointerCapture?.(event.pointerId);
+					pan.source.setPointerCapture?.(event.pointerId);
 				} catch {
 					// Some mobile WebViews reject pointer capture for already-cancelled pointers.
 				}
@@ -212,6 +254,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				window.addEventListener('touchmove', this.handleEditableCodeBlockTouchMove, { capture: true, passive: false });
 				window.addEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				window.addEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
+				window.addEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
+				window.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove, { capture: true, passive: false });
+				window.addEventListener('pointerup', this.handleEditableCodeBlockPointerEnd, true);
+				window.addEventListener('pointercancel', this.handleEditableCodeBlockPointerEnd, true);
 				view.dom.addEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				view.dom.addEventListener('touchstart', this.handleEditableCodeBlockTouchStart, { passive: true });
 				view.dom.addEventListener('touchmove', this.handleEditableCodeBlockTouchMove, { capture: true, passive: false });
@@ -614,6 +660,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				window.removeEventListener('touchmove', this.handleEditableCodeBlockTouchMove, true);
 				window.removeEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				window.removeEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
+				window.removeEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
+				window.removeEventListener('pointermove', this.handleEditableCodeBlockPointerMove, true);
+				window.removeEventListener('pointerup', this.handleEditableCodeBlockPointerEnd, true);
+				window.removeEventListener('pointercancel', this.handleEditableCodeBlockPointerEnd, true);
 				this.view.dom.removeEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				this.view.dom.removeEventListener('touchstart', this.handleEditableCodeBlockTouchStart);
 				this.view.dom.removeEventListener('touchmove', this.handleEditableCodeBlockTouchMove, true);

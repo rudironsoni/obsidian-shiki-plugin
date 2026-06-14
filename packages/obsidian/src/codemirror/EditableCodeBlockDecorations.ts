@@ -80,6 +80,40 @@ export interface EditableCodeBlockTouchPan {
 	startScrollLeft: number;
 }
 
+export function findEditableCodeBlockScrollSource(root: ParentNode, source: HTMLElement): HTMLElement | null {
+	const blockId = source.dataset.shikiEditingBlockId;
+	if (!blockId) {
+		return source.scrollWidth > source.clientWidth ? source : null;
+	}
+
+	let scrollSource: HTMLElement | null = null;
+	for (const line of root.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
+		if (line.dataset.shikiEditingBlockId !== blockId || line.scrollWidth <= line.clientWidth) {
+			continue;
+		}
+
+		if (!scrollSource || line.scrollWidth - line.clientWidth > scrollSource.scrollWidth - scrollSource.clientWidth) {
+			scrollSource = line;
+		}
+	}
+
+	return scrollSource;
+}
+
+export function createEditableCodeBlockTouchPan(root: ParentNode, source: HTMLElement, startX: number, startY: number): EditableCodeBlockTouchPan | null {
+	const scrollSource = findEditableCodeBlockScrollSource(root, source);
+	if (!scrollSource) {
+		return null;
+	}
+
+	return {
+		source: scrollSource,
+		startX,
+		startY,
+		startScrollLeft: scrollSource.scrollLeft,
+	};
+}
+
 export function panEditableCodeBlockScroll(root: ParentNode, pan: EditableCodeBlockTouchPan, currentX: number, currentY: number): boolean {
 	const deltaX = pan.startX - currentX;
 	const deltaY = pan.startY - currentY;
