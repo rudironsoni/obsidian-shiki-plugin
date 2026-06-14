@@ -22,7 +22,9 @@ function assert(condition, message, detail) {
 
 function prepareVault() {
 	rmSync(VAULT, { recursive: true, force: true });
-	rmSync(USER_DATA, { recursive: true, force: true });
+	if (OBSIDIAN_LAUNCH_MODE !== 'existing') {
+		rmSync(USER_DATA, { recursive: true, force: true });
+	}
 
 	const pluginDir = path.join(VAULT, '.obsidian/plugins', PLUGIN_ID);
 	mkdirSync(pluginDir, { recursive: true });
@@ -48,7 +50,7 @@ function prepareVault() {
 				customLanguageFolder: 'customLanguages',
 				customThemeFolder: 'customThemes',
 				inlineHighlighting: true,
-				ecDefaultShowLineNumbers: false,
+				ecDefaultShowLineNumbers: true,
 				ecDefaultWrap: false,
 				ecDefaultFrame: 'auto',
 				darkTheme: 'obsidian-theme',
@@ -123,8 +125,42 @@ async function waitForTarget() {
 	throw new Error('Timed out waiting for Obsidian DevTools target.');
 }
 
+async function relaunchExistingTarget() {
+	const targets = await fetch(`http://127.0.0.1:${PORT}/json`).then(response => response.json());
+	const page = targets.find(target => target.type === 'page' && target.webSocketDebuggerUrl);
+	assert(page, 'existing Obsidian target has no page to relaunch from', { port: PORT, targets });
+
+	const current = await evaluate(
+		page.webSocketDebuggerUrl,
+		`(() => ({
+			hasApp: typeof window.app !== 'undefined',
+			vaultPath: typeof window.app !== 'undefined' ? window.app.vault?.adapter?.basePath ?? null : null,
+		}))()`,
+	);
+	if (current.hasApp && current.vaultPath === VAULT) {
+		return;
+	}
+
+	await evaluate(
+		page.webSocketDebuggerUrl,
+		`(() => {
+			if (!window.electron?.remote?.app || !window.electron?.remote?.process) {
+				throw new Error('existing page does not expose Electron remote relaunch APIs');
+			}
+			const app = window.electron.remote.app;
+			const process = window.electron.remote.process;
+			app.relaunch({ args: process.argv });
+			setTimeout(() => app.exit(0), 50);
+			return { relaunching: true, argv: process.argv };
+		})()`,
+	);
+}
+
 function launchObsidian() {
 	const args = [`--remote-debugging-port=${PORT}`, `--user-data-dir=${USER_DATA}`];
+	if (OBSIDIAN_LAUNCH_MODE === 'existing') {
+		return null;
+	}
 	if (OBSIDIAN_LAUNCH_MODE === 'open') {
 		return spawn('open', ['-na', OBSIDIAN_APP_BUNDLE, '--args', ...args], {
 			stdio: ['ignore', 'pipe', 'pipe'],
@@ -184,6 +220,41 @@ async function evaluate(wsUrl, expression) {
 	}
 }
 
+async function dispatchMouseClick(wsUrl, x, y) {
+	const socket = new WebSocket(wsUrl);
+	let nextId = 0;
+	const pending = new Map();
+
+	await new Promise((resolve, reject) => {
+		socket.addEventListener('open', resolve, { once: true });
+		socket.addEventListener('error', reject, { once: true });
+	});
+
+	socket.addEventListener('message', event => {
+		const message = JSON.parse(event.data);
+		if (message.id && pending.has(message.id)) {
+			const callbacks = pending.get(message.id);
+			pending.delete(message.id);
+			if (message.error) callbacks.reject(message.error);
+			else callbacks.resolve(message.result);
+		}
+	});
+
+	function send(method, params = {}) {
+		const id = ++nextId;
+		socket.send(JSON.stringify({ id, method, params }));
+		return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+	}
+
+	try {
+		await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' });
+		await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+		await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+	} finally {
+		socket.close();
+	}
+}
+
 async function trustVault(wsUrl) {
 	return evaluate(
 		wsUrl,
@@ -217,7 +288,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		activeWsUrl = (await waitForTarget()).webSocketDebuggerUrl;
 	}
 
-	return evaluate(
+	const activation = await evaluate(
 		activeWsUrl,
 		`(async () => {
 			const measurements = {};
@@ -297,15 +368,15 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				text: el.textContent,
 				hasLineNumbers: !!el.querySelector('.ln'),
 			}));
-			const editorTokens = [...editorRoot.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
-				text: el.textContent,
-				className: el.className,
-				style: el.getAttribute('style'),
-			}));
-			const fencedEditorTokens = editorTokens.filter(token =>
-				['List', 'intervals', 'startIndex', 'Sort'].some(text => token.text?.includes(text))
+			const editableTarget = [...editorRoot.querySelectorAll('.cm-preview-code-block div.expressive-code')].find(el =>
+				el.textContent?.includes('List') && el.textContent?.includes('intervals')
 			);
-			return {
+			const editableTargetRect = editableTarget ? (() => {
+				editableTarget.scrollIntoView({ block: 'center' });
+				const rect = editableTarget.getBoundingClientRect();
+				return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+			})() : null;
+			globalThis.__shikiVerifyState = {
 				isMobile: app.isMobile,
 				loadError,
 				pluginLoaded: !!plugin,
@@ -327,8 +398,47 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				codeBlocks,
 				livePreviewCodeBlocks,
 				inline,
+			};
+			return { editableTargetRect };
+		})()`,
+	);
+	if (activation.editableTargetRect) {
+		await dispatchMouseClick(
+			activeWsUrl,
+			activation.editableTargetRect.x + Math.min(180, activation.editableTargetRect.width / 2),
+			activation.editableTargetRect.y + Math.min(40, activation.editableTargetRect.height / 2),
+		);
+	}
+
+	return evaluate(
+		activeWsUrl,
+		`(async () => {
+			const state = globalThis.__shikiVerifyState;
+			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+			await new Promise(resolve => setTimeout(resolve, 1000));
+			await plugin.updateCm6Plugin();
+			await new Promise(resolve => setTimeout(resolve, 500));
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const editorTokens = [...editorRoot.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
+				text: el.textContent,
+				className: el.className,
+				style: el.getAttribute('style'),
+			}));
+			const fencedEditorTokens = editorTokens.filter(token =>
+				['List', 'intervals', 'startIndex', 'Sort'].some(text => token.text?.includes(text))
+			);
+			const editableCodeBlockLines = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-codeblock-line')].map(el => ({
+				text: el.textContent,
+				className: el.className,
+				style: el.getAttribute('style'),
+			}));
+			const editableLineNumbers = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-line-number')].map(el => el.textContent);
+			return {
+				...state,
 				editorTokens,
 				fencedEditorTokens,
+				editableCodeBlockLines,
+				editableLineNumbers,
 			};
 		})()`,
 	);
@@ -369,13 +479,18 @@ function validateResult(label, result) {
 		`${label}: inline highlighting missing`,
 		result,
 	);
-	assert(result.livePreviewCodeBlocks.length === 4, `${label}: expected one live-preview rendered block for each fenced block`, result);
+	assert(result.livePreviewCodeBlocks.length >= 3, `${label}: expected non-active live-preview rendered blocks to remain rendered`, result);
 	assert(
-		result.livePreviewCodeBlocks.some(block => block.text.includes('List<int[]>') && block.text.includes('intervals.Sort')),
-		`${label}: live-preview C# block missing`,
+		result.livePreviewCodeBlocks.some(block => block.text.includes('List<int[]>') && block.text.includes('intervals.Sort')) ||
+			result.fencedEditorTokens.some(token => token.text.includes('List')) ||
+			result.fencedEditorTokens.some(token => token.text.includes('Sort')),
+		`${label}: C# block missing from both live-preview and active editable editor`,
 		result,
 	);
 	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
+	assert(result.fencedEditorTokens.length >= 4, `${label}: editable fenced code block Shiki tokens missing`, result);
+	assert(result.editableCodeBlockLines.length > 0, `${label}: editable fenced code block Shiki surface missing`, result);
+	assert(result.editableLineNumbers.length > 0, `${label}: editable fenced code block Shiki line numbers missing`, result);
 	assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 }
 
@@ -388,26 +503,31 @@ async function main() {
 	prepareVault();
 	const obsidian = launchObsidian();
 	const output = [];
-	obsidian.stdout.on('data', data => output.push(data.toString()));
-	obsidian.stderr.on('data', data => output.push(data.toString()));
+	obsidian?.stdout.on('data', data => output.push(data.toString()));
+	obsidian?.stderr.on('data', data => output.push(data.toString()));
 	let target = null;
 	let stopped = false;
 	const stop = async () => {
 		if (!stopped) {
 			stopped = true;
-			await closeTarget(target);
-			obsidian.kill();
+			if (OBSIDIAN_LAUNCH_MODE !== 'existing') {
+				await closeTarget(target);
+			}
+			obsidian?.kill();
 		}
 	};
 	process.on('exit', () => {
-		obsidian.kill();
+		obsidian?.kill();
 	});
 	process.on('SIGINT', () => {
-		obsidian.kill();
+		obsidian?.kill();
 		process.exit(130);
 	});
 
 	try {
+		if (OBSIDIAN_LAUNCH_MODE === 'existing') {
+			await relaunchExistingTarget();
+		}
 		target = await waitForTarget().catch(error => {
 			error.message = `${error.message}\nLaunch mode: ${OBSIDIAN_LAUNCH_MODE}\nLaunch output:\n${output.join('')}`;
 			throw error;

@@ -92,6 +92,52 @@ span.shiki-ul {
 	text-decoration: underline;
 }
 
+.cm-content .shiki-editing-codeblock-line {
+	font-variant-ligatures: no-contextual;
+	background-color: var(--shiki-code-background);
+	border-inline: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
+	padding-inline: 0.85em;
+}
+
+.cm-content .shiki-editing-codeblock-first-line {
+	border-start-start-radius: var(--shiki-code-block-border-radius);
+	border-start-end-radius: var(--shiki-code-block-border-radius);
+	border-block-start: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
+	padding-block-start: 0.65em;
+}
+
+.cm-content .shiki-editing-codeblock-last-line {
+	border-end-start-radius: var(--shiki-code-block-border-radius);
+	border-end-end-radius: var(--shiki-code-block-border-radius);
+	border-block-end: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
+	padding-block-end: 0.65em;
+}
+
+.cm-content .shiki-editing-codeblock-nowrap {
+	white-space: pre;
+}
+
+.cm-content .shiki-editing-codeblock-wrap {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.cm-content .shiki-editing-token {
+	font-variant-ligatures: no-contextual;
+}
+
+.cm-content .shiki-editing-line-number {
+	box-sizing: border-box;
+	display: inline-block;
+	min-width: 2.75em;
+	margin-inline-end: 1em;
+	padding-inline-end: 0.85em;
+	color: var(--shiki-gutter-text-color);
+	text-align: end;
+	user-select: none;
+	border-inline-end: var(--shiki-gutter-border-width) solid var(--shiki-gutter-border-color);
+}
+
 /* Settings tab  */
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;

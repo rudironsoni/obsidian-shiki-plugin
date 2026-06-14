@@ -1,12 +1,18 @@
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
 import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { type EditorState, type Range } from '@codemirror/state';
+import { type EditorState, Prec, type Range } from '@codemirror/state';
 import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
 import { type ThemedToken } from 'shiki';
 import { editorLivePreviewField } from 'obsidian';
+import {
+	buildEditableCodeBlockDecorations,
+	parseFenceInfo,
+	shouldUpdateCodeBlockDecorations,
+	type EditableCodeBlock,
+} from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 
 enum DecorationUpdateType {
 	Insert,
@@ -23,6 +29,7 @@ interface InsertDecoration {
 	content: string;
 	hideLang?: boolean;
 	hideTo?: number;
+	editableCodeBlock?: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>;
 }
 
 interface RemoveDecoration {
@@ -33,7 +40,7 @@ interface RemoveDecoration {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
 export function createCm6Plugin(plugin: ShikiPlugin) {
-	return ViewPlugin.fromClass(
+	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
 			decorations: DecorationSet;
 			view: EditorView;
@@ -65,9 +72,15 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 
 				// we handle doc changes and selection changes here
-				if (update.docChanged || update.selectionSet) {
+				if (
+					shouldUpdateCodeBlockDecorations({
+						docChanged: update.docChanged,
+						selectionSet: update.selectionSet,
+						viewportChanged: update.viewportChanged,
+					})
+				) {
 					this.view = update.view;
-					void this.updateWidgets(update.view, update.docChanged);
+					void this.updateWidgets(update.view);
 				}
 			}
 
@@ -80,10 +93,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * Updates all the widgets by traversing the syntax tree.
 			 *
 			 * @param view
-			 * @param docChanged
 			 */
-			async updateWidgets(view: EditorView, docChanged: boolean = true): Promise<void> {
+			async updateWidgets(view: EditorView): Promise<void> {
 				let lang = '';
+				let fenceInfo = parseFenceInfo('');
 				let state: SyntaxNode[] = [];
 				const decorationUpdates: DecorationUpdate[] = [];
 				// Capture the state at the time of the syntax tree traversal so we can
@@ -128,12 +141,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 							return;
 						}
 
-						// if !docChanged, then this change was a selection change.
-						// We only care about inline code blocks in this case, so we can skip the rest.
-						if (!docChanged) {
-							return;
-						}
-
 						if (props.has('HyperMD-codeblock') && !props.has('HyperMD-codeblock-begin') && !props.has('HyperMD-codeblock-end')) {
 							state.push(node);
 							return;
@@ -141,8 +148,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 						if (props.has('HyperMD-codeblock-begin')) {
 							const content = Cm6_Util.getContent(view.state, node.from, node.to);
+							fenceInfo = parseFenceInfo(content);
 
-							lang = /```\s*(\S+)/.exec(content)?.[1] ?? '';
+							lang = fenceInfo.language;
 						}
 
 						if (props.has('HyperMD-codeblock-end')) {
@@ -156,6 +164,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 									to: end,
 									lang,
 									content: Cm6_Util.getContent(view.state, start, end),
+									editableCodeBlock: {
+										showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || (fenceInfo?.showLineNumbers ?? false),
+										wrap: plugin.loadedSettings.ecDefaultWrap || (fenceInfo?.wrap ?? false),
+										lineStarts: state.map(line => line.from),
+									},
 								});
 							}
 
@@ -171,6 +184,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 							}
 
 							lang = '';
+							fenceInfo = parseFenceInfo('');
 							state = [];
 						}
 					},
@@ -181,7 +195,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						if (node.type === DecorationUpdateType.Remove) {
 							this.removeDecoration(node.from, node.to);
 						} else if (node.type === DecorationUpdateType.Insert) {
-							const decorations = await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
+							const decorations = node.editableCodeBlock
+								? await this.buildEditableCodeBlockDecorations(node.from, node.to, node.lang, node.content, node.editableCodeBlock)
+								: await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
 							// If the document changed while we were awaiting, the positions we captured
 							// from the syntax tree are stale. Abort to avoid applying out-of-range decorations.
 							if (this.view.state !== capturedState) {
@@ -210,6 +226,37 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 
 				// console.log('Traversed syntax tree in', performance.now() - t1, 'ms');
+			}
+
+			async buildEditableCodeBlockDecorations(
+				from: number,
+				to: number,
+				language: string,
+				content: string,
+				block: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>,
+			): Promise<Range<Decoration>[]> {
+				if (language === '') {
+					return [];
+				}
+
+				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());
+
+				if (!highlight) {
+					return [];
+				}
+
+				return buildEditableCodeBlockDecorations(
+					{
+						from,
+						to,
+						language,
+						content,
+						showLineNumbers: block.showLineNumbers,
+						wrap: block.wrap,
+						lineStarts: block.lineStarts,
+					},
+					highlight,
+				);
 			}
 
 			/**
@@ -303,4 +350,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			decorations: v => v.decorations,
 		},
 	);
+
+	return Prec.highest(cm6Plugin);
 }
