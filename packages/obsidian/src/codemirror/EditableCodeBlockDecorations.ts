@@ -84,7 +84,7 @@ export function panEditableCodeBlockScroll(root: ParentNode, pan: EditableCodeBl
 	const deltaX = pan.startX - currentX;
 	const deltaY = pan.startY - currentY;
 
-	if (Math.abs(deltaX) <= Math.abs(deltaY) || pan.source.scrollWidth <= pan.source.clientWidth) {
+	if (Math.abs(deltaX) < 4 || Math.abs(deltaX) <= Math.abs(deltaY) || pan.source.scrollWidth <= pan.source.clientWidth) {
 		return false;
 	}
 

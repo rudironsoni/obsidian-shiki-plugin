@@ -140,6 +140,10 @@ describe('editable CodeMirror code block decorations', () => {
 		expect(didPanVertically).toBe(false);
 		expect(first.scrollLeft).toBe(0);
 
+		const didPanJitter = panEditableCodeBlockScroll(root, { source: first, startX: 100, startY: 100, startScrollLeft: 12 }, 97, 100);
+		expect(didPanJitter).toBe(false);
+		expect(first.scrollLeft).toBe(0);
+
 		const didPanHorizontally = panEditableCodeBlockScroll(root, { source: first, startX: 100, startY: 100, startScrollLeft: 12 }, 40, 96);
 		expect(didPanHorizontally).toBe(true);
 		expect(first.scrollLeft).toBe(72);
