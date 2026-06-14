@@ -431,6 +431,9 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				text: el.textContent,
 				className: el.className,
 				style: el.getAttribute('style'),
+				overflowX: getComputedStyle(el).overflowX,
+				clientWidth: el.clientWidth,
+				scrollWidth: el.scrollWidth,
 			}));
 			const editableLineNumbers = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-line-number')].map(el => el.textContent);
 			return {
@@ -491,6 +494,11 @@ function validateResult(label, result) {
 	assert(result.fencedEditorTokens.length >= 4, `${label}: editable fenced code block Shiki tokens missing`, result);
 	assert(result.editableCodeBlockLines.length > 0, `${label}: editable fenced code block Shiki surface missing`, result);
 	assert(result.editableLineNumbers.length > 0, `${label}: editable fenced code block Shiki line numbers missing`, result);
+	assert(
+		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-wrap') || ['auto', 'scroll'].includes(line.overflowX)),
+		`${label}: editable fenced code block lines are not horizontally contained`,
+		result,
+	);
 	assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 }
 
