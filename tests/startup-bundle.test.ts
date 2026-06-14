@@ -31,6 +31,13 @@ describe('startup bundle', () => {
 		expect(highlighterStyles).toContain('shiki-highlighter-fallback:');
 	});
 
+	test('editable code block CSS owns horizontal mobile pan gestures', () => {
+		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
+
+		expect(styles).toContain('touch-action:pan-x pan-y');
+		expect(styles).toContain('overscroll-behavior-x:contain');
+	});
+
 	test('release workflow uploads every generated JavaScript sidecar', () => {
 		const workflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 
