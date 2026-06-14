@@ -61,11 +61,23 @@ export class ThemeMapper {
 	}
 
 	getThemeIdentifier(): string {
-		if (this.plugin.app.isDarkMode()) {
+		if (this.isDarkMode()) {
 			return this.plugin.loadedSettings.darkTheme;
 		} else {
 			return this.plugin.loadedSettings.lightTheme;
 		}
+	}
+
+	private isDarkMode(): boolean {
+		if (document.body.classList.contains('theme-dark')) {
+			return true;
+		}
+
+		if (document.body.classList.contains('theme-light')) {
+			return false;
+		}
+
+		return this.plugin.app.isDarkMode();
 	}
 
 	usingObsidianTheme(): boolean {

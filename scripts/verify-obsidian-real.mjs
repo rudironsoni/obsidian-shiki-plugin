@@ -251,6 +251,19 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const disabledTokens = await plugin.highlighter.getHighlightTokens('const disabled = true', 'ts');
 			plugin.settings.disabledLanguages = originalDisabled;
 			plugin.loadedSettings = structuredClone(plugin.settings);
+			const originalClassName = document.body.className;
+			const originalSettings = structuredClone(plugin.loadedSettings);
+			const themeSelection = {};
+			plugin.loadedSettings.darkTheme = 'runtime-selected-dark-theme';
+			plugin.loadedSettings.lightTheme = 'runtime-selected-light-theme';
+			document.body.classList.remove('theme-dark', 'theme-light');
+			document.body.classList.add('theme-light');
+			themeSelection.light = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			document.body.classList.remove('theme-dark', 'theme-light');
+			document.body.classList.add('theme-dark');
+			themeSelection.dark = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			document.body.className = originalClassName;
+			plugin.loadedSettings = originalSettings;
 			const viewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			const codeBlocks = [...viewRoot.querySelectorAll('.el-pre div.expressive-code')].map(el => ({
 				text: el.textContent,
@@ -294,6 +307,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				renderedText,
 				customLanguageOdinSupported: languages.includes('odin'),
 				disabledLanguageReturns: disabledTokens ?? null,
+				themeSelection,
 				measurements,
 				codeBlocks,
 				livePreviewCodeBlocks,
@@ -315,6 +329,8 @@ function validateResult(label, result) {
 	assert(result.renderedText.includes('Perf') && result.renderedText.includes('const z'), `${label}: direct EC render failed`, result);
 	assert(result.customLanguageOdinSupported, `${label}: custom language was not available`, result);
 	assert(result.disabledLanguageReturns === null, `${label}: disabled language still returned tokens`, result);
+	assert(result.themeSelection.light === 'runtime-selected-light-theme', `${label}: light mode did not use saved light theme setting`, result);
+	assert(result.themeSelection.dark === 'runtime-selected-dark-theme', `${label}: dark mode did not use saved dark theme setting`, result);
 	assert(result.codeBlocks.length === 4, `${label}: expected exactly one rendered block for each fenced block`, result);
 	assert(
 		result.codeBlocks.some(block => block.text.includes('Startup check') && block.hasLineNumbers),
