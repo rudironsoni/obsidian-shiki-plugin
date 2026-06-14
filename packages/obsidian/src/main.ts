@@ -7,6 +7,7 @@ import { LazyHighlighter, type ThemeOption } from 'packages/obsidian/src/LazyHig
 import { loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
 import { loadCustomThemeOptions } from 'packages/obsidian/src/settings/CustomThemeOptions';
 import type { PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlugin';
+import { DEFAULT_DARK_SHIKI_THEME, DEFAULT_LIGHT_SHIKI_THEME, OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
 import 'packages/obsidian/src/styles.css';
 import 'virtual:ec-styles.css';
@@ -176,6 +177,12 @@ export default class ShikiPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as Settings;
+
+		if (this.settings.darkTheme === OBSIDIAN_THEME_IDENTIFIER && this.settings.lightTheme === OBSIDIAN_THEME_IDENTIFIER) {
+			this.settings.darkTheme = DEFAULT_DARK_SHIKI_THEME;
+			this.settings.lightTheme = DEFAULT_LIGHT_SHIKI_THEME;
+			await this.saveSettings();
+		}
 
 		// migrate the theme to darkTheme and lightTheme
 		if (this.settings.theme !== undefined) {

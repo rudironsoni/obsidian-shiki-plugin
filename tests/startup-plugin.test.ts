@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { clearHighlighterEntryCache } from 'packages/obsidian/src/HighlighterEntryLoader';
 import ShikiPlugin from 'packages/obsidian/src/main';
+import { DEFAULT_DARK_SHIKI_THEME, DEFAULT_LIGHT_SHIKI_THEME, OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
 function createTestPlugin(): ShikiPlugin {
 	const TestPlugin = ShikiPlugin as unknown as new () => ShikiPlugin;
@@ -66,6 +67,24 @@ describe('plugin startup registration', () => {
 		} finally {
 			window.requestIdleCallback = originalRequestIdleCallback;
 		}
+	});
+
+	test('old Obsidian theme defaults migrate to visible Shiki themes', async () => {
+		const plugin = createTestPlugin();
+		let saved = false;
+		plugin.loadData = async (): Promise<unknown> => ({
+			darkTheme: OBSIDIAN_THEME_IDENTIFIER,
+			lightTheme: OBSIDIAN_THEME_IDENTIFIER,
+		});
+		plugin.saveData = async (): Promise<void> => {
+			saved = true;
+		};
+
+		await plugin.loadSettings();
+
+		expect(plugin.settings.darkTheme).toBe(DEFAULT_DARK_SHIKI_THEME);
+		expect(plugin.settings.lightTheme).toBe(DEFAULT_LIGHT_SHIKI_THEME);
+		expect(saved).toBe(true);
 	});
 
 	test('code block postprocessor creates children for fenced language blocks and skips frontmatter', async () => {

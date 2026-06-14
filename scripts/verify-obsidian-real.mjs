@@ -77,6 +77,12 @@ function prepareVault() {
 			'package main',
 			'~~~',
 			'',
+			'```cs',
+			'List<int[]> intervals = [[1, 3], [2, 6], [8, 10], [15, 18]];',
+			'var startIndex = 0;',
+			'intervals.Sort((a, b) => a[startIndex] - b[startIndex]);',
+			'```',
+			'',
 		].join('\n'),
 	);
 
@@ -236,12 +242,19 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				className: el.className,
 				style: el.getAttribute('style'),
 			}));
+			const fencedEditorTokens = editorTokens.filter(token =>
+				['List', 'intervals', 'startIndex', 'Sort'].some(text => token.text?.includes(text))
+			);
 			return {
 				isMobile: app.isMobile,
 				loadError,
 				pluginLoaded: !!plugin,
 				settingsTabLoaded: !!app.setting?.pluginTabs?.find?.(tab => tab.id === '${PLUGIN_ID}' || tab.plugin === plugin),
 				highlighterLoaded: !!plugin?.highlighter?.highlighter,
+				themes: {
+					dark: plugin.settings.darkTheme,
+					light: plugin.settings.lightTheme,
+				},
 				activeFile: app.workspace.getActiveFile()?.path ?? null,
 				activeCodeBlocks: plugin?.activeCodeBlocks ? [...plugin.activeCodeBlocks.entries()].map(([key, value]) => [key, value.length]) : null,
 				tokenSummary: { lines: tokens?.tokens?.length ?? null, firstLineTokens: tokens?.tokens?.[0]?.length ?? null },
@@ -252,6 +265,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				codeBlocks,
 				inline,
 				editorTokens,
+				fencedEditorTokens,
 			};
 		})()`,
 	);
@@ -262,6 +276,11 @@ function validateResult(label, result) {
 	assert(result.pluginLoaded, `${label}: plugin was not loaded`, result);
 	assert(result.settingsTabLoaded, `${label}: settings tab was not loaded`, result);
 	assert(result.highlighterLoaded, `${label}: highlighter did not lazy-load`, result);
+	assert(
+		result.themes.dark !== 'obsidian-theme' && result.themes.light !== 'obsidian-theme',
+		`${label}: old Obsidian theme defaults were not migrated`,
+		result,
+	);
 	assert(result.activeFile === 'feature-test.md', `${label}: feature note was not active`, result);
 	assert(result.tokenSummary.lines === 1 && result.tokenSummary.firstLineTokens > 0, `${label}: tokenization failed`, result);
 	assert(result.renderedText.includes('Perf') && result.renderedText.includes('const z'), `${label}: direct EC render failed`, result);
@@ -289,6 +308,12 @@ function validateResult(label, result) {
 		result,
 	);
 	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
+	assert(result.fencedEditorTokens.length > 0, `${label}: fenced C# editor Shiki highlighting missing`, result);
+	assert(
+		result.fencedEditorTokens.some(token => token.style && !token.style.includes('var(--shiki-code')),
+		`${label}: fenced C# editor tokens still use Obsidian color variables`,
+		result,
+	);
 	assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);
 }
 
