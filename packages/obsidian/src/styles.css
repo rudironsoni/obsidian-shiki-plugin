@@ -131,20 +131,27 @@ span.shiki-ul {
 	scrollbar-width: none;
 }
 
-.is-mobile .cm-content .shiki-editing-codeblock-line {
-	max-width: calc(100vw - var(--file-margins, 0px) * 2);
+body.is-phone .cm-content .shiki-editing-codeblock-line {
+	width: auto;
+	max-width: 100%;
 	overflow-x: auto;
 	overflow-y: auto;
+	white-space: pre;
+	overflow-wrap: normal;
+	word-break: normal;
 	touch-action: pan-x pan-y;
 	overscroll-behavior: contain;
 }
 
-.is-mobile .markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock,
-.is-mobile .markdown-source-view.mod-cm6 .cm-content > .cm-line:has(.shiki-editing-codeblock-line) {
-	max-width: calc(100vw - var(--file-margins, 0px) * 2);
+body.is-phone .markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content > .cm-line:has(.shiki-editing-codeblock-line) {
+	width: auto;
+	max-width: 100%;
 	overflow-x: auto;
 	overflow-y: auto;
 	white-space: pre;
+	overflow-wrap: normal;
+	word-break: normal;
 	touch-action: pan-x pan-y;
 	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
@@ -175,11 +182,14 @@ span.shiki-ul {
 	touch-action: pan-x pan-y;
 }
 
-.is-mobile .cm-content .shiki-editing-codeblock-nowrap {
+body.is-phone .cm-content .shiki-editing-codeblock-nowrap {
 	display: block;
 	min-width: 0;
 	width: 100%;
-	max-width: calc(100vw - var(--file-margins, 0px) * 2);
+	max-width: 100%;
+	white-space: pre;
+	overflow-wrap: normal;
+	word-break: normal;
 }
 
 .cm-content .shiki-editing-codeblock-nowrap::after {
