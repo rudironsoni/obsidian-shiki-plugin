@@ -36,6 +36,7 @@ export default class ShikiPlugin extends Plugin {
 		this.addSettingTab(new LazyShikiSettingsTab(this));
 
 		this.registerInlineCodeProcessor();
+		registerRenderedCodeBlockTouchScroll(this);
 
 		this.deferStartupWork((): void => {
 			void this.registerCodeBlockProcessors().catch(error => {
@@ -311,3 +312,4 @@ class LazyShikiSettingsTab extends PluginSettingTab {
 		});
 	}
 }
+import { registerRenderedCodeBlockTouchScroll } from 'packages/obsidian/src/RenderedCodeBlockTouchScroll';
