@@ -826,14 +826,16 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				const rect = csharpLine.getBoundingClientRect();
 				const y = rect.top + Math.min(rect.height / 2, 24);
 				const fromX = Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75));
-				globalThis.__shikiVerifyEditableSwipe = {
-					blockId,
-					before: blockLines.map(line => line.scrollLeft),
-					after: null,
-					hasOverflowingLine: blockLines.some(line => line.scrollWidth > line.clientWidth),
-					rightSplitCollapsedBefore: app.workspace.rightSplit?.collapsed ?? null,
-					rightSplitCollapsedAfter: null,
-				};
+					globalThis.__shikiVerifyEditableSwipe = {
+						blockId,
+						before: blockLines.map(line => line.scrollLeft),
+						after: null,
+						hasOverflowingLine: blockLines.some(line => line.scrollWidth > line.clientWidth),
+						beforeContentLeft: csharpLine.querySelector('.shiki-editing-token')?.getBoundingClientRect().left ?? null,
+						afterContentLeft: null,
+						rightSplitCollapsedBefore: app.workspace.rightSplit?.collapsed ?? null,
+						rightSplitCollapsedAfter: null,
+					};
 				return {
 					fromX,
 					fromY: y,
@@ -844,6 +846,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		);
 		if (swipeTarget) {
 			await dispatchTouchDrag(activeWsUrl, swipeTarget.fromX, swipeTarget.fromY, swipeTarget.toX, swipeTarget.toY);
+			await new Promise(resolve => setTimeout(resolve, 100));
 			await evaluate(
 				activeWsUrl,
 				`(() => {
@@ -853,10 +856,51 @@ async function verifyFeatureSet(wsUrl, mobile) {
 					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 					const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
 					state.after = blockLines.map(line => line.scrollLeft);
+					const csharpLine = blockLines.find(el => el.textContent?.includes('List<int[]> intervals'));
+					state.afterContentLeft = csharpLine?.querySelector('.shiki-editing-token')?.getBoundingClientRect().left ?? null;
 					state.rightSplitCollapsedAfter = app.workspace.rightSplit?.collapsed ?? null;
 					return state;
 				})()`,
 			);
+			const verticalTarget = await evaluate(
+				activeWsUrl,
+				`(() => {
+					const app = window.app;
+					const swipeState = globalThis.__shikiVerifyEditableSwipe;
+					if (!swipeState?.blockId) return null;
+					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+					const scroller = editorRoot.querySelector('.cm-scroller');
+					const csharpLine = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${swipeState.blockId}"]\`)].find(el =>
+						el.textContent?.includes('List<int[]> intervals')
+					);
+					if (!scroller || !csharpLine) return null;
+					scroller.scrollTop = 0;
+					const rect = csharpLine.getBoundingClientRect();
+					const x = Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75));
+					const y = rect.top + Math.min(rect.height / 2, 24);
+					globalThis.__shikiVerifyEditableVertical = {
+						before: scroller.scrollTop,
+						after: null,
+						scrollable: scroller.scrollHeight > scroller.clientHeight,
+					};
+					return { x, fromY: y, toY: Math.max(12, y - 180) };
+				})()`,
+			);
+			if (verticalTarget) {
+				await dispatchTouchDrag(activeWsUrl, verticalTarget.x, verticalTarget.fromY, verticalTarget.x, verticalTarget.toY);
+				await evaluate(
+					activeWsUrl,
+					`(() => {
+						const app = window.app;
+						const state = globalThis.__shikiVerifyEditableVertical;
+						if (!state) return null;
+						const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+						const scroller = editorRoot.querySelector('.cm-scroller');
+						state.after = scroller?.scrollTop ?? null;
+						return state;
+					})()`,
+				);
+			}
 			const wheelTarget = await evaluate(
 				activeWsUrl,
 				`(() => {
@@ -952,6 +996,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const app = window.app;
 			const state = globalThis.__shikiVerifyState;
 			const editableSwipe = globalThis.__shikiVerifyEditableSwipe ?? null;
+			const editableVertical = globalThis.__shikiVerifyEditableVertical ?? null;
 			const editableWheel = globalThis.__shikiVerifyEditableWheel ?? null;
 			const editableDrag = globalThis.__shikiVerifyEditableDrag ?? null;
 			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
@@ -1004,6 +1049,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				editableCodeBlockLines,
 				editableScrollSync,
 				editableSwipe,
+				editableVertical,
 				editableWheel,
 				editableDrag,
 				editableLineNumbers,
@@ -1066,8 +1112,8 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		result,
 	);
 	assert(
-		result.editableCodeBlockLines.every(line => line.touchAction === 'pan-x'),
-		`${label}: editable fenced code block did not expose native horizontal pan`,
+		result.editableCodeBlockLines.every(line => line.touchAction === 'pan-y'),
+		`${label}: editable fenced code block did not preserve native vertical touch scrolling`,
 		result,
 	);
 	assert(
@@ -1092,7 +1138,26 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 			`${label}: editable fenced code block touch swipe did not scroll code content`,
 			result,
 		);
+		assert(
+			result.editableSwipe.after.every(scrollLeft => scrollLeft === result.editableSwipe.after[0]),
+			`${label}: editable fenced code block touch swipe did not scroll every line as one block`,
+			result,
+		);
 		assert(result.editableSwipe.rightSplitCollapsedAfter !== false, `${label}: editable fenced code block touch swipe opened the right sidebar`, result);
+		assert(
+			result.editableSwipe.beforeContentLeft !== null &&
+				result.editableSwipe.afterContentLeft !== null &&
+				result.editableSwipe.afterContentLeft < result.editableSwipe.beforeContentLeft,
+			`${label}: editable fenced code block touch swipe did not move visible code content`,
+			result,
+		);
+		assert(result.editableVertical !== null, `${label}: editable fenced code block vertical touch scroll was not measured`, result);
+		assert(result.editableVertical.scrollable, `${label}: editable fenced code block vertical touch scroll had no scrollable editor`, result);
+		assert(
+			result.editableVertical.after > result.editableVertical.before,
+			`${label}: editable fenced code block vertical touch drag did not scroll editor content`,
+			result,
+		);
 		assert(result.editableWheel !== null, `${label}: editable fenced code block horizontal wheel was not measured`, result);
 		assert(result.editableWheel.hasOverflowingLine, `${label}: editable fenced code block horizontal wheel had no overflow target`, result);
 		assert(
