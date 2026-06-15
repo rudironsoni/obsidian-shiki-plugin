@@ -103,7 +103,6 @@ span.shiki-ul {
 	max-width: 100%;
 	overflow-y: hidden;
 	contain: paint;
-	touch-action: pan-y;
 	overscroll-behavior-x: contain;
 	-webkit-overflow-scrolling: touch;
 	scrollbar-width: none;
@@ -129,9 +128,9 @@ span.shiki-ul {
 
 .cm-content .shiki-editing-codeblock-nowrap {
 	white-space: pre;
-	overflow-x: hidden;
+	overflow-x: auto;
 	overscroll-behavior-x: contain;
-	touch-action: pan-y;
+	touch-action: pan-x pan-y;
 }
 
 .cm-content .shiki-editing-codeblock-nowrap::after {
@@ -144,15 +143,12 @@ span.shiki-ul {
 	white-space: pre-wrap;
 	overflow-x: hidden;
 	overflow-wrap: anywhere;
+	touch-action: pan-y;
 }
 
 .cm-content .shiki-editing-token {
 	display: inline-block;
 	font-variant-ligatures: no-contextual;
-}
-
-.cm-content .shiki-editing-codeblock-nowrap .shiki-editing-token {
-	transform: translateX(calc(var(--shiki-editing-scroll-left, 0px) * -1));
 }
 
 .cm-content .shiki-editing-line-number {

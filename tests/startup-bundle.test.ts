@@ -33,12 +33,14 @@ describe('startup bundle', () => {
 
 	test('editable code block CSS owns horizontal mobile pan gestures', () => {
 		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
+		const lineRule = styles.match(/\.cm-content \.shiki-editing-codeblock-line\{[^}]+}/)?.[0] ?? '';
+		const nowrapRule = styles.match(/\.cm-content \.shiki-editing-codeblock-nowrap\{[^}]+}/)?.[0] ?? '';
 
-		expect(styles).toContain('touch-action:pan-y');
-		expect(styles).toContain('overscroll-behavior-x:contain');
-		expect(styles).toContain('overflow-x:hidden');
-		expect(styles).toContain('--shiki-editing-scroll-left');
-		expect(styles).toContain('translateX(calc(var(--shiki-editing-scroll-left,0px) * -1))');
+		expect(lineRule).not.toContain('touch-action:pan-y');
+		expect(nowrapRule).toContain('touch-action:pan-x pan-y');
+		expect(nowrapRule).toContain('overscroll-behavior-x:contain');
+		expect(nowrapRule).toContain('overflow-x:auto');
+		expect(styles).not.toContain('translateX(calc(var(--shiki-editing-scroll-left');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {

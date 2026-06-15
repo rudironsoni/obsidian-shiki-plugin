@@ -1316,15 +1316,13 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		result,
 	);
 	assert(
-		result.editableCodeBlockLines.every(line => line.touchAction === 'pan-y'),
-		`${label}: editable fenced code block did not preserve native vertical touch scrolling`,
+		result.editableCodeBlockLines.every(line => line.touchAction.includes('pan-x') && line.touchAction.includes('pan-y')),
+		`${label}: editable fenced code block did not allow native horizontal and vertical touch scrolling`,
 		result,
 	);
 	assert(
-		result.editableCodeBlockLines.every(
-			line => line.className.includes('shiki-editing-codeblock-wrap') || ['auto', 'hidden', 'scroll'].includes(line.overflowX),
-		),
-		`${label}: editable fenced code block lines are not horizontally contained`,
+		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-wrap') || line.overflowX === 'auto'),
+		`${label}: editable fenced code block lines are not native horizontal scroll containers`,
 		result,
 	);
 	assert(result.editableScrollSync !== null, `${label}: editable fenced code block scroll sync was not measured`, result);
