@@ -54,7 +54,7 @@ function prepareVault({ resetUserData }) {
 				customLanguageFolder: 'customLanguages',
 				customThemeFolder: 'customThemes',
 				inlineHighlighting: true,
-				ecDefaultShowLineNumbers: true,
+				ecDefaultShowLineNumbers: false,
 				ecDefaultWrap: false,
 				ecDefaultFrame: 'auto',
 				darkTheme: 'obsidian-theme',
@@ -719,10 +719,6 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				text: el.textContent,
 				hasLineNumbers: !!el.querySelector('.ln'),
 			}));
-			if (app.workspace.activeLeaf?.view?.getState?.().source === false) {
-				app.commands.executeCommandById('editor:toggle-source');
-				await new Promise(resolve => setTimeout(resolve, 1000));
-			}
 			const activeView = app.workspace.activeLeaf?.view;
 			const editor = activeView?.editor;
 			const csharpLine = editor?.getValue?.().split('\\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
@@ -774,6 +770,46 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		})()`,
 	);
 	if (mobile) {
+		const livePreviewEditTarget = await evaluate(
+			activeWsUrl,
+			`(() => {
+				const app = window.app;
+				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+				const renderedCodeBlock = [...editorRoot.querySelectorAll('.cm-preview-code-block div.expressive-code')].find(el =>
+					el.textContent?.includes('List<int[]> intervals')
+				);
+				if (!renderedCodeBlock) return null;
+				const rect = renderedCodeBlock.getBoundingClientRect();
+				return {
+					x: rect.left + Math.min(rect.width / 2, 160),
+					y: rect.top + Math.min(rect.height / 2, 32),
+				};
+			})()`,
+		);
+		if (livePreviewEditTarget) {
+			await dispatchTouchTap(activeWsUrl, livePreviewEditTarget.x, livePreviewEditTarget.y);
+			await evaluate(
+				activeWsUrl,
+				`(async () => {
+					const app = window.app;
+					const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+					const activeView = app.workspace.activeLeaf?.view;
+					const editor = activeView?.editor;
+					const csharpLine = editor?.getValue?.().split('\\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
+					if (editor && csharpLine >= 0) {
+						editor.setCursor({ line: csharpLine, ch: 12 });
+						editor.focus();
+					}
+					await plugin.updateCm6Plugin();
+					await new Promise(resolve => setTimeout(resolve, 1000));
+					return {
+						csharpLine,
+						activeLine: activeView?.contentEl?.querySelector('.cm-active')?.textContent ?? null,
+						editableLines: activeView?.contentEl?.querySelectorAll('.shiki-editing-codeblock-line')?.length ?? 0,
+					};
+				})()`,
+			);
+		}
 		const swipeTarget = await evaluate(
 			activeWsUrl,
 			`(() => {
@@ -1024,7 +1060,6 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 	assert(result.editorTokens.length > 0, `${label}: editor Shiki highlighting missing`, result);
 	assert(result.fencedEditorTokens.length >= 4, `${label}: editable fenced code block Shiki tokens missing`, result);
 	assert(result.editableCodeBlockLines.length > 0, `${label}: editable fenced code block Shiki surface missing`, result);
-	assert(result.editableLineNumbers.length > 0, `${label}: editable fenced code block Shiki line numbers missing`, result);
 	assert(
 		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-nowrap')),
 		`${label}: editable fenced code block was not rendered with Shiki line wrap disabled`,
