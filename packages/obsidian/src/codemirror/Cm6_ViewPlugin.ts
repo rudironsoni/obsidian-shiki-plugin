@@ -101,10 +101,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			}
 
 			private getEditableCodeBlockPointerPan(event: PointerEvent): (EditableCodeBlockTouchPan & { pointerId: number }) | null {
-				if (event.pointerType !== 'mouse') {
-					return null;
-				}
-
 				const target = this.findEditableCodeBlockScrollLine(event, event.clientX, event.clientY);
 				if (!target) {
 					return null;
@@ -182,6 +178,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 
 				this.editableCodeBlockPointerPan = pan;
+				if (event.pointerType !== 'mouse') {
+					event.stopPropagation();
+					event.stopImmediatePropagation();
+				}
 				try {
 					pan.source.setPointerCapture?.(event.pointerId);
 				} catch {
