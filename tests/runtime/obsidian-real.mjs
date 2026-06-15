@@ -572,6 +572,184 @@ async function dispatchHorizontalWheel(wsUrl, x, y, deltaX) {
 	}
 }
 
+async function measureEditableGestureSet(wsUrl, stateName, label) {
+	const target = await evaluate(
+		wsUrl,
+		`(async () => {
+			const app = window.app;
+			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+			const activeView = app.workspace.activeLeaf?.view;
+			const editor = activeView?.editor;
+			const csharpLineIndex = editor?.getValue?.().split('\\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
+			if (editor && csharpLineIndex >= 0) {
+				editor.scrollIntoView?.({ from: { line: csharpLineIndex, ch: 0 }, to: { line: csharpLineIndex, ch: 24 } }, true);
+				editor.setCursor({ line: csharpLineIndex, ch: 12 });
+				editor.focus();
+			}
+			await plugin.updateCm6Plugin();
+			await new Promise(resolve => setTimeout(resolve, 750));
+			const editorRoot = activeView?.contentEl ?? document;
+			const csharpLine = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-codeblock-line')].find(el =>
+				el.textContent?.includes('List<int[]> intervals')
+			);
+			if (!csharpLine) {
+				globalThis[${JSON.stringify(stateName)}] = { label: ${JSON.stringify(label)}, missingEditableLine: true };
+				return null;
+			}
+			const blockId = csharpLine.getAttribute('data-shiki-editing-block-id');
+			const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${blockId}"]\`)];
+			for (const line of blockLines) line.scrollLeft = 0;
+			app.workspace.rightSplit?.collapse?.();
+			const rect = csharpLine.getBoundingClientRect();
+			const y = rect.top + Math.min(rect.height / 2, 24);
+			const fromX = Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75));
+			globalThis[${JSON.stringify(stateName)}] = {
+				label: ${JSON.stringify(label)},
+				blockId,
+				before: blockLines.map(line => line.scrollLeft),
+				after: null,
+				hasOverflowingLine: blockLines.some(line => line.scrollWidth > line.clientWidth),
+				beforeContentLeft: csharpLine.querySelector('.shiki-editing-token')?.getBoundingClientRect().left ?? null,
+				afterContentLeft: null,
+				rightSplitCollapsedBefore: app.workspace.rightSplit?.collapsed ?? null,
+				rightSplitCollapsedAfter: null,
+				vertical: null,
+				wheel: null,
+				drag: null,
+			};
+			return { blockId, fromX, fromY: y, toX: Math.max(rect.left + 24, fromX - 220), toY: y };
+		})()`,
+	);
+	if (!target) return;
+
+	await dispatchTouchDrag(wsUrl, target.fromX, target.fromY, target.toX, target.toY);
+	await new Promise(resolve => setTimeout(resolve, 100));
+	await evaluate(
+		wsUrl,
+		`(() => {
+			const app = window.app;
+			const state = globalThis[${JSON.stringify(stateName)}];
+			if (!state?.blockId) return null;
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
+			state.after = blockLines.map(line => line.scrollLeft);
+			const csharpLine = blockLines.find(el => el.textContent?.includes('List<int[]> intervals'));
+			state.afterContentLeft = csharpLine?.querySelector('.shiki-editing-token')?.getBoundingClientRect().left ?? null;
+			state.rightSplitCollapsedAfter = app.workspace.rightSplit?.collapsed ?? null;
+			return state;
+		})()`,
+	);
+
+	const verticalTarget = await evaluate(
+		wsUrl,
+		`(() => {
+			const app = window.app;
+			const state = globalThis[${JSON.stringify(stateName)}];
+			if (!state?.blockId) return null;
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const scroller = editorRoot.querySelector('.cm-scroller');
+			const csharpLine = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)].find(el =>
+				el.textContent?.includes('List<int[]> intervals')
+			);
+			if (!scroller || !csharpLine) return null;
+			scroller.scrollTop = 0;
+			const rect = csharpLine.getBoundingClientRect();
+			const x = Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75));
+			const y = rect.top + Math.min(rect.height / 2, 24);
+			state.vertical = { before: scroller.scrollTop, after: null, scrollable: scroller.scrollHeight > scroller.clientHeight };
+			return { x, fromY: y, toY: Math.max(12, y - 180) };
+		})()`,
+	);
+	if (verticalTarget) {
+		await dispatchTouchDrag(wsUrl, verticalTarget.x, verticalTarget.fromY, verticalTarget.x, verticalTarget.toY);
+		await new Promise(resolve => setTimeout(resolve, 100));
+		await evaluate(
+			wsUrl,
+			`(() => {
+				const app = window.app;
+				const state = globalThis[${JSON.stringify(stateName)}];
+				if (!state?.vertical) return null;
+				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+				const scroller = editorRoot.querySelector('.cm-scroller');
+				state.vertical.after = scroller?.scrollTop ?? null;
+				return state.vertical;
+			})()`,
+		);
+	}
+
+	const wheelTarget = await evaluate(
+		wsUrl,
+		`(() => {
+			const app = window.app;
+			const state = globalThis[${JSON.stringify(stateName)}];
+			if (!state?.blockId) return null;
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const csharpLine = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)].find(el =>
+				el.textContent?.includes('List<int[]> intervals')
+			);
+			if (!csharpLine) return null;
+			const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
+			for (const line of blockLines) line.scrollLeft = 0;
+			const rect = csharpLine.getBoundingClientRect();
+			state.wheel = { before: blockLines.map(line => line.scrollLeft), after: null, hasOverflowingLine: blockLines.some(line => line.scrollWidth > line.clientWidth) };
+			return { x: Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75)), y: rect.top + Math.min(rect.height / 2, 24) };
+		})()`,
+	);
+	if (wheelTarget) {
+		await dispatchHorizontalWheel(wsUrl, wheelTarget.x, wheelTarget.y, 180);
+		await new Promise(resolve => setTimeout(resolve, 100));
+		await evaluate(
+			wsUrl,
+			`(() => {
+				const app = window.app;
+				const state = globalThis[${JSON.stringify(stateName)}];
+				if (!state?.wheel) return null;
+				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+				const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
+				state.wheel.after = blockLines.map(line => line.scrollLeft);
+				return state.wheel;
+			})()`,
+		);
+	}
+
+	const dragTarget = await evaluate(
+		wsUrl,
+		`(() => {
+			const app = window.app;
+			const state = globalThis[${JSON.stringify(stateName)}];
+			if (!state?.blockId) return null;
+			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+			const csharpLine = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)].find(el =>
+				el.textContent?.includes('List<int[]> intervals')
+			);
+			if (!csharpLine) return null;
+			const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
+			for (const line of blockLines) line.scrollLeft = 0;
+			const rect = csharpLine.getBoundingClientRect();
+			const y = rect.top + Math.min(rect.height / 2, 24);
+			const fromX = Math.min(rect.right - 24, rect.left + Math.max(120, rect.width * 0.75));
+			state.drag = { before: blockLines.map(line => line.scrollLeft), after: null, hasOverflowingLine: blockLines.some(line => line.scrollWidth > line.clientWidth) };
+			return { fromX, fromY: y, toX: Math.max(rect.left + 24, fromX - 220), toY: y };
+		})()`,
+	);
+	if (dragTarget) {
+		await dispatchMouseDrag(wsUrl, dragTarget.fromX, dragTarget.fromY, dragTarget.toX, dragTarget.toY);
+		await new Promise(resolve => setTimeout(resolve, 100));
+		await evaluate(
+			wsUrl,
+			`(() => {
+				const app = window.app;
+				const state = globalThis[${JSON.stringify(stateName)}];
+				if (!state?.drag) return null;
+				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
+				const blockLines = [...editorRoot.querySelectorAll(\`.cm-content .shiki-editing-codeblock-line[data-shiki-editing-block-id="\${state.blockId}"]\`)];
+				state.drag.after = blockLines.map(line => line.scrollLeft);
+				return state.drag;
+			})()`,
+		);
+	}
+}
+
 async function trustVault(wsUrl) {
 	return evaluate(
 		wsUrl,
@@ -988,6 +1166,30 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		}
 	}
 
+	if (mobile) {
+		await evaluate(
+			activeWsUrl,
+			`(async () => {
+				const app = window.app;
+				const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+				const file = app.vault.getAbstractFileByPath('feature-test.md');
+				const leaf = app.workspace.getLeaf(false);
+				await leaf.openFile(file, { state: { mode: 'source', source: true } });
+				const view = leaf.view;
+				if (view?.setState) await view.setState({ file: file.path, mode: 'source', source: true }, { history: false });
+				await new Promise(resolve => setTimeout(resolve, 750));
+				await plugin.updateCm6Plugin();
+				await new Promise(resolve => setTimeout(resolve, 750));
+				return {
+					isSourceMode: view?.getMode?.() === 'source',
+					sourceState: view?.getState?.(),
+					editableLines: view?.contentEl?.querySelectorAll('.shiki-editing-codeblock-line')?.length ?? 0,
+				};
+			})()`,
+		);
+		await measureEditableGestureSet(activeWsUrl, '__shikiVerifyEditableSource', 'source');
+	}
+
 	return evaluate(
 		activeWsUrl,
 		`(async () => {
@@ -999,6 +1201,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const editableVertical = globalThis.__shikiVerifyEditableVertical ?? null;
 			const editableWheel = globalThis.__shikiVerifyEditableWheel ?? null;
 			const editableDrag = globalThis.__shikiVerifyEditableDrag ?? null;
+			const editableSource = globalThis.__shikiVerifyEditableSource ?? null;
 			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			await plugin.updateCm6Plugin();
@@ -1052,6 +1255,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				editableVertical,
 				editableWheel,
 				editableDrag,
+				editableSource,
 				editableLineNumbers,
 			};
 		})()`,
@@ -1117,7 +1321,9 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		result,
 	);
 	assert(
-		result.editableCodeBlockLines.every(line => line.className.includes('shiki-editing-codeblock-wrap') || ['auto', 'scroll'].includes(line.overflowX)),
+		result.editableCodeBlockLines.every(
+			line => line.className.includes('shiki-editing-codeblock-wrap') || ['auto', 'hidden', 'scroll'].includes(line.overflowX),
+		),
 		`${label}: editable fenced code block lines are not horizontally contained`,
 		result,
 	);
@@ -1170,6 +1376,60 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		assert(
 			result.editableDrag.after.some(scrollLeft => scrollLeft > 0),
 			`${label}: editable fenced code block mouse drag did not scroll code content`,
+			result,
+		);
+		assert(result.editableSource !== null, `${label}: Source Mode editable fenced code block gestures were not measured`, result);
+		assert(!result.editableSource.missingEditableLine, `${label}: Source Mode editable fenced code block line was not found`, result);
+		assert(result.editableSource.hasOverflowingLine, `${label}: Source Mode editable fenced code block touch swipe had no overflow target`, result);
+		assert(
+			result.editableSource.after.some(scrollLeft => scrollLeft > 0),
+			`${label}: Source Mode editable fenced code block touch swipe did not scroll code content`,
+			result,
+		);
+		assert(
+			result.editableSource.after.every(scrollLeft => scrollLeft === result.editableSource.after[0]),
+			`${label}: Source Mode editable fenced code block touch swipe did not scroll every line as one block`,
+			result,
+		);
+		assert(
+			result.editableSource.rightSplitCollapsedAfter !== false,
+			`${label}: Source Mode editable fenced code block touch swipe opened the right sidebar`,
+			result,
+		);
+		assert(
+			result.editableSource.beforeContentLeft !== null &&
+				result.editableSource.afterContentLeft !== null &&
+				result.editableSource.afterContentLeft < result.editableSource.beforeContentLeft,
+			`${label}: Source Mode editable fenced code block touch swipe did not move visible code content`,
+			result,
+		);
+		assert(result.editableSource.vertical !== null, `${label}: Source Mode editable fenced code block vertical touch scroll was not measured`, result);
+		assert(
+			result.editableSource.vertical.scrollable,
+			`${label}: Source Mode editable fenced code block vertical touch scroll had no scrollable editor`,
+			result,
+		);
+		assert(
+			result.editableSource.vertical.after > result.editableSource.vertical.before,
+			`${label}: Source Mode editable fenced code block vertical touch drag did not scroll editor content`,
+			result,
+		);
+		assert(result.editableSource.wheel !== null, `${label}: Source Mode editable fenced code block horizontal wheel was not measured`, result);
+		assert(
+			result.editableSource.wheel.hasOverflowingLine,
+			`${label}: Source Mode editable fenced code block horizontal wheel had no overflow target`,
+			result,
+		);
+		assert(
+			result.editableSource.wheel.after.some(scrollLeft => scrollLeft > 0),
+			`${label}: Source Mode editable fenced code block horizontal wheel did not scroll code content`,
+			result,
+		);
+		assert(result.editableSource.drag !== null, `${label}: Source Mode editable fenced code block mouse drag was not measured`, result);
+		assert(result.editableSource.drag.hasOverflowingLine, `${label}: Source Mode editable fenced code block mouse drag had no overflow target`, result);
+		assert(
+			result.editableSource.drag.after.some(scrollLeft => scrollLeft > 0),
+			`${label}: Source Mode editable fenced code block mouse drag did not scroll code content`,
 			result,
 		);
 	}

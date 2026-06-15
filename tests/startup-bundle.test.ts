@@ -36,7 +36,7 @@ describe('startup bundle', () => {
 
 		expect(styles).toContain('touch-action:pan-y');
 		expect(styles).toContain('overscroll-behavior-x:contain');
-		expect(styles).toContain('-webkit-overflow-scrolling:touch');
+		expect(styles).toContain('overflow-x:hidden');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {

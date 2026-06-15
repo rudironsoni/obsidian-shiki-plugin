@@ -66,7 +66,8 @@ export function syncEditableCodeBlockScroll(root: ParentNode, source: HTMLElemen
 		return;
 	}
 
-	for (const line of root.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
+	const scope = source.closest('.cm-content') ?? root;
+	for (const line of scope.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
 		if (line !== source && line.dataset.shikiEditingBlockId === blockId) {
 			line.scrollLeft = source.scrollLeft;
 		}
@@ -87,7 +88,8 @@ export function findEditableCodeBlockScrollSource(root: ParentNode, source: HTML
 	}
 
 	let scrollSource: HTMLElement | null = null;
-	for (const line of root.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
+	const scope = source.closest('.cm-content') ?? root;
+	for (const line of scope.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')) {
 		if (line.dataset.shikiEditingBlockId !== blockId || line.scrollWidth <= line.clientWidth) {
 			continue;
 		}

@@ -62,7 +62,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 
 				const line = element.closest<HTMLElement>('.shiki-editing-codeblock-nowrap');
-				if (!line || !this.view.dom.contains(line)) {
+				if (!line) {
 					return null;
 				}
 
@@ -281,6 +281,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				window.addEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				window.addEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
 				window.addEventListener('wheel', this.handleEditableCodeBlockWheel, { capture: true, passive: false });
+				window.addEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				view.dom.addEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				view.dom.addEventListener('pointerdown', this.handleEditableCodeBlockPointerDown);
 				view.dom.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove, { capture: true, passive: false });
@@ -685,6 +686,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				window.removeEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				window.removeEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
 				window.removeEventListener('wheel', this.handleEditableCodeBlockWheel, true);
+				window.removeEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				this.view.dom.removeEventListener('scroll', this.handleEditableCodeBlockScroll, true);
 				this.view.dom.removeEventListener('pointerdown', this.handleEditableCodeBlockPointerDown);
 				this.view.dom.removeEventListener('pointermove', this.handleEditableCodeBlockPointerMove, true);
