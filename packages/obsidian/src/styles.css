@@ -50,9 +50,14 @@ body {
 div.expressive-code {
 	font-variant-ligatures: no-contextual;
 
-	& > figure > pre {
+	& pre {
 		/* Fix for shimmering focus */
 		margin: 0 !important;
+		max-width: 100%;
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		-webkit-overflow-scrolling: touch;
+		touch-action: pan-x pan-y;
 	}
 
 	& > figure.frame {
@@ -69,6 +74,12 @@ div.expressive-code {
 			inset-block-end: calc(var(--ec-brdWd) + var(--ec-uiPadInl) / 2);
 		}
 	}
+}
+
+.markdown-source-view.mod-cm6 .cm-content div.expressive-code,
+.markdown-source-view.mod-cm6 .cm-content div.expressive-code > figure {
+	max-width: 100%;
+	min-width: 0;
 }
 
 .markdown-preview-view {

@@ -50,6 +50,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
 			decorations: DecorationSet;
+			private renderedCodeBlockTouchPan: {
+				source: HTMLElement;
+				startX: number;
+				startY: number;
+				currentX: number;
+			} | null = null;
 			view: EditorView;
 			private readonly scrollBoundLines = new WeakSet<HTMLElement>();
 			private editableCodeBlockPointerPan: (EditableCodeBlockTouchPan & { pointerId: number }) | null = null;
@@ -250,7 +256,64 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				this.editableCodeBlockMousePan = null;
 			};
 
+			private getRenderedCodeBlockTouchPan(event: TouchEvent): {
+				source: HTMLElement;
+				startX: number;
+				startY: number;
+				currentX: number;
+			} | null {
+				const touch = event.touches[0];
+				if (!touch) {
+					return null;
+				}
+
+				const target = event.target instanceof Element ? event.target : null;
+				const source = target?.closest<HTMLElement>('div.expressive-code pre');
+				if (!source || source.scrollWidth <= source.clientWidth) {
+					return null;
+				}
+
+				return {
+					source,
+					startX: touch.clientX,
+					startY: touch.clientY,
+					currentX: touch.clientX,
+				};
+			}
+
+			private panRenderedCodeBlockTouch(currentX: number, currentY: number): boolean {
+				const pan = this.renderedCodeBlockTouchPan;
+				if (!pan) {
+					return false;
+				}
+
+				const deltaX = pan.currentX - currentX;
+				const totalDeltaX = Math.abs(currentX - pan.startX);
+				const totalDeltaY = Math.abs(currentY - pan.startY);
+				if (totalDeltaX < 4 || totalDeltaX <= totalDeltaY) {
+					return false;
+				}
+
+				const maxScrollLeft = Math.max(0, pan.source.scrollWidth - pan.source.clientWidth);
+				const nextScrollLeft = Math.min(maxScrollLeft, Math.max(0, pan.source.scrollLeft + deltaX));
+				if (nextScrollLeft === pan.source.scrollLeft) {
+					pan.currentX = currentX;
+					return false;
+				}
+
+				pan.source.scrollLeft = nextScrollLeft;
+				pan.currentX = currentX;
+				return true;
+			}
+
 			private readonly handleEditableCodeBlockTouchStart = (event: TouchEvent): void => {
+				this.renderedCodeBlockTouchPan = this.getRenderedCodeBlockTouchPan(event);
+				if (this.renderedCodeBlockTouchPan) {
+					event.stopPropagation();
+					event.stopImmediatePropagation();
+					return;
+				}
+
 				this.editableCodeBlockTouchPan = this.getEditableCodeBlockTouchPan(event);
 				if (!this.editableCodeBlockTouchPan) {
 					return;
@@ -261,6 +324,24 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			};
 
 			private readonly handleEditableCodeBlockTouchMove = (event: TouchEvent): void => {
+				if (this.renderedCodeBlockTouchPan) {
+					const sourceRect = this.renderedCodeBlockTouchPan.source.getBoundingClientRect();
+					const touch = [...event.touches].find(touch => touch.clientX >= sourceRect.left && touch.clientX <= sourceRect.right);
+					if (!touch) {
+						this.renderedCodeBlockTouchPan = null;
+						return;
+					}
+
+					if (!this.panRenderedCodeBlockTouch(touch.clientX, touch.clientY)) {
+						return;
+					}
+
+					event.preventDefault();
+					event.stopPropagation();
+					event.stopImmediatePropagation();
+					return;
+				}
+
 				const pan = this.editableCodeBlockTouchPan;
 				if (!pan) {
 					return;
@@ -269,6 +350,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				const touch = [...event.touches].find(touch => touch.identifier === pan.identifier);
 				if (!touch) {
 					this.editableCodeBlockTouchPan = null;
+					this.renderedCodeBlockTouchPan = null;
 					return;
 				}
 
@@ -290,6 +372,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 				syncEditableCodeBlockScroll(this.view.dom, pan.source);
 				this.editableCodeBlockTouchPan = null;
+				this.renderedCodeBlockTouchPan = null;
 			};
 
 			private readonly handleEditableCodeBlockWheel = (event: WheelEvent): void => {

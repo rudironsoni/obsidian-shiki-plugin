@@ -41,6 +41,9 @@ describe('startup bundle', () => {
 		expect(nowrapRule).toContain('overscroll-behavior-x:contain');
 		expect(nowrapRule).toContain('overflow-x:auto');
 		expect(styles).not.toContain('translateX(calc(var(--shiki-editing-scroll-left,0px) * -1))');
+		expect(styles).toContain('div.expressive-code pre');
+		expect(styles).toContain('overflow-x:auto');
+		expect(styles).toContain('overscroll-behavior-x:contain');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {
