@@ -100,6 +100,48 @@ div.expressive-code {
 	}
 }
 
+body.is-phone .markdown-rendered :not(.print) div.expressive-code code,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content :not(.print) div.expressive-code code,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content .shiki-editing-codeblock-line,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content .shiki-editing-codeblock-token {
+	word-break: normal;
+	overflow-wrap: normal;
+	white-space: pre;
+}
+
+body.is-phone .markdown-rendered .el-pre,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content .el-pre {
+	position: relative;
+}
+
+body.is-phone .markdown-rendered .el-pre pre,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content .el-pre pre,
+body.is-phone .markdown-rendered div.expressive-code pre,
+body.is-phone .markdown-source-view.mod-cm6 .cm-content div.expressive-code pre {
+	overflow-x: auto;
+	position: static;
+}
+
+.markdown-rendered button.copy-code-button {
+	background-color: var(--code-background);
+	border: 1px solid var(--code-border-color);
+	cursor: pointer;
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease;
+}
+
+.theme-light .markdown-rendered button.copy-code-button:hover {
+	background-color: rgba(0, 0, 0, 0.03);
+	border-color: rgba(0, 0, 0, 0.12);
+}
+
+.theme-dark .markdown-rendered button.copy-code-button:hover {
+	background-color: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.15);
+}
+
 /* Hide the frontmatter code block in reading view again */
 div.markdown-preview-view > div > div.mod-header + div > div.block-language-yaml.shiki-hide-in-reading-mode {
 	display: none;
