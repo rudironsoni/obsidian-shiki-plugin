@@ -272,8 +272,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					return;
 				}
 
-				const scrolled =
-					getComputedStyle(pan.source).overflowX !== 'auto' && panEditableCodeBlockScroll(this.view.dom, pan, touch.clientX, touch.clientY);
+				const scrolled = panEditableCodeBlockScroll(this.view.dom, pan, touch.clientX, touch.clientY);
 				if (!scrolled) {
 					return;
 				}
