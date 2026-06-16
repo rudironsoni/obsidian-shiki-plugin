@@ -1,6 +1,6 @@
 {
 	"name": "shiki-highlighter",
-	"version": "0.8.0-beta.44",
+	"version": "0.8.0-beta.45",
 	"description": "Highlight code blocks with Shiki.",
 	"main": "main.js",
 	"scripts": {
