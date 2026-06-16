@@ -156,6 +156,10 @@ class MonacoCodeBlockWidget extends WidgetType {
 		const container = document.createElement('div');
 		container.className = 'shiki-monaco-codeblock shiki-monaco-codeblock-loading';
 		container.dataset.language = this.block.language;
+		const fallback = document.createElement('pre');
+		fallback.className = 'shiki-monaco-codeblock-fallback';
+		fallback.textContent = this.block.content;
+		container.appendChild(fallback);
 
 		const controller: MonacoCodeBlockController = {
 			widget: this,

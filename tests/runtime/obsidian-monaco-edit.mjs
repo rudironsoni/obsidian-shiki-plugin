@@ -10,6 +10,8 @@ const USER_DATA = process.env.OBSIDIAN_MONACO_EDIT_USER_DATA ?? '/private/tmp/ob
 const PLUGIN_ID = 'shiki-highlighter';
 const NOTE_PATH = 'monaco-edit.md';
 const MARKER = '/* monaco edit ok */';
+const SOURCE_MODE = process.env.OBSIDIAN_MONACO_EDIT_SOURCE === 'true';
+const MOBILE_MODE = process.env.OBSIDIAN_MONACO_EDIT_MOBILE === 'true';
 
 function assert(condition, message, detail) {
 	if (!condition) {
@@ -193,6 +195,7 @@ async function main() {
 			`(async () => {
 				try {
 					await new Promise(resolve => window.app.workspace.onLayoutReady(resolve));
+					if (${MOBILE_MODE ? 'true' : 'false'}) window.app.emulateMobile?.(true);
 					let file = window.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
 					if (!file) {
 						file = await window.app.vault.create(
@@ -204,7 +207,7 @@ async function main() {
 					await window.app.plugins.enablePlugin(${JSON.stringify(PLUGIN_ID)});
 					const leaf = window.app.workspace.getLeaf(false);
 					await leaf.openFile(file);
-					await leaf.view?.setState?.({ file: file.path, mode: 'source', source: false }, { history: false });
+					await leaf.view?.setState?.({ file: file.path, mode: 'source', source: ${SOURCE_MODE ? 'true' : 'false'} }, { history: false });
 					leaf.view?.editor?.scrollIntoView?.({ from: { line: 3, ch: 0 }, to: { line: 4, ch: 20 } }, true);
 					leaf.view?.editor?.setCursor?.({ line: 3, ch: 12 });
 					await new Promise(resolve => setTimeout(resolve, 1500));
