@@ -258,6 +258,30 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	touch-action: pan-y;
 }
 
+.cm-content .shiki-code-editor-island {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+	overflow: hidden;
+	background-color: var(--shiki-code-background);
+	border: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
+	border-radius: var(--shiki-code-block-border-radius);
+}
+
+.cm-content .shiki-code-editor-island:focus-within {
+	outline: 1px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
+.cm-content .shiki-code-editor-island .cm-editor {
+	background-color: transparent;
+}
+
+.cm-content .shiki-code-editor-island .cm-scroller {
+	font-family: var(--font-monospace);
+	line-height: var(--line-height-code);
+}
+
 .cm-content .shiki-editing-token {
 	display: inline-block;
 	font-variant-ligatures: no-contextual;

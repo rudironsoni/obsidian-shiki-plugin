@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { EditorState } from '@codemirror/state';
+import { selectionIsInsideCodeBlockBody } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 import {
 	buildEditableCodeBlockDecorations,
 	createEditableCodeBlockTouchPan,
@@ -23,6 +25,34 @@ function tokenResult(tokens: TokensResult['tokens']): TokensResult {
 		themeName: 'test-theme',
 	} as TokensResult;
 }
+
+describe('code block editor island selection', () => {
+	const block: EditableCodeBlock = {
+		from: 10,
+		to: 30,
+		language: 'ts',
+		content: 'const value = 1;',
+		showLineNumbers: true,
+		wrap: false,
+		lineStarts: [10],
+	};
+
+	function stateWithSelection(anchor: number, head = anchor): EditorState {
+		return EditorState.create({
+			doc: 'x'.repeat(40),
+			selection: { anchor, head },
+		});
+	}
+
+	test('activates only when the selection stays inside the code body', () => {
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(10), block)).toBe(true);
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(30), block)).toBe(true);
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(9), block)).toBe(false);
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(31), block)).toBe(false);
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(12, 28), block)).toBe(true);
+		expect(selectionIsInsideCodeBlockBody(stateWithSelection(8, 28), block)).toBe(false);
+	});
+});
 
 describe('editable CodeMirror code block decorations', () => {
 	test('rebuilds fenced code block decorations when selection or viewport changes', () => {

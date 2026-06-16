@@ -19,6 +19,7 @@ import {
 	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
+import { buildCodeBlockEditorDecoration, selectionIsInsideCodeBlockBody } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 
 enum DecorationUpdateType {
 	Insert,
@@ -594,7 +595,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 							this.removeDecoration(node.from, node.to);
 						} else if (node.type === DecorationUpdateType.Insert) {
 							const decorations = node.editableCodeBlock
-								? await this.buildEditableCodeBlockDecorations(node.from, node.to, node.lang, node.content, node.editableCodeBlock)
+								? await this.buildEditableCodeBlockDecorations(view, node.from, node.to, node.lang, node.content, node.editableCodeBlock)
 								: await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
 							// If the document changed while we were awaiting, the positions we captured
 							// are stale. Selection and viewport changes are safe; they are common while
@@ -702,6 +703,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			}
 
 			async buildEditableCodeBlockDecorations(
+				view: EditorView,
 				from: number,
 				to: number,
 				language: string,
@@ -712,24 +714,27 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					return [];
 				}
 
+				const editableCodeBlock: EditableCodeBlock = {
+					from,
+					to,
+					language,
+					content,
+					showLineNumbers: block.showLineNumbers,
+					wrap: block.wrap,
+					lineStarts: block.lineStarts,
+				};
+
+				if (selectionIsInsideCodeBlockBody(view.state, editableCodeBlock)) {
+					return [buildCodeBlockEditorDecoration(view, editableCodeBlock)];
+				}
+
 				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());
 
 				if (!highlight) {
 					return [];
 				}
 
-				return buildEditableCodeBlockDecorations(
-					{
-						from,
-						to,
-						language,
-						content,
-						showLineNumbers: block.showLineNumbers,
-						wrap: block.wrap,
-						lineStarts: block.lineStarts,
-					},
-					highlight,
-				);
+				return buildEditableCodeBlockDecorations(editableCodeBlock, highlight);
 			}
 
 			/**
