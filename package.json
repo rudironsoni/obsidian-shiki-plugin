@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite build --mode=development --watch",
 		"clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-		"build": "bun run typecheck && bun run clean:dist && SHIKI_BUILD_ENTRY=highlighter vite build --mode=production && SHIKI_EMBED_HIGHLIGHTER=true vite build --mode=production",
+		"build": "bun run typecheck && bun run clean:dist && SHIKI_BUILD_ENTRY=highlighter vite build --mode=production && SHIKI_BUILD_ENTRY=monaco-editor vite build --mode=production && SHIKI_EMBED_HIGHLIGHTER=true vite build --mode=production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "bun test",
 		"test:log": "LOG_TESTS=true bun test",
@@ -56,5 +56,9 @@
 		"vite-plugin-banner": "^0.8.1",
 		"vite-plugin-node-polyfills": "^0.26.0",
 		"vite-plugin-static-copy": "^4.1.0"
+	},
+	"dependencies": {
+		"@shikijs/monaco": "3.23.0",
+		"monaco-editor-core": "0.55.1"
 	}
 }

@@ -17,11 +17,18 @@ const externalNodeBuiltins = builtinModules.filter(moduleName => !polyfilledNode
 
 const entryFile = 'packages/obsidian/src/main.ts';
 const highlighterEntryFile = 'packages/obsidian/src/highlighter-entry.ts';
+const monacoEntryFile = 'packages/obsidian/src/monaco-entry.ts';
 const highlighterBundleFile = 'dist/highlighter.js';
 const EC_RUNTIME_MODULE_ID = 'virtual:ec-runtime';
 const EC_STYLES_MODULE_ID = 'virtual:ec-styles.css';
 const EC_RUNTIME_RESOLVED_ID = `\0${EC_RUNTIME_MODULE_ID}`;
 const EC_STYLES_RESOLVED_ID = `\0${EC_STYLES_MODULE_ID}`;
+
+function getBuildEntryFile(buildEntry: string): string {
+	if (buildEntry === 'highlighter') return highlighterEntryFile;
+	if (buildEntry === 'monaco-editor') return monacoEntryFile;
+	return entryFile;
+}
 
 function expressiveCodeBundlePlugin() {
 	let bundlePromise: Promise<{ runtimeModule: string; styles: string }> | undefined;
@@ -95,7 +102,8 @@ function embeddedHighlighterCssFallbackPlugin(source: string, outDir: string) {
 export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
-	const buildEntry = process.env.SHIKI_BUILD_ENTRY === 'highlighter' ? 'highlighter' : 'main';
+	const buildEntry =
+		process.env.SHIKI_BUILD_ENTRY === 'highlighter' ? 'highlighter' : process.env.SHIKI_BUILD_ENTRY === 'monaco-editor' ? 'monaco-editor' : 'main';
 	const embeddedHighlighterSource =
 		buildEntry === 'main' && process.env.SHIKI_EMBED_HIGHLIGHTER === 'true' && existsSync(highlighterBundleFile)
 			? gzipSync(readFileSync(highlighterBundleFile)).toString('base64')
@@ -147,7 +155,7 @@ export default defineConfig(({ mode }) => {
 		},
 		build: {
 			lib: {
-				entry: path.resolve(__dirname, buildEntry === 'main' ? entryFile : highlighterEntryFile),
+				entry: path.resolve(__dirname, getBuildEntryFile(buildEntry)),
 				name: buildEntry,
 				fileName: () => `${buildEntry}.js`,
 				formats: ['cjs'],
@@ -162,7 +170,7 @@ export default defineConfig(({ mode }) => {
 				output: {
 					dir: outDir,
 					entryFileNames: `${buildEntry}.js`,
-					assetFileNames: buildEntry === 'main' ? 'styles.css' : 'highlighter.css',
+					assetFileNames: buildEntry === 'highlighter' ? 'highlighter.css' : buildEntry === 'monaco-editor' ? 'monaco-editor.css' : 'styles.css',
 					codeSplitting: false,
 				},
 				external,

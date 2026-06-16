@@ -1,39 +1,118 @@
-import { EditorState, Transaction, type Extension, type Range } from '@codemirror/state';
-import { Decoration, EditorView, WidgetType, keymap, lineNumbers } from '@codemirror/view';
+import { type Range } from '@codemirror/state';
+import { Decoration, type EditorView, WidgetType } from '@codemirror/view';
+import type { shikiToMonaco } from '@shikijs/monaco';
+import type * as Monaco from 'monaco-editor-core';
+import type ShikiPlugin from 'packages/obsidian/src/main';
 import type { EditableCodeBlock } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 
-interface CodeBlockEditorWidgetController {
-	widget: CodeBlockEditorWidget;
-	editor: EditorView;
-	updatingFromParent: boolean;
+type MonacoModule = typeof Monaco;
+type MonacoCodeEditor = Monaco.editor.IStandaloneCodeEditor;
+type MonacoTextModel = Monaco.editor.ITextModel;
+type ShikiToMonaco = typeof shikiToMonaco;
+interface MonacoEntry {
+	monaco: MonacoModule;
+	shikiToMonaco: ShikiToMonaco;
 }
 
-const controllers = new WeakMap<HTMLElement, CodeBlockEditorWidgetController>();
+interface MonacoRuntime {
+	monaco: MonacoModule;
+	shikiToMonaco: ShikiToMonaco;
+}
 
-export function selectionIsInsideCodeBlockBody(state: EditorState, block: EditableCodeBlock): boolean {
+interface MonacoCodeBlockController {
+	widget: MonacoCodeBlockWidget;
+	editor: MonacoCodeEditor | undefined;
+	model: MonacoTextModel | undefined;
+	updatingFromParent: boolean;
+	disposed: boolean;
+}
+
+const controllers = new WeakMap<HTMLElement, MonacoCodeBlockController>();
+let monacoRuntime: Promise<MonacoRuntime> | undefined;
+let shikiMonacoConfigured: Promise<string> | undefined;
+let monacoCssLoaded = false;
+
+export function selectionIsInsideCodeBlockBody(state: EditorView['state'], block: EditableCodeBlock): boolean {
 	const selection = state.selection.main;
 	return selection.from >= block.from && selection.to <= block.to;
 }
 
-export function buildCodeBlockEditorDecoration(parentView: EditorView, block: EditableCodeBlock): Range<Decoration> {
+export function buildCodeBlockEditorDecoration(plugin: ShikiPlugin, parentView: EditorView, block: EditableCodeBlock): Range<Decoration> {
 	return Decoration.replace({
 		block: true,
-		widget: new CodeBlockEditorWidget(parentView, block),
+		widget: new MonacoCodeBlockWidget(plugin, parentView, block),
 	}).range(block.from, block.to);
 }
 
-class CodeBlockEditorWidget extends WidgetType {
+async function loadMonacoRuntime(plugin: ShikiPlugin): Promise<MonacoRuntime> {
+	monacoRuntime ??= loadMonacoEntry(plugin).then(({ monaco, shikiToMonaco }) => ({ monaco, shikiToMonaco }));
+
+	return monacoRuntime;
+}
+
+async function loadMonacoEntry(plugin: ShikiPlugin): Promise<MonacoEntry> {
+	const pluginDir = `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
+	const source = await plugin.app.vault.adapter.read(`${pluginDir}/monaco-editor.js`);
+	const module = { exports: {} as MonacoEntry };
+	// Obsidian does not resolve sibling plugin files through require() or import().
+	// eslint-disable-next-line @typescript-eslint/no-implied-eval
+	const loadModule = new Function('module', 'exports', source) as (module: { exports: MonacoEntry }, exports: MonacoEntry) => void;
+	loadModule(module, module.exports);
+	return module.exports;
+}
+
+async function loadMonacoCss(plugin: ShikiPlugin): Promise<void> {
+	if (monacoCssLoaded) return;
+
+	const pluginDir = `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
+	if (!(await plugin.app.vault.adapter.exists(`${pluginDir}/monaco-editor.css`))) {
+		monacoCssLoaded = true;
+		return;
+	}
+
+	const style = document.createElement('style');
+	style.textContent = await plugin.app.vault.adapter.read(`${pluginDir}/monaco-editor.css`);
+	style.dataset.shikiMonacoEditor = 'true';
+	document.head.appendChild(style);
+	monacoCssLoaded = true;
+}
+
+async function configureShikiMonaco(plugin: ShikiPlugin, runtime: MonacoRuntime): Promise<string> {
+	shikiMonacoConfigured ??= plugin.highlighter.load().then(highlighter => {
+		runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
+		const theme = highlighter.themeMapper.getThemeIdentifier() ?? plugin.loadedSettings.darkTheme;
+		runtime.monaco.editor.setTheme(theme);
+		return theme;
+	});
+
+	return shikiMonacoConfigured;
+}
+
+function normalizeMonacoLanguage(language: string): string {
+	return language.trim().toLowerCase() || 'plaintext';
+}
+
+function ensureMonacoLanguage(monaco: MonacoModule, language: string): void {
+	const id = normalizeMonacoLanguage(language);
+	if (monaco.languages.getLanguages().some(knownLanguage => knownLanguage.id === id)) {
+		return;
+	}
+
+	monaco.languages.register({ id });
+}
+
+class MonacoCodeBlockWidget extends WidgetType {
 	constructor(
+		private readonly plugin: ShikiPlugin,
 		private readonly parentView: EditorView,
 		readonly block: EditableCodeBlock,
 	) {
 		super();
 	}
 
-	eq(other: CodeBlockEditorWidget): boolean {
+	eq(other: MonacoCodeBlockWidget): boolean {
 		return (
 			this.block.from === other.block.from &&
-			this.block.to === other.block.to &&
 			this.block.language === other.block.language &&
 			this.block.showLineNumbers === other.block.showLineNumbers &&
 			this.block.wrap === other.block.wrap
@@ -42,91 +121,19 @@ class CodeBlockEditorWidget extends WidgetType {
 
 	toDOM(): HTMLElement {
 		const container = document.createElement('div');
-		container.className = 'shiki-code-editor-island';
+		container.className = 'shiki-monaco-codeblock shiki-monaco-codeblock-loading';
 		container.dataset.language = this.block.language;
 
-		const extensions: Extension[] = [
-			EditorView.domEventHandlers({
-				keydown: (event, childView) => this.handleBoundaryKeydown(event, childView),
-			}),
-			EditorView.updateListener.of(update => {
-				if (!update.docChanged) return;
-
-				const controller = controllers.get(container);
-				if (!controller || controller.updatingFromParent) return;
-
-				const widget = controller.widget;
-				widget.parentView.dispatch({
-					changes: {
-						from: widget.block.from,
-						to: widget.block.to,
-						insert: update.state.doc.toString(),
-					},
-					annotations: Transaction.userEvent.of('input'),
-				});
-			}),
-			keymap.of([
-				{
-					key: 'Escape',
-					run: (): boolean => {
-						this.parentView.focus();
-						this.parentView.dispatch({
-							selection: { anchor: this.block.to },
-							scrollIntoView: true,
-						});
-						return true;
-					},
-				},
-			]),
-			EditorView.theme({
-				'&': {
-					backgroundColor: 'var(--shiki-code-background)',
-					color: 'var(--shiki-code-normal)',
-					fontFamily: 'var(--font-monospace)',
-					fontSize: 'var(--code-size)',
-				},
-				'.cm-scroller': {
-					overflow: 'auto',
-				},
-				'.cm-content': {
-					padding: '0.65em 0.85em',
-				},
-				'.cm-line': {
-					padding: '0',
-				},
-			}),
-		];
-
-		if (this.block.wrap) {
-			extensions.push(EditorView.lineWrapping);
-		}
-
-		if (this.block.showLineNumbers) {
-			extensions.push(lineNumbers());
-		}
-
-		const editor = new EditorView({
-			state: EditorState.create({
-				doc: this.block.content,
-				extensions,
-			}),
-			parent: container,
-		});
-
-		controllers.set(container, {
+		const controller: MonacoCodeBlockController = {
 			widget: this,
-			editor,
+			editor: undefined,
+			model: undefined,
 			updatingFromParent: false,
-		});
+			disposed: false,
+		};
+		controllers.set(container, controller);
 
-		if (this.parentView.hasFocus && selectionIsInsideCodeBlockBody(this.parentView.state, this.block)) {
-			window.requestAnimationFrame(() => {
-				const controller = controllers.get(container);
-				if (!controller) return;
-
-				controller.widget.focusChildFromParentSelection(controller.editor);
-			});
-		}
+		void this.mountMonaco(container, controller);
 
 		return container;
 	}
@@ -136,19 +143,13 @@ class CodeBlockEditorWidget extends WidgetType {
 		if (!controller) return false;
 
 		controller.widget = this;
-		const currentContent = controller.editor.state.doc.toString();
-		if (currentContent !== this.block.content) {
-			controller.updatingFromParent = true;
-			controller.editor.dispatch({
-				changes: {
-					from: 0,
-					to: controller.editor.state.doc.length,
-					insert: this.block.content,
-				},
-			});
-			controller.updatingFromParent = false;
+		dom.dataset.language = this.block.language;
+
+		if (!controller.editor || !controller.model) {
+			return true;
 		}
 
+		this.updateMountedEditor(dom, controller);
 		return true;
 	}
 
@@ -157,49 +158,122 @@ class CodeBlockEditorWidget extends WidgetType {
 	}
 
 	destroy(dom: HTMLElement): void {
-		controllers.get(dom)?.editor.destroy();
+		const controller = controllers.get(dom);
+		if (!controller) return;
+
+		controller.disposed = true;
+		controller.editor?.dispose();
+		controller.model?.dispose();
 		controllers.delete(dom);
 	}
 
-	private handleBoundaryKeydown(event: KeyboardEvent, childView: EditorView): boolean {
-		if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') {
-			return false;
-		}
+	private async mountMonaco(container: HTMLElement, controller: MonacoCodeBlockController): Promise<void> {
+		await loadMonacoCss(this.plugin);
+		const runtime = await loadMonacoRuntime(this.plugin);
+		if (controller.disposed || controllers.get(container) !== controller) return;
 
-		const selection = childView.state.selection.main;
-		if (!selection.empty) {
-			return false;
-		}
+		const widget = controller.widget;
+		ensureMonacoLanguage(runtime.monaco, widget.block.language);
 
-		const line = childView.state.doc.lineAt(selection.head);
-		if (event.key === 'ArrowUp' && line.number === 1) {
-			this.parentView.focus();
-			this.parentView.dispatch({
-				selection: { anchor: this.block.from },
-				scrollIntoView: true,
-			});
-			return true;
-		}
-
-		if (event.key === 'ArrowDown' && line.number === childView.state.doc.lines) {
-			this.parentView.focus();
-			this.parentView.dispatch({
-				selection: { anchor: this.block.to },
-				scrollIntoView: true,
-			});
-			return true;
-		}
-
-		return false;
-	}
-
-	private focusChildFromParentSelection(childView: EditorView): void {
-		const parentSelection = this.parentView.state.selection.main;
-		const offset = Math.max(0, Math.min(childView.state.doc.length, parentSelection.head - this.block.from));
-		childView.dispatch({
-			selection: { anchor: offset },
-			scrollIntoView: true,
+		const model = runtime.monaco.editor.createModel(widget.block.content, normalizeMonacoLanguage(widget.block.language));
+		const editor = runtime.monaco.editor.create(container, {
+			model,
+			automaticLayout: true,
+			contextmenu: false,
+			fontFamily: 'var(--font-monospace)',
+			fontLigatures: false,
+			fontSize: Number.parseFloat(getComputedStyle(document.body).getPropertyValue('--code-size')) || 13,
+			glyphMargin: false,
+			lineDecorationsWidth: 8,
+			lineNumbers: widget.block.showLineNumbers ? 'on' : 'off',
+			lineNumbersMinChars: widget.block.showLineNumbers ? 3 : 0,
+			minimap: { enabled: false },
+			overviewRulerLanes: 0,
+			renderLineHighlight: 'none',
+			scrollBeyondLastLine: false,
+			scrollbar: {
+				alwaysConsumeMouseWheel: false,
+				horizontal: 'auto',
+				vertical: 'auto',
+			},
+			wordWrap: widget.block.wrap ? 'on' : 'off',
 		});
-		childView.focus();
+
+		controller.editor = editor;
+		controller.model = model;
+		container.classList.remove('shiki-monaco-codeblock-loading');
+		updateMonacoEditorHeight(runtime.monaco, container, editor, model);
+
+		model.onDidChangeContent(() => {
+			if (controller.updatingFromParent) return;
+
+			const currentWidget = controller.widget;
+			currentWidget.parentView.dispatch({
+				changes: {
+					from: currentWidget.block.from,
+					to: currentWidget.block.to,
+					insert: model.getValue(),
+				},
+			});
+			updateMonacoEditorHeight(runtime.monaco, container, editor, model);
+		});
+
+		void configureShikiMonaco(this.plugin, runtime).then(theme => {
+			if (controllers.get(container) !== controller) return;
+
+			editor.updateOptions({ theme });
+		});
+
+		this.focusFromParentSelection(runtime.monaco, editor, model);
 	}
+
+	private updateMountedEditor(dom: HTMLElement, controller: MonacoCodeBlockController): void {
+		const editor = controller.editor;
+		const model = controller.model;
+		if (!editor || !model) return;
+
+		void loadMonacoRuntime(this.plugin).then(({ monaco }) => {
+			const language = normalizeMonacoLanguage(this.block.language);
+			ensureMonacoLanguage(monaco, language);
+			monaco.editor.setModelLanguage(model, language);
+
+			editor.updateOptions({
+				lineNumbers: this.block.showLineNumbers ? 'on' : 'off',
+				lineNumbersMinChars: this.block.showLineNumbers ? 3 : 0,
+				wordWrap: this.block.wrap ? 'on' : 'off',
+			});
+
+			if (model.getValue() !== this.block.content) {
+				const position = editor.getPosition();
+				controller.updatingFromParent = true;
+				model.setValue(this.block.content);
+				controller.updatingFromParent = false;
+				updateMonacoEditorHeight(monaco, dom, editor, model);
+				if (position) {
+					editor.setPosition(position);
+				}
+			}
+		});
+	}
+
+	private focusFromParentSelection(monaco: MonacoModule, editor: MonacoCodeEditor, model: MonacoTextModel): void {
+		if (!this.parentView.hasFocus || !selectionIsInsideCodeBlockBody(this.parentView.state, this.block)) {
+			return;
+		}
+
+		window.requestAnimationFrame(() => {
+			const offset = Math.max(0, Math.min(model.getValueLength(), this.parentView.state.selection.main.head - this.block.from));
+			editor.setPosition(model.getPositionAt(offset));
+			editor.revealPositionInCenterIfOutsideViewport(editor.getPosition() ?? new monaco.Position(1, 1));
+			editor.focus();
+		});
+	}
+}
+
+function updateMonacoEditorHeight(monaco: MonacoModule, container: HTMLElement, editor: MonacoCodeEditor, model: MonacoTextModel): void {
+	const lineHeight = editor.getOption(monaco.editor.EditorOption.lineHeight);
+	const verticalPadding = 20;
+	const height = Math.max(72, model.getLineCount() * lineHeight + verticalPadding);
+	container.style.height = `${height}px`;
+	editor.layout();
 }

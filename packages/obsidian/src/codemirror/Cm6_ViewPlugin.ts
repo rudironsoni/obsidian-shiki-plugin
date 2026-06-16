@@ -725,7 +725,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				};
 
 				if (selectionIsInsideCodeBlockBody(view.state, editableCodeBlock)) {
-					return [buildCodeBlockEditorDecoration(view, editableCodeBlock)];
+					return [buildCodeBlockEditorDecoration(plugin, view, editableCodeBlock)];
 				}
 
 				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());

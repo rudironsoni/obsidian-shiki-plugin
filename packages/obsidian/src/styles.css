@@ -258,7 +258,7 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	touch-action: pan-y;
 }
 
-.cm-content .shiki-code-editor-island {
+.cm-content .shiki-monaco-codeblock {
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 100%;
@@ -268,16 +268,18 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	border-radius: var(--shiki-code-block-border-radius);
 }
 
-.cm-content .shiki-code-editor-island:focus-within {
+.cm-content .shiki-monaco-codeblock:focus-within {
 	outline: 1px solid var(--interactive-accent);
 	outline-offset: 1px;
 }
 
-.cm-content .shiki-code-editor-island .cm-editor {
+.cm-content .shiki-monaco-codeblock .monaco-editor,
+.cm-content .shiki-monaco-codeblock .monaco-editor-background,
+.cm-content .shiki-monaco-codeblock .monaco-editor .margin {
 	background-color: transparent;
 }
 
-.cm-content .shiki-code-editor-island .cm-scroller {
+.cm-content .shiki-monaco-codeblock .monaco-editor {
 	font-family: var(--font-monospace);
 	line-height: var(--line-height-code);
 }
