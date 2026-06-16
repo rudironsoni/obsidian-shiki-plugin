@@ -8,7 +8,6 @@ import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
 import { type ThemedToken } from 'shiki';
 import { editorLivePreviewField } from 'obsidian';
 import {
-	buildEditableCodeBlockDecorations,
 	createEditableCodeBlockTouchPan,
 	type EditableCodeBlockTouchPan,
 	normalizeEditableCodeBlockScrollWidths,
@@ -19,7 +18,7 @@ import {
 	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
-import { buildCodeBlockEditorDecoration, selectionIsInsideCodeBlockBody } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
+import { buildCodeBlockEditorDecoration } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 
 enum DecorationUpdateType {
 	Insert,
@@ -710,10 +709,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				content: string,
 				block: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>,
 			): Promise<Range<Decoration>[]> {
-				if (language === '') {
-					return [];
-				}
-
 				const editableCodeBlock: EditableCodeBlock = {
 					from,
 					to,
@@ -724,17 +719,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					lineStarts: block.lineStarts,
 				};
 
-				if (selectionIsInsideCodeBlockBody(view.state, editableCodeBlock)) {
-					return [buildCodeBlockEditorDecoration(plugin, view, editableCodeBlock)];
-				}
-
-				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());
-
-				if (!highlight) {
-					return [];
-				}
-
-				return buildEditableCodeBlockDecorations(editableCodeBlock, highlight);
+				return [buildCodeBlockEditorDecoration(plugin, view, editableCodeBlock)];
 			}
 
 			/**
