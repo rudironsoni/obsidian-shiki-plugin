@@ -325,6 +325,6 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	-webkit-overflow-scrolling: touch;
 }
 
-.cm-content .shiki-monaco-codeblock:not(.shiki-monaco-codeblock-loading) > .shiki-monaco-codeblock-fallback {
+.cm-content .shiki-monaco-codeblock.shiki-monaco-codeblock-ready > .shiki-monaco-codeblock-fallback {
 	display: none;
 }
