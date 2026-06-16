@@ -27,6 +27,28 @@ interface MonacoCodeBlockController {
 	disposed: boolean;
 }
 
+export interface CodeBlockBodyRange {
+	from: number;
+	to: number;
+}
+
+export function resolveEditableCodeBlockBodyRange(
+	block: Pick<EditableCodeBlock, 'from' | 'to'>,
+	docLength: number,
+	bodyRanges: CodeBlockBodyRange[],
+): CodeBlockBodyRange {
+	const fallbackFrom = Math.min(block.from, docLength);
+	const fallbackTo = Math.min(Math.max(block.to, fallbackFrom), docLength);
+
+	return (
+		bodyRanges.find(range => {
+			const overlapsOriginalBlock = range.from <= fallbackTo && range.to >= fallbackFrom;
+			const containsOriginalStart = range.from <= fallbackFrom && fallbackFrom <= range.to;
+			return overlapsOriginalBlock || containsOriginalStart;
+		}) ?? { from: fallbackFrom, to: fallbackTo }
+	);
+}
+
 const controllers = new WeakMap<HTMLElement, MonacoCodeBlockController>();
 let monacoRuntime: Promise<MonacoRuntime> | undefined;
 let shikiMonacoConfigured: Promise<string> | undefined;
@@ -37,11 +59,20 @@ export function selectionIsInsideCodeBlockBody(state: EditorView['state'], block
 	return selection.from >= block.from && selection.to <= block.to;
 }
 
-export function buildCodeBlockEditorDecoration(plugin: ShikiPlugin, parentView: EditorView, block: EditableCodeBlock): Range<Decoration> {
+export function buildCodeBlockEditorDecoration(
+	plugin: ShikiPlugin,
+	parentView: EditorView,
+	block: EditableCodeBlock,
+	replaceRange: CodeBlockBodyRange = block,
+): Range<Decoration> {
 	return Decoration.replace({
 		block: true,
 		widget: new MonacoCodeBlockWidget(plugin, parentView, block),
-	}).range(block.from, block.to);
+	}).range(replaceRange.from, replaceRange.to);
+}
+
+export function createCodeBlockEditorElement(plugin: ShikiPlugin, parentView: EditorView, block: EditableCodeBlock): HTMLElement {
+	return new MonacoCodeBlockWidget(plugin, parentView, block, true).toDOM();
 }
 
 async function loadMonacoRuntime(plugin: ShikiPlugin): Promise<MonacoRuntime> {
@@ -106,6 +137,7 @@ class MonacoCodeBlockWidget extends WidgetType {
 		private readonly plugin: ShikiPlugin,
 		private readonly parentView: EditorView,
 		readonly block: EditableCodeBlock,
+		private readonly autofocus = false,
 	) {
 		super();
 	}
@@ -120,6 +152,7 @@ class MonacoCodeBlockWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
+		document.body.dataset.shikiMonacoWidgetToDom = `${Number(document.body.dataset.shikiMonacoWidgetToDom ?? 0) + 1}`;
 		const container = document.createElement('div');
 		container.className = 'shiki-monaco-codeblock shiki-monaco-codeblock-loading';
 		container.dataset.language = this.block.language;
@@ -167,6 +200,33 @@ class MonacoCodeBlockWidget extends WidgetType {
 		controllers.delete(dom);
 	}
 
+	private resolveCurrentBodyRange(): CodeBlockBodyRange {
+		const state = this.parentView.state;
+		const doc = state.doc;
+		let openingLine = doc.lineAt(Math.max(0, Math.min(this.block.from, doc.length)));
+
+		while (openingLine.number >= 1 && !/^\s*(```|~~~)/.test(openingLine.text)) {
+			if (openingLine.number === 1) return resolveEditableCodeBlockBodyRange(this.block, doc.length, []);
+			openingLine = doc.line(openingLine.number - 1);
+		}
+
+		const openingMatch = /^\s*(```|~~~)/.exec(openingLine.text);
+		if (!openingMatch) return resolveEditableCodeBlockBodyRange(this.block, doc.length, []);
+
+		const fence = openingMatch[1];
+		let closingLine = openingLine;
+		while (closingLine.number < doc.lines) {
+			closingLine = doc.line(closingLine.number + 1);
+			if (closingLine.text.trimStart().startsWith(fence)) {
+				const from = doc.line(openingLine.number + 1).from;
+				const to = Math.max(from, closingLine.from - 1);
+				return { from, to };
+			}
+		}
+
+		return resolveEditableCodeBlockBodyRange(this.block, doc.length, []);
+	}
+
 	private async mountMonaco(container: HTMLElement, controller: MonacoCodeBlockController): Promise<void> {
 		await loadMonacoCss(this.plugin);
 		const runtime = await loadMonacoRuntime(this.plugin);
@@ -201,6 +261,7 @@ class MonacoCodeBlockWidget extends WidgetType {
 
 		controller.editor = editor;
 		controller.model = model;
+		(window as typeof window & { __shikiLastMonacoEditor?: MonacoCodeEditor }).__shikiLastMonacoEditor = editor;
 		container.classList.remove('shiki-monaco-codeblock-loading');
 		updateMonacoEditorHeight(runtime.monaco, container, editor, model);
 
@@ -208,10 +269,13 @@ class MonacoCodeBlockWidget extends WidgetType {
 			if (controller.updatingFromParent) return;
 
 			const currentWidget = controller.widget;
+			const bodyRange = currentWidget.resolveCurrentBodyRange();
+			document.body.dataset.shikiMonacoDispatchRange = `${bodyRange.from}-${bodyRange.to}`;
+			document.body.dataset.shikiMonacoDispatchCount = `${Number(document.body.dataset.shikiMonacoDispatchCount ?? 0) + 1}`;
 			currentWidget.parentView.dispatch({
 				changes: {
-					from: currentWidget.block.from,
-					to: currentWidget.block.to,
+					from: bodyRange.from,
+					to: bodyRange.to,
 					insert: model.getValue(),
 				},
 			});
@@ -225,6 +289,9 @@ class MonacoCodeBlockWidget extends WidgetType {
 		});
 
 		this.focusFromParentSelection(runtime.monaco, editor, model);
+		if (this.autofocus) {
+			editor.focus();
+		}
 	}
 
 	private updateMountedEditor(dom: HTMLElement, controller: MonacoCodeBlockController): void {

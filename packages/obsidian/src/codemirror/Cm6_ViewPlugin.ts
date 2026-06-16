@@ -1,7 +1,7 @@
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
-import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { type EditorState, Prec, type Range } from '@codemirror/state';
+import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { EditorSelection, type EditorState, Prec, type Range, StateEffect, StateField } from '@codemirror/state';
 import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
@@ -18,7 +18,7 @@ import {
 	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
-import { buildCodeBlockEditorDecoration } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
+import { buildCodeBlockEditorDecoration, createCodeBlockEditorElement } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 
 enum DecorationUpdateType {
 	Insert,
@@ -35,6 +35,8 @@ interface InsertDecoration {
 	content: string;
 	hideLang?: boolean;
 	hideTo?: number;
+	replaceFrom?: number;
+	replaceTo?: number;
 	editableCodeBlock?: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>;
 }
 
@@ -46,6 +48,118 @@ interface RemoveDecoration {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
 export function createCm6Plugin(plugin: ShikiPlugin) {
+	let currentView: EditorView | null = null;
+	const activeMonacoCodeBlockEffect = StateEffect.define<number | null>();
+
+	const findEditableCodeBlockAtPosition = (state: EditorState, pos: number): InsertDecoration | null => {
+		const doc = state.doc;
+		const head = Math.max(0, Math.min(pos, doc.length));
+		let openingLine = doc.lineAt(head);
+		let openingMatch: RegExpExecArray | null = null;
+
+		while (openingLine.number >= 1) {
+			openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
+			if (openingMatch) break;
+			if (openingLine.number === 1) return null;
+			openingLine = doc.line(openingLine.number - 1);
+		}
+
+		if (!openingMatch) return null;
+
+		const fenceInfo = parseFenceInfo(openingLine.text);
+		if (!fenceInfo.language) return null;
+
+		const fence = openingMatch[2];
+		let closingLine = openingLine;
+		let foundClosingFence = false;
+		while (closingLine.number < doc.lines) {
+			closingLine = doc.line(closingLine.number + 1);
+			if (closingLine.text.trimStart().startsWith(fence)) {
+				foundClosingFence = true;
+				break;
+			}
+		}
+
+		if (!foundClosingFence || closingLine.number <= openingLine.number + 1) return null;
+
+		const bodyFrom = doc.line(openingLine.number + 1).from;
+		const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
+		const lineStarts: number[] = [];
+		for (let lineNumber = openingLine.number + 1; lineNumber < closingLine.number; lineNumber++) {
+			lineStarts.push(doc.line(lineNumber).from);
+		}
+
+		return {
+			type: DecorationUpdateType.Insert,
+			from: bodyFrom,
+			to: bodyTo,
+			lang: fenceInfo.language,
+			content: doc.sliceString(bodyFrom, bodyTo),
+			hideLang: true,
+			hideTo: openingLine.to,
+			replaceFrom: openingLine.from,
+			replaceTo: openingLine.to,
+			editableCodeBlock: {
+				showLineNumbers: fenceInfo.showLineNumbers,
+				wrap: fenceInfo.wrap,
+				lineStarts,
+			},
+		};
+	};
+
+	const buildActiveMonacoDecorations = (state: EditorState, position: number | null): DecorationSet => {
+		if (position === null || currentView === null) return Decoration.none;
+
+		const block = findEditableCodeBlockAtPosition(state, position);
+		if (!block?.editableCodeBlock) return Decoration.none;
+		currentView.dom.dataset.shikiActiveMonacoFieldRange =
+			block.replaceFrom !== undefined && block.replaceTo !== undefined ? `${block.replaceFrom}-${block.replaceTo}` : `${block.from}-${block.to}`;
+
+		const editableCodeBlock: EditableCodeBlock = {
+			from: block.from,
+			to: block.to,
+			language: block.lang,
+			content: block.content,
+			showLineNumbers: block.editableCodeBlock.showLineNumbers,
+			wrap: block.editableCodeBlock.wrap,
+			lineStarts: block.editableCodeBlock.lineStarts,
+		};
+
+		return Decoration.set(
+			[
+				buildCodeBlockEditorDecoration(
+					plugin,
+					currentView,
+					editableCodeBlock,
+					block.replaceFrom !== undefined && block.replaceTo !== undefined ? { from: block.replaceFrom, to: block.replaceTo } : undefined,
+				),
+			],
+			true,
+		);
+	};
+
+	const activeMonacoCodeBlockField = StateField.define<{ position: number | null; decorations: DecorationSet }>({
+		create: () => ({ position: null, decorations: Decoration.none }),
+		update: (value, transaction) => {
+			let position = value.position;
+			if (position !== null && transaction.docChanged) {
+				position = transaction.changes.mapPos(position);
+			}
+
+			for (const effect of transaction.effects) {
+				if (effect.is(activeMonacoCodeBlockEffect)) {
+					position = effect.value;
+				}
+			}
+
+			return {
+				position,
+				decorations: buildActiveMonacoDecorations(transaction.state, position),
+			};
+		},
+		provide: field => EditorView.decorations.from(field, value => value.decorations),
+	});
+
 	const views = new Set<{ view: EditorView; updateWidgets(view: EditorView): Promise<void> }>();
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
@@ -405,9 +519,86 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 			};
 
+			private getEditableCodeBlockBodyPosition(pos: number): number | null {
+				const doc = this.view.state.doc;
+				let line = doc.lineAt(Math.max(0, Math.min(pos, doc.length)));
+				let openingLine = line;
+				let openingMatch: RegExpExecArray | null = null;
+
+				while (openingLine.number >= 1) {
+					openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
+					if (openingMatch) break;
+					if (openingLine.number === 1) return null;
+					openingLine = doc.line(openingLine.number - 1);
+				}
+
+				if (!openingMatch) return null;
+
+				const fence = openingMatch[2];
+				let closingLine = openingLine;
+				while (closingLine.number < doc.lines) {
+					closingLine = doc.line(closingLine.number + 1);
+					if (closingLine.text.trimStart().startsWith(fence)) break;
+				}
+
+				if (closingLine.number <= openingLine.number + 1) return null;
+
+				line = line.number <= openingLine.number || line.number >= closingLine.number ? doc.line(openingLine.number + 1) : line;
+				return Math.min(line.from + Math.max(0, Math.min(line.length, 1)), closingLine.from);
+			}
+
+			private handleRenderedCodeBlockPointerDown = (event: PointerEvent | MouseEvent): void => {
+				const target = event.target;
+				if (!(target instanceof Element)) return;
+
+				const block = target.closest<HTMLElement>('.cm-preview-code-block, .HyperMD-codeblock');
+				if (!block || !this.view.dom.contains(block)) return;
+
+				let pos: number | null = null;
+				try {
+					pos = this.view.posAtDOM(block, 0);
+				} catch {
+					pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
+				}
+
+				if (pos === null) return;
+
+				const bodyPos = this.getEditableCodeBlockBodyPosition(pos);
+				if (bodyPos === null) return;
+				const activeBlock = findEditableCodeBlockAtPosition(this.view.state, bodyPos);
+				if (activeBlock?.editableCodeBlock) {
+					const editableCodeBlock: EditableCodeBlock = {
+						from: activeBlock.from,
+						to: activeBlock.to,
+						language: activeBlock.lang,
+						content: activeBlock.content,
+						showLineNumbers: activeBlock.editableCodeBlock.showLineNumbers,
+						wrap: activeBlock.editableCodeBlock.wrap,
+						lineStarts: activeBlock.editableCodeBlock.lineStarts,
+					};
+					block.replaceChildren(createCodeBlockEditorElement(plugin, this.view, editableCodeBlock));
+					event.preventDefault();
+					event.stopPropagation();
+					return;
+				}
+
+				event.preventDefault();
+				event.stopPropagation();
+				this.view.dom.dataset.shikiActiveEditableCodeBlockPosition = String(bodyPos);
+				this.view.focus();
+				this.view.dispatch({
+					selection: EditorSelection.cursor(0),
+					effects: activeMonacoCodeBlockEffect.of(bodyPos),
+					scrollIntoView: true,
+				});
+			};
+
 			constructor(view: EditorView) {
 				this.view = view;
+				currentView = view;
 				this.decorations = Decoration.none;
+				view.dom.addEventListener('pointerdown', this.handleRenderedCodeBlockPointerDown, true);
+				view.dom.addEventListener('mousedown', this.handleRenderedCodeBlockPointerDown, true);
 				window.addEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
 				window.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove, { capture: true, passive: false });
 				window.addEventListener('pointerup', this.handleEditableCodeBlockPointerEnd, true);
@@ -575,6 +766,37 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				});
 
 				const activeEditableCodeBlock = this.findActiveEditableCodeBlock(view);
+				view.dom.dataset.shikiActiveEditableCodeBlock = activeEditableCodeBlock
+					? `${activeEditableCodeBlock.from}-${activeEditableCodeBlock.to}`
+					: 'none';
+				if (activeEditableCodeBlock?.editableCodeBlock && this.isLivePreview(view.state)) {
+					const activeDecorations = await this.buildEditableCodeBlockDecorations(
+						view,
+						activeEditableCodeBlock.from,
+						activeEditableCodeBlock.to,
+						activeEditableCodeBlock.lang,
+						activeEditableCodeBlock.content,
+						activeEditableCodeBlock.editableCodeBlock,
+						activeEditableCodeBlock.replaceFrom !== undefined && activeEditableCodeBlock.replaceTo !== undefined
+							? { from: activeEditableCodeBlock.replaceFrom, to: activeEditableCodeBlock.replaceTo }
+							: undefined,
+					);
+					this.decorations = Decoration.set(activeDecorations, true);
+					if (this.view.state.doc === capturedState.doc) {
+						this.view.dispatch(this.view.state.update({}));
+					}
+					return;
+				}
+				if (activeEditableCodeBlock) {
+					for (let i = decorationUpdates.length - 1; i >= 0; i--) {
+						const update = decorationUpdates[i];
+						const activeReplaceFrom = activeEditableCodeBlock.replaceFrom ?? activeEditableCodeBlock.from;
+						const activeReplaceTo = activeEditableCodeBlock.replaceTo ?? activeEditableCodeBlock.to;
+						if (update.from >= activeReplaceFrom && update.to <= activeReplaceTo && update !== activeEditableCodeBlock) {
+							decorationUpdates.splice(i, 1);
+						}
+					}
+				}
 				if (
 					activeEditableCodeBlock &&
 					!decorationUpdates.some(
@@ -594,7 +816,17 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 							this.removeDecoration(node.from, node.to);
 						} else if (node.type === DecorationUpdateType.Insert) {
 							const decorations = node.editableCodeBlock
-								? await this.buildEditableCodeBlockDecorations(view, node.from, node.to, node.lang, node.content, node.editableCodeBlock)
+								? await this.buildEditableCodeBlockDecorations(
+										view,
+										node.from,
+										node.to,
+										node.lang,
+										node.content,
+										node.editableCodeBlock,
+										node.replaceFrom !== undefined && node.replaceTo !== undefined
+											? { from: node.replaceFrom, to: node.replaceTo }
+											: undefined,
+									)
 								: await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
 							// If the document changed while we were awaiting, the positions we captured
 							// are stale. Selection and viewport changes are safe; they are common while
@@ -646,57 +878,62 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 			findActiveEditableCodeBlock(view: EditorView): InsertDecoration | null {
 				const doc = view.state.doc;
-				const cursor = doc.lineAt(view.state.selection.main.head);
-				let startLine = cursor.number;
-				let startFence: RegExpExecArray | null = null;
+				const storedHead = Number(view.dom.dataset.shikiActiveEditableCodeBlockPosition);
+				const head = Math.max(0, Math.min(Number.isFinite(storedHead) ? storedHead : view.state.selection.main.head, doc.length));
+				let line = doc.lineAt(head);
+				let openingLine = line;
+				let openingMatch: RegExpExecArray | null = null;
 
-				while (startLine > 0) {
-					const line = doc.line(startLine);
-					const match = /^(\s*)(```|~~~)\s*([^\s`]*)\s*(.*)$/.exec(line.text);
-					if (match) {
-						startFence = match;
-						break;
-					}
-					startLine--;
+				while (openingLine.number >= 1) {
+					openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
+					if (openingMatch) break;
+					if (openingLine.number === 1) return null;
+					openingLine = doc.line(openingLine.number - 1);
 				}
 
-				if (!startFence || startLine === cursor.number) {
-					return null;
-				}
+				if (!openingMatch) return null;
 
-				const fenceMarker = startFence[2];
-				let endLine = startLine + 1;
-				while (endLine <= doc.lines) {
-					const line = doc.line(endLine);
-					if (line.text.trimStart().startsWith(fenceMarker)) {
-						break;
-					}
-					endLine++;
-				}
-
-				if (endLine > doc.lines || cursor.number >= endLine || endLine <= startLine + 1) {
-					return null;
-				}
-
-				const openingLine = doc.line(startLine);
-				const bodyStart = doc.line(startLine + 1);
-				const bodyEnd = doc.line(endLine - 1);
 				const fenceInfo = parseFenceInfo(openingLine.text);
+				if (!fenceInfo.language) return null;
 
-				if (fenceInfo.language === '') {
-					return null;
+				const fence = openingMatch[2];
+				let closingLine = openingLine;
+				let foundClosingFence = false;
+				while (closingLine.number < doc.lines) {
+					closingLine = doc.line(closingLine.number + 1);
+					if (closingLine.text.trimStart().startsWith(fence)) {
+						foundClosingFence = true;
+						break;
+					}
+				}
+
+				if (!foundClosingFence || closingLine.number <= openingLine.number + 1) return null;
+
+				if (line.number <= openingLine.number || line.number >= closingLine.number) {
+					line = doc.line(openingLine.number + 1);
+				}
+
+				const bodyFrom = doc.line(openingLine.number + 1).from;
+				const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
+				const lineStarts: number[] = [];
+				for (let lineNumber = openingLine.number + 1; lineNumber < closingLine.number; lineNumber++) {
+					lineStarts.push(doc.line(lineNumber).from);
 				}
 
 				return {
 					type: DecorationUpdateType.Insert,
-					from: bodyStart.from,
-					to: bodyEnd.to,
+					from: bodyFrom,
+					to: bodyTo,
 					lang: fenceInfo.language,
-					content: doc.sliceString(bodyStart.from, bodyEnd.to),
+					content: doc.sliceString(bodyFrom, bodyTo),
+					hideLang: true,
+					hideTo: openingLine.to,
+					replaceFrom: openingLine.from,
+					replaceTo: closingLine.to,
 					editableCodeBlock: {
-						showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || fenceInfo.showLineNumbers,
-						wrap: plugin.loadedSettings.ecDefaultWrap || fenceInfo.wrap,
-						lineStarts: Array.from({ length: endLine - startLine - 1 }, (_, index) => doc.line(startLine + 1 + index).from),
+						showLineNumbers: fenceInfo.showLineNumbers,
+						wrap: fenceInfo.wrap,
+						lineStarts,
 					},
 				};
 			}
@@ -708,7 +945,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				language: string,
 				content: string,
 				block: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>,
+				replaceRange?: { from: number; to: number },
 			): Promise<Range<Decoration>[]> {
+				view.dom.dataset.shikiEditableDecorationRange = replaceRange ? `${replaceRange.from}-${replaceRange.to}` : `${from}-${to}`;
 				const editableCodeBlock: EditableCodeBlock = {
 					from,
 					to,
@@ -719,7 +958,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					lineStarts: block.lineStarts,
 				};
 
-				return [buildCodeBlockEditorDecoration(plugin, view, editableCodeBlock)];
+				return [buildCodeBlockEditorDecoration(plugin, view, editableCodeBlock, replaceRange)];
 			}
 
 			/**
@@ -729,6 +968,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * @param to
 			 */
 			removeDecoration(from: number, to: number): void {
+				if (this.isLivePreview(this.view.state) && this.findActiveEditableCodeBlock(this.view)?.editableCodeBlock) {
+					return;
+				}
+
 				this.decorations = this.decorations.update({
 					filterFrom: from,
 					filterTo: to,
@@ -806,6 +1049,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * Triggered by codemirror when the view plugin is destroyed.
 			 */
 			destroy(): void {
+				if (currentView === this.view) currentView = null;
+				this.view.dom.removeEventListener('pointerdown', this.handleRenderedCodeBlockPointerDown, true);
+				this.view.dom.removeEventListener('mousedown', this.handleRenderedCodeBlockPointerDown, true);
 				window.removeEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
 				window.removeEventListener('pointermove', this.handleEditableCodeBlockPointerMove, true);
 				window.removeEventListener('pointerup', this.handleEditableCodeBlockPointerEnd, true);
@@ -838,5 +1084,5 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 		},
 	);
 
-	return Prec.highest(cm6Plugin);
+	return [Prec.highest(activeMonacoCodeBlockField), Prec.highest(cm6Plugin)];
 }

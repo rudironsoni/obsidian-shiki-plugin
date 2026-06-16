@@ -13,6 +13,7 @@
 		"bench:startup": "node tests/performance/startup-bench.mjs",
 		"bench:startup:mobile": "OBSIDIAN_EMULATE_MOBILE=true node tests/performance/startup-bench.mjs",
 		"verify:obsidian-real": "node tests/runtime/obsidian-real.mjs",
+		"verify:obsidian-monaco-edit": "node tests/runtime/obsidian-monaco-edit.mjs",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint --max-warnings=0 packages/**",

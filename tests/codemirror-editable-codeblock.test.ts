@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { EditorState } from '@codemirror/state';
-import { selectionIsInsideCodeBlockBody } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
+import { resolveEditableCodeBlockBodyRange, selectionIsInsideCodeBlockBody } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 import {
 	buildEditableCodeBlockDecorations,
 	createEditableCodeBlockTouchPan,
@@ -51,6 +51,33 @@ describe('code block editor island selection', () => {
 		expect(selectionIsInsideCodeBlockBody(stateWithSelection(31), block)).toBe(false);
 		expect(selectionIsInsideCodeBlockBody(stateWithSelection(12, 28), block)).toBe(true);
 		expect(selectionIsInsideCodeBlockBody(stateWithSelection(8, 28), block)).toBe(false);
+	});
+});
+
+describe('editable code block Monaco edit ranges', () => {
+	test('resolves stale captured block coordinates to the current expanded body range', () => {
+		expect(
+			resolveEditableCodeBlockBodyRange({ from: 10, to: 30 }, 80, [
+				{ from: 10, to: 48 },
+				{ from: 60, to: 72 },
+			]),
+		).toEqual({ from: 10, to: 48 });
+	});
+
+	test('resolves stale captured block coordinates to the current shrunken body range', () => {
+		expect(
+			resolveEditableCodeBlockBodyRange({ from: 10, to: 30 }, 80, [
+				{ from: 10, to: 16 },
+				{ from: 60, to: 72 },
+			]),
+		).toEqual({ from: 10, to: 16 });
+	});
+
+	test('falls back to clamped captured coordinates when no syntax body matches', () => {
+		expect(resolveEditableCodeBlockBodyRange({ from: 10, to: 90 }, 40, [])).toEqual({
+			from: 10,
+			to: 40,
+		});
 	});
 });
 
