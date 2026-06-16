@@ -305,3 +305,26 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;
 }
+.cm-content .shiki-monaco-codeblock {
+	min-height: 3em;
+}
+
+.cm-content .shiki-monaco-codeblock-fallback {
+	box-sizing: border-box;
+	margin: 0;
+	padding: var(--size-2-2) var(--size-2-3);
+	width: 100%;
+	max-width: 100%;
+	overflow-x: auto;
+	color: var(--code-normal);
+	background: var(--code-background);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-code);
+	white-space: pre;
+	-webkit-overflow-scrolling: touch;
+}
+
+.cm-content .shiki-monaco-codeblock:not(.shiki-monaco-codeblock-loading) > .shiki-monaco-codeblock-fallback {
+	display: none;
+}
