@@ -203,6 +203,11 @@ body.is-phone .markdown-source-view.mod-cm6 .cm-content > .cm-line:has(.shiki-ed
 	display: none;
 }
 
+.cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
+	display: block;
+	height: 8px;
+}
+
 .cm-content .shiki-editing-codeblock-first-line {
 	border-start-start-radius: var(--shiki-code-block-border-radius);
 	border-start-end-radius: var(--shiki-code-block-border-radius);
@@ -222,6 +227,7 @@ body.is-phone .markdown-source-view.mod-cm6 .cm-content > .cm-line:has(.shiki-ed
 	overflow-x: auto;
 	overscroll-behavior-x: contain;
 	touch-action: pan-x pan-y;
+	scrollbar-width: thin;
 }
 
 body.is-phone .cm-content .shiki-editing-codeblock-nowrap {
@@ -232,12 +238,17 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap {
 	white-space: pre;
 	overflow-wrap: normal;
 	word-break: normal;
+	scrollbar-width: none;
 }
 
 .cm-content .shiki-editing-codeblock-nowrap::after {
 	display: inline-block;
 	width: var(--shiki-editing-scroll-spacer, 0px);
 	content: '';
+}
+
+body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
+	display: none;
 }
 
 .cm-content .shiki-editing-codeblock-wrap {
