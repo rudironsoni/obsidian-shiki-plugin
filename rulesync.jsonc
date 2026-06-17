@@ -4,7 +4,9 @@
     "copilot",
     "cursor",
     "claudecode",
-    "codexcli"
+    "codexcli",
+    "opencode",
+    "antigravity"
   ],
   "features": [
     "rules",
