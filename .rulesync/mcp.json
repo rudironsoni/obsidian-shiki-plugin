@@ -1,0 +1,19 @@
+{
+  "$schema": "https://github.com/dyoshikawa/rulesync/releases/latest/download/mcp-schema.json",
+  "mcpServers": {
+    "obsidian-cli": {
+      "description": "Obsidian CLI MCP server for plugin reload, mobile emulation, screenshots, and DOM inspection",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "github:Storks/obsidian-mcp"],
+      "env": {}
+    },
+    "electron-devtools": {
+      "description": "Electron CDP MCP server for visual testing, screenshots, and browser automation",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "github:sh3ll3x3c/native-devtools-mcp"],
+      "env": {}
+    }
+  }
+}

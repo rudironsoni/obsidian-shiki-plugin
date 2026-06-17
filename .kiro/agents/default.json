@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "echo 'obsidian-shiki-plugin harness active | Desktop + Mobile emulation | MCPs: obsidian-cli, electron-devtools'"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "git diff --name-only | grep '\\.ts$' >/dev/null && bun run typecheck || true",
+        "matcher": "Write|Edit"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "echo 'Executing bash command. Avoid destructive operations on dist/ and exampleVault/'",
+        "matcher": "Bash"
+      }
+    ]
+  },
+  "allowedTools": [],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [],
+      "deniedCommands": []
+    },
+    "read": {
+      "allowedPaths": [],
+      "deniedPaths": []
+    },
+    "write": {
+      "allowedPaths": [],
+      "deniedPaths": []
+    }
+  }
+}

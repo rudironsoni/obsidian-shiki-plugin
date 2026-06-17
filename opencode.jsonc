@@ -1,0 +1,25 @@
+{
+  "mcp": {
+    "obsidian-cli": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "github:Storks/obsidian-mcp"
+      ],
+      "enabled": true,
+      "environment": {}
+    },
+    "electron-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "github:sh3ll3x3c/native-devtools-mcp"
+      ],
+      "enabled": true,
+      "environment": {}
+    }
+  },
+  "permission": {}
+}

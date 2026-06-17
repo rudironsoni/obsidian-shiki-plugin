@@ -1,0 +1,41 @@
+{
+  "$schema": "https://github.com/dyoshikawa/rulesync/releases/latest/download/config-schema.json",
+  "targets": [
+    "copilot",
+    "cursor",
+    "claudecode",
+    "codexcli"
+  ],
+  "features": [
+    "rules",
+    "ignore",
+    "mcp",
+    "commands",
+    "subagents",
+    "skills",
+    "hooks"
+  ],
+  "sources": [
+    {
+      "source": "davidvkimball/obsidian-dev-skills",
+      "ref": "main",
+      "features": ["skills"]
+    },
+    {
+      "source": "Yungho/obsidian-plugin-dev",
+      "ref": "main",
+      "features": ["skills"]
+    }
+  ],
+  "outputRoots": [
+    "."
+  ],
+  "delete": true,
+  "verbose": false,
+  "silent": false,
+  "global": false,
+  "simulateCommands": false,
+  "simulateSubagents": false,
+  "simulateSkills": false,
+  "gitignoreTargetsOnly": true
+}
