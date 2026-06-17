@@ -17,13 +17,11 @@
   ],
   "sources": [
     {
-      "source": "davidvkimball/obsidian-dev-skills",
-      "ref": "main",
+      "source": "davidvkimball/obsidian-dev-skills:.",
       "features": ["skills"]
     },
     {
-      "source": "Yungho/obsidian-plugin-dev",
-      "ref": "main",
+      "source": "Yungho/obsidian-plugin-dev:.",
       "features": ["skills"]
     }
   ],
