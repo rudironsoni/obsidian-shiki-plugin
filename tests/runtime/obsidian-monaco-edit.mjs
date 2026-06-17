@@ -8,7 +8,26 @@ const VAULT = process.env.OBSIDIAN_EDITABLE_CODEBLOCK_VAULT ?? '/private/tmp/obs
 const USER_DATA = process.env.OBSIDIAN_EDITABLE_CODEBLOCK_USER_DATA ?? '/private/tmp/obsidian-shiki-editable-codeblock-user-data';
 const PLUGIN_ID = 'shiki-highlighter';
 const NOTE_PATH = 'Editable code block runtime.md';
-const LONG_CODE = "const runtimeEditableCodeBlockMarker = 'abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789';";
+const LONG_CODE = [
+	'import builtins, os, runpy, sys',
+	"print('Python %s on %s' % (sys.version, sys.platform))",
+	'import django',
+	"print('Django %s' % django.get_version())",
+	"sys.path.extend(['/app/src', '/opt/.pycharm_helpers'])",
+	"os.chdir('/app/src')",
+	"if 'setup' in dir(django): django.setup()",
+	'_original_argv = sys.argv[:]',
+	'try:',
+	'    sys.argv = [',
+	"        'manage.py',",
+	"        'shell_plus',",
+	"        '--command',",
+	'        \'import builtins; builtins.__dict__["__pycharm_marker"] = True\',',
+	'    ]',
+	"    runpy.run_path('/app/src' + '/manage.py', run_name='__main__')",
+	'finally:',
+	'    sys.argv = _original_argv',
+].join('\n');
 
 let launchOutput = '';
 
@@ -48,7 +67,19 @@ async function prepareVault() {
 	);
 	await writeFile(
 		path.join(VAULT, NOTE_PATH),
-		['# Editable code block runtime', '', '```ts showLineNumbers', LONG_CODE, 'console.log(runtimeEditableCodeBlockMarker);', '```', ''].join('\n'),
+		[
+			'# PyCharm Django Console fixes',
+			'',
+			'---',
+			'vc-id: 957ee6b7-ca04-4037-9ac0-be14c0830e67',
+			'---',
+			'',
+			'```python showLineNumbers',
+			LONG_CODE,
+			"print('runtimeEditableCodeBlockMarker')",
+			'```',
+			'',
+		].join('\n'),
 	);
 	await writeFile(
 		path.join(USER_DATA, 'obsidian.json'),
@@ -182,7 +213,11 @@ async function openNote(client, livePreview) {
 		client,
 		`(async () => {
 			app.vault.setConfig('livePreview', ${livePreview ? 'true' : 'false'});
-			const file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+		let file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+		for (let attempt = 0; !file && attempt < 50; attempt++) {
+			await new Promise(resolve => setTimeout(resolve, 100));
+			file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+		}
 			if (!file) throw new Error('note not found');
 			const leaf = app.workspace.getLeaf(false);
 			await leaf.openFile(file, { state: { mode: 'source', source: true } });
