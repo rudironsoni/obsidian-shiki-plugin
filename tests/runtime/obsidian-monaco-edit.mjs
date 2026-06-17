@@ -186,6 +186,7 @@ async function openNote(client, livePreview) {
 			if (!file) throw new Error('note not found');
 			const leaf = app.workspace.getLeaf(false);
 			await leaf.openFile(file, { state: { mode: 'source', source: true } });
+			leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });
 			await new Promise(resolve => setTimeout(resolve, 800));
 			return true;
 		})()`,
@@ -215,7 +216,7 @@ async function getEditableCodeLine(client) {
 	);
 }
 
-async function clickAndType(client, line, text) {
+async function clickLine(client, line) {
 	await client.send('Input.dispatchMouseEvent', {
 		type: 'mousePressed',
 		x: line.x,
@@ -231,7 +232,56 @@ async function clickAndType(client, line, text) {
 		clickCount: 1,
 	});
 	await delay(200);
-	await client.send('Input.insertText', { text });
+}
+
+async function typeText(client, text) {
+	await evaluate(
+		client,
+		`(() => {
+			const editor = window.__shikiLastMonacoEditor;
+			const model = editor?.getModel?.();
+			if (!editor || !model) throw new Error('Monaco editor/model missing');
+			model.setValue(${JSON.stringify(text)} + model.getValue());
+			return model.getValue();
+		})()`,
+	);
+}
+
+async function waitForMonaco(client, modeName) {
+	const expression = `(() => {
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
+			const editor = document.querySelector('.markdown-source-view.mod-cm6 .cm-editor');
+			const detail = {
+				editorClass: editor?.className ?? null,
+				monacoBlocks: document.querySelectorAll('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock').length,
+				editableLines: document.querySelectorAll('.markdown-source-view.mod-cm6 .shiki-editing-codeblock-line').length,
+				codeTextVisible: [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-line, .markdown-source-view.mod-cm6 .shiki-editing-codeblock-line')]
+					.some(line => line.textContent.includes('runtimeEditableCodeBlockMarker')),
+			};
+			if (!block) return { ready: false, ...detail };
+			const rect = block.getBoundingClientRect();
+			const viewLines = block.querySelectorAll('.view-line').length;
+			const text = block.textContent ?? '';
+			return {
+				ready: true,
+				...detail,
+				className: block.className,
+				width: rect.width,
+				height: rect.height,
+				viewLines,
+				text,
+				hasEditorHook: Boolean(window.__shikiLastMonacoEditor),
+				activeElementClass: document.activeElement?.className?.toString?.() ?? '',
+			};
+		})()`;
+	const deadline = Date.now() + 20_000;
+	let lastValue;
+	while (Date.now() < deadline) {
+		lastValue = await evaluate(client, expression);
+		if (lastValue?.ready) return lastValue;
+		await delay(250);
+	}
+	throw new Error(`${modeName}: Monaco editor did not mount\nLast value:\n${JSON.stringify(lastValue, null, 2)}`);
 }
 
 async function assertFileContains(client, marker) {
@@ -249,16 +299,22 @@ async function assertFileContains(client, marker) {
 async function verifyMode(client, modeName, livePreview, marker) {
 	await openNote(client, livePreview);
 	const line = await getEditableCodeLine(client);
-	assert(!line.hasMonaco, `${modeName}: editable source view must not mount Monaco replacement widget`, line);
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
 
-	await clickAndType(client, line, marker);
+	await clickLine(client, line);
+	const monaco = await waitForMonaco(client, modeName);
+	assert(monaco.width > 0 && monaco.height > 0, `${modeName}: Monaco mounted without visible dimensions`, monaco);
+	assert(monaco.viewLines > 0, `${modeName}: Monaco mounted but rendered no visible editor lines`, monaco);
+	assert(monaco.hasEditorHook, `${modeName}: Monaco mounted without editor instance hook`, monaco);
+
+	await evaluate(client, `window.__shikiLastMonacoEditor?.focus?.()`);
+	await typeText(client, marker);
 	const content = await assertFileContains(client, marker);
 	assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
 
-	const afterLine = await getEditableCodeLine(client);
-	assert(!afterLine.hasMonaco, `${modeName}: Monaco widget appeared after editing`, afterLine);
+	const afterMonaco = await waitForMonaco(client, modeName);
+	assert(afterMonaco.viewLines > 0, `${modeName}: Monaco lost rendered lines after editing`, afterMonaco);
 }
 
 async function main() {
@@ -283,19 +339,62 @@ async function main() {
 			client,
 			`(async () => {
 				await app.plugins.loadManifests?.();
+				if (!app.plugins.getPlugin?.(${JSON.stringify(PLUGIN_ID)}) && typeof app.plugins.loadPlugin === 'function') {
+					await app.plugins.loadPlugin(${JSON.stringify(PLUGIN_ID)});
+				}
+				await window.app.plugins.setEnable?.(true);
+				await new Promise(resolve => setTimeout(resolve, 1500));
 				if (!app.plugins.enabledPlugins?.has(${JSON.stringify(PLUGIN_ID)})) {
 					await app.plugins.enablePlugin(${JSON.stringify(PLUGIN_ID)});
 				}
+				const plugin = app.plugins.getPlugin?.(${JSON.stringify(PLUGIN_ID)}) ?? app.plugins.plugins?.[${JSON.stringify(PLUGIN_ID)}];
+				await plugin?.registerCm6Plugin?.();
 				return app.plugins.enabledPlugins?.has(${JSON.stringify(PLUGIN_ID)}) ?? false;
 			})()`,
 		);
 		await waitFor(client, `Boolean(app.plugins?.enabledPlugins?.has(${JSON.stringify(PLUGIN_ID)}))`, 'Plugin did not enable');
+		const pluginState = await evaluate(
+			client,
+			`(() => {
+				const plugin = app.plugins.getPlugin?.(${JSON.stringify(PLUGIN_ID)}) ?? app.plugins.plugins?.[${JSON.stringify(PLUGIN_ID)}];
+				return {
+					hasPlugin: Boolean(plugin),
+					keys: plugin ? Object.keys(plugin).sort() : [],
+					cm6PluginRegistered: Boolean(plugin?.cm6PluginRegistered),
+					hasRegisterCm6Plugin: typeof plugin?.registerCm6Plugin === 'function',
+					pluginManagerKeys: Object.keys(app.plugins ?? {}).sort(),
+					pluginManagerMethods: Object.keys(Object.getPrototypeOf(app.plugins ?? {}) ?? {}).sort(),
+					enabledPlugins: [...(app.plugins.enabledPlugins ?? [])],
+					manifests: Object.keys(app.plugins.manifests ?? {}),
+				};
+			})()`,
+		);
+		assert(pluginState.cm6PluginRegistered, 'Plugin did not register CM6 editor extension', pluginState);
 		await verifyMode(client, 'live preview', true, 'LIVE_PREVIEW_EDIT_');
 		await verifyMode(client, 'source mode', false, 'SOURCE_MODE_EDIT_');
+		try {
+			await evaluate(
+				client,
+				`(async () => {
+					window.app?.emulateMobile?.(true);
+					await new Promise(resolve => setTimeout(resolve, 1200));
+					return Boolean(document.body.classList.contains('is-phone') || app.isMobile);
+				})()`,
+			);
+		} catch (error) {
+			if (!String(error).includes('Execution context was destroyed')) throw error;
+			client.close();
+			client = await waitForAppClient();
+		}
+		await waitFor(client, `Boolean(document.body.classList.contains('is-phone') || app.isMobile)`, 'Mobile emulation did not activate');
+		await verifyMode(client, 'mobile live preview', true, 'MOBILE_LIVE_PREVIEW_EDIT_');
+		await verifyMode(client, 'mobile source mode', false, 'MOBILE_SOURCE_MODE_EDIT_');
 
 		const finalContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
 		assert(finalContent.includes('LIVE_PREVIEW_EDIT_'), 'Live preview edit marker missing from disk', { finalContent });
 		assert(finalContent.includes('SOURCE_MODE_EDIT_'), 'Source mode edit marker missing from disk', { finalContent });
+		assert(finalContent.includes('MOBILE_LIVE_PREVIEW_EDIT_'), 'Mobile live preview edit marker missing from disk', { finalContent });
+		assert(finalContent.includes('MOBILE_SOURCE_MODE_EDIT_'), 'Mobile source mode edit marker missing from disk', { finalContent });
 	} finally {
 		client?.close();
 		obsidian.kill();

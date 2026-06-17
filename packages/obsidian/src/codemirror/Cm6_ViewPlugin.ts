@@ -1,7 +1,7 @@
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
-import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { type EditorState, Prec, type Range } from '@codemirror/state';
+import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { type EditorState, Prec, type Range, StateEffect, StateField } from '@codemirror/state';
 import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
@@ -18,6 +18,7 @@ import {
 	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
+import { buildCodeBlockEditorDecoration } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 
 enum DecorationUpdateType {
 	Insert,
@@ -54,6 +55,108 @@ interface RemoveDecoration {
 export function createCm6Plugin(plugin: ShikiPlugin) {
 	let currentView: EditorView | null = null;
 	const views = new Set<Cm6ViewPluginInstance>();
+
+	const findEditableCodeBlockAtPosition = (state: EditorState, pos: number): InsertDecoration | null => {
+		const doc = state.doc;
+		const head = Math.max(0, Math.min(pos, doc.length));
+		let openingLine = doc.lineAt(head);
+		let openingMatch: RegExpExecArray | null = null;
+
+		while (openingLine.number >= 1) {
+			openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
+			if (openingMatch) break;
+			if (openingLine.number === 1) return null;
+			openingLine = doc.line(openingLine.number - 1);
+		}
+
+		if (!openingMatch) return null;
+
+		const fenceInfo = parseFenceInfo(openingLine.text);
+		if (!fenceInfo.language) return null;
+
+		const fence = openingMatch[2];
+		let closingLine = openingLine;
+		let foundClosingFence = false;
+		while (closingLine.number < doc.lines) {
+			closingLine = doc.line(closingLine.number + 1);
+			if (closingLine.text.trimStart().startsWith(fence)) {
+				foundClosingFence = true;
+				break;
+			}
+		}
+
+		if (!foundClosingFence || closingLine.number <= openingLine.number + 1) return null;
+
+		const bodyFrom = doc.line(openingLine.number + 1).from;
+		const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
+		if (head < bodyFrom || head > bodyTo) return null;
+
+		const lineStarts: number[] = [];
+		for (let lineNumber = openingLine.number + 1; lineNumber < closingLine.number; lineNumber++) {
+			lineStarts.push(doc.line(lineNumber).from);
+		}
+
+		return {
+			type: DecorationUpdateType.Insert,
+			from: bodyFrom,
+			to: bodyTo,
+			lang: fenceInfo.language,
+			content: doc.sliceString(bodyFrom, bodyTo),
+			replaceFrom: bodyFrom,
+			replaceTo: bodyTo,
+			editableCodeBlock: {
+				showLineNumbers: fenceInfo.showLineNumbers,
+				wrap: fenceInfo.wrap,
+				lineStarts,
+			},
+		};
+	};
+
+	const activeMonacoCodeBlockEffect = StateEffect.define<number | null>();
+
+	const buildActiveMonacoDecorations = (state: EditorState, position: number | null): DecorationSet => {
+		if (position === null || currentView === null) return Decoration.none;
+
+		const block = findEditableCodeBlockAtPosition(state, position);
+		if (!block?.editableCodeBlock) return Decoration.none;
+
+		const editableCodeBlock: EditableCodeBlock = {
+			from: block.from,
+			to: block.to,
+			language: block.lang,
+			content: block.content,
+			showLineNumbers: block.editableCodeBlock.showLineNumbers,
+			wrap: block.editableCodeBlock.wrap,
+			lineStarts: block.editableCodeBlock.lineStarts,
+		};
+
+		return Decoration.set([buildCodeBlockEditorDecoration(plugin, currentView, editableCodeBlock, { from: block.from, to: block.to })], true);
+	};
+
+	const activeMonacoCodeBlockField = StateField.define<{ position: number | null; decorations: DecorationSet }>({
+		create: () => ({ position: null, decorations: Decoration.none }),
+		update(value, transaction) {
+			let position = transaction.docChanged && value.position !== null ? transaction.changes.mapPos(value.position) : value.position;
+			let explicitActivation = false;
+
+			for (const effect of transaction.effects) {
+				if (effect.is(activeMonacoCodeBlockEffect)) {
+					position = effect.value;
+					explicitActivation = true;
+				}
+			}
+
+			if (!explicitActivation && transaction.selection && position !== null) {
+				const selectedBlock = findEditableCodeBlockAtPosition(transaction.state, transaction.selection.main.head);
+				if (!selectedBlock || position < selectedBlock.from || position > selectedBlock.to) {
+					position = null;
+				}
+			}
+
+			return { position, decorations: buildActiveMonacoDecorations(transaction.state, position) };
+		},
+		provide: field => EditorView.decorations.from(field, value => value.decorations),
+	});
 
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
@@ -441,10 +544,66 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				return Math.min(line.from + Math.max(0, Math.min(line.length, 1)), closingLine.from);
 			}
 
+			private activateMonacoCodeBlockAtPosition(position: number | null): boolean {
+				if (position === null) return false;
+				const bodyPosition = this.getEditableCodeBlockBodyPosition(position);
+				if (bodyPosition === null || !findEditableCodeBlockAtPosition(this.view.state, bodyPosition)) return false;
+
+				this.view.focus();
+				this.view.dispatch({
+					effects: activeMonacoCodeBlockEffect.of(bodyPosition),
+					scrollIntoView: true,
+				});
+				requestAnimationFrame(() => {
+					(window as Window & { __shikiLastMonacoEditor?: { focus(): void } }).__shikiLastMonacoEditor?.focus();
+				});
+				return true;
+			}
+
+			private getMonacoActivationPosition(event: PointerEvent | MouseEvent | Touch): number | null {
+				const target = document.elementFromPoint(event.clientX, event.clientY);
+				const block = target?.closest<HTMLElement>('.cm-preview-code-block, .HyperMD-codeblock, .shiki-editing-codeblock-line');
+				if (block && this.view.dom.contains(block)) {
+					try {
+						const position = this.view.posAtDOM(block, 0);
+						if (this.getEditableCodeBlockBodyPosition(position) !== null) return position;
+					} catch {
+						// Fall back to coordinates below.
+					}
+				}
+
+				return this.view.posAtCoords({ x: event.clientX, y: event.clientY });
+			}
+
+			private handleMonacoCodeBlockPointerDown = (event: PointerEvent | MouseEvent): void => {
+				const target = event.target;
+				if (target instanceof Element && target.closest('.shiki-monaco-codeblock')) return;
+
+				if (!this.activateMonacoCodeBlockAtPosition(this.getMonacoActivationPosition(event))) return;
+				event.preventDefault();
+				event.stopPropagation();
+			};
+
+			private handleMonacoCodeBlockTouchStart = (event: TouchEvent): void => {
+				const target = event.target;
+				if (target instanceof Element && target.closest('.shiki-monaco-codeblock')) return;
+
+				const touch = event.touches[0];
+				if (!touch || !this.activateMonacoCodeBlockAtPosition(this.getMonacoActivationPosition(touch))) return;
+				event.preventDefault();
+				event.stopPropagation();
+			};
+
 			constructor(view: EditorView) {
 				this.view = view;
 				currentView = view;
 				this.decorations = Decoration.none;
+				view.dom.addEventListener('pointerdown', this.handleMonacoCodeBlockPointerDown, true);
+				view.dom.addEventListener('mousedown', this.handleMonacoCodeBlockPointerDown, true);
+				view.dom.addEventListener('touchstart', this.handleMonacoCodeBlockTouchStart, { capture: true, passive: false });
+				window.addEventListener('pointerdown', this.handleMonacoCodeBlockPointerDown, true);
+				window.addEventListener('mousedown', this.handleMonacoCodeBlockPointerDown, true);
+				window.addEventListener('touchstart', this.handleMonacoCodeBlockTouchStart, { capture: true, passive: false });
 				window.addEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
 				window.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove, { capture: true, passive: false });
 				window.addEventListener('pointerup', this.handleEditableCodeBlockPointerEnd, true);
@@ -884,6 +1043,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * Triggered by codemirror when the view plugin is destroyed.
 			 */
 			destroy(): void {
+				this.view.dom.removeEventListener('pointerdown', this.handleMonacoCodeBlockPointerDown, true);
+				this.view.dom.removeEventListener('mousedown', this.handleMonacoCodeBlockPointerDown, true);
+				this.view.dom.removeEventListener('touchstart', this.handleMonacoCodeBlockTouchStart, true);
+				window.removeEventListener('pointerdown', this.handleMonacoCodeBlockPointerDown, true);
+				window.removeEventListener('mousedown', this.handleMonacoCodeBlockPointerDown, true);
+				window.removeEventListener('touchstart', this.handleMonacoCodeBlockTouchStart, true);
 				if (currentView === this.view) currentView = null;
 				window.removeEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
 				window.removeEventListener('pointermove', this.handleEditableCodeBlockPointerMove, true);
@@ -917,5 +1082,5 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 		},
 	);
 
-	return [Prec.highest(cm6Plugin)];
+	return [Prec.highest(activeMonacoCodeBlockField), Prec.highest(cm6Plugin)];
 }

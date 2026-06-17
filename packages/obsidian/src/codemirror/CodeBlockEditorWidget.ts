@@ -267,7 +267,19 @@ class MonacoCodeBlockWidget extends WidgetType {
 		controller.model = model;
 		(window as typeof window & { __shikiLastMonacoEditor?: MonacoCodeEditor }).__shikiLastMonacoEditor = editor;
 		container.classList.remove('shiki-monaco-codeblock-loading');
+		const markReadyWhenPainted = (): void => {
+			const editorNode = editor.getDomNode();
+			const editorRect = editorNode?.getBoundingClientRect();
+			if (editorRect && editorRect.width > 0 && editorRect.height > 0 && container.querySelector('.view-line')) {
+				container.classList.add('shiki-monaco-codeblock-ready');
+			}
+		};
 		updateMonacoEditorHeight(runtime.monaco, container, editor, model);
+		requestAnimationFrame(() => {
+			editor.layout({ width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) });
+			markReadyWhenPainted();
+			requestAnimationFrame(markReadyWhenPainted);
+		});
 
 		model.onDidChangeContent(() => {
 			if (controller.updatingFromParent) return;
