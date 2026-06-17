@@ -328,3 +328,7 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 .cm-content .shiki-monaco-codeblock:not(.shiki-monaco-codeblock-loading) > .shiki-monaco-codeblock-fallback {
 	display: none;
 }
+
+.cm-content .shiki-hidden-codeblock-fence-text {
+	display: none !important;
+}

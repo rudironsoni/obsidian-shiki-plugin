@@ -292,7 +292,19 @@ async function waitForMonaco(client, modeName) {
 				editableLines: document.querySelectorAll('.markdown-source-view.mod-cm6 .shiki-editing-codeblock-line').length,
 				codeTextVisible: [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-line, .markdown-source-view.mod-cm6 .shiki-editing-codeblock-line')]
 					.some(line => line.textContent.includes('runtimeEditableCodeBlockMarker')),
+				visibleFenceLines: (() => {
+					const backtickFence = String.fromCharCode(96).repeat(3);
+					return [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-line')].flatMap(line => {
+						const rect = line.getBoundingClientRect();
+						const style = getComputedStyle(line);
+						if (rect.width <= 0 || rect.height <= 0 || style.display === 'none' || style.visibility === 'hidden') return [];
+						const text = line.innerText ?? '';
+						if (!text.includes(backtickFence) && !text.includes('~~~')) return [];
+						return [{ text, className: line.className, width: rect.width, height: rect.height, top: rect.top, left: rect.left }];
+					});
+				})(),
 			};
+			detail.fenceTextVisible = detail.visibleFenceLines.length > 0;
 			if (!block) return { ready: false, ...detail };
 			const rect = block.getBoundingClientRect();
 			const viewLines = block.querySelectorAll('.view-line').length;
@@ -350,6 +362,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(monaco.hasEditorHook, `${modeName}: Monaco mounted without editor instance hook`, monaco);
 	assert(!monaco.fallbackVisible, `${modeName}: Monaco fallback is still visible over the editor`, monaco);
 	assert(monaco.fallbackBoxHeight === 0 && monaco.fallbackBoxWidth === 0, `${modeName}: Monaco fallback still occupies layout`, monaco);
+	assert(!monaco.fenceTextVisible, `${modeName}: raw fenced code block is still visible outside Monaco`, monaco);
 
 	await evaluate(client, `window.__shikiLastMonacoEditor?.focus?.()`);
 	await typeText(client, marker);
@@ -358,6 +371,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 
 	const afterMonaco = await waitForMonaco(client, modeName);
 	assert(afterMonaco.viewLines > 0, `${modeName}: Monaco lost rendered lines after editing`, afterMonaco);
+	assert(!afterMonaco.fenceTextVisible, `${modeName}: raw fenced code block became visible after editing`, afterMonaco);
 }
 
 async function main() {
