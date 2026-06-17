@@ -21,8 +21,9 @@
       "features": ["skills"]
     },
     {
-      "source": "Yungho/obsidian-plugin-dev:.",
-      "features": ["skills"]
+      "source": "https://github.com/Yungho/obsidian-plugin-dev",
+      "transport": "git",
+      "path": "."
     }
   ],
   "outputRoots": [
