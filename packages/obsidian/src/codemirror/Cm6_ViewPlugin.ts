@@ -560,6 +560,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				return true;
 			}
 
+			private activateMonacoCodeBlockAtSelection(): void {
+				const selection = this.view.state.selection.main;
+				if (!selection.empty) return;
+				this.activateMonacoCodeBlockAtPosition(selection.head);
+			}
+
 			private getMonacoActivationPosition(event: PointerEvent | MouseEvent | Touch): number | null {
 				const target = document.elementFromPoint(event.clientX, event.clientY);
 				const block = target?.closest<HTMLElement>('.cm-preview-code-block, .HyperMD-codeblock, .shiki-editing-codeblock-line');
@@ -661,6 +667,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				) {
 					this.view = update.view;
 					void this.updateWidgets(update.view);
+					if (update.docChanged || update.selectionSet || update.viewportChanged) {
+						this.activateMonacoCodeBlockAtSelection();
+					}
 				}
 			}
 
