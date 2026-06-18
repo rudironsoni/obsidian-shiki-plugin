@@ -63,19 +63,14 @@ export function selectionIsInsideCodeBlockBody(state: EditorView['state'], block
 
 export function buildCodeBlockEditorDecoration(
 	plugin: ShikiPlugin,
-	parentView: EditorView,
 	block: EditableCodeBlock,
 	replaceRange: CodeBlockBodyRange = block,
 	autofocus = false,
 ): Range<Decoration> {
 	return Decoration.replace({
 		block: true,
-		widget: new MonacoCodeBlockWidget(plugin, parentView, block, autofocus),
+		widget: new MonacoCodeBlockWidget(plugin, block, autofocus),
 	}).range(replaceRange.from, replaceRange.to);
-}
-
-export function createCodeBlockEditorElement(plugin: ShikiPlugin, parentView: EditorView, block: EditableCodeBlock): HTMLElement {
-	return new MonacoCodeBlockWidget(plugin, parentView, block, true).toDOM();
 }
 
 async function loadMonacoRuntime(plugin: ShikiPlugin): Promise<MonacoRuntime> {
@@ -139,7 +134,6 @@ class MonacoCodeBlockWidget extends WidgetType {
 
 	constructor(
 		private readonly plugin: ShikiPlugin,
-		private readonly parentView: EditorView,
 		readonly block: EditableCodeBlock,
 		private readonly autofocus = false,
 	) {
@@ -155,10 +149,11 @@ class MonacoCodeBlockWidget extends WidgetType {
 		);
 	}
 
-		toDOM(): HTMLElement {
+	toDOM(view: EditorView): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'shiki-monaco-codeblock shiki-monaco-active';
 		container.dataset.language = this.block.language;
+		(container as HTMLElement & { _parentView?: EditorView })._parentView = view;
 
 		const fallback = document.createElement('pre');
 		fallback.className = 'shiki-monaco-codeblock-fallback';
@@ -221,7 +216,6 @@ class MonacoCodeBlockWidget extends WidgetType {
 
 	private async activate(container: HTMLElement, controller: MonacoCodeBlockController): Promise<void> {
 		if (controller.editor) {
-			// Already active
 			controller.editor.focus();
 			return;
 		}
@@ -280,14 +274,17 @@ class MonacoCodeBlockWidget extends WidgetType {
 			updateMonacoEditorHeight(runtime.monaco, container, editor, model);
 
 			const currentWidget = controller.widget;
-			const bodyRange = currentWidget.resolveCurrentBodyRange();
-			currentWidget.parentView.dispatch({
-				changes: {
-					from: bodyRange.from,
-					to: bodyRange.to,
-					insert: model.getValue(),
-				},
-			});
+			const bodyRange = currentWidget.resolveCurrentBodyRange(container);
+			const parentView = (container as HTMLElement & { _parentView?: EditorView })._parentView;
+			if (parentView) {
+				parentView.dispatch({
+					changes: {
+						from: bodyRange.from,
+						to: bodyRange.to,
+						insert: model.getValue(),
+					},
+				});
+			}
 		});
 
 		void configureShikiMonaco(this.plugin, runtime).then(theme => {
@@ -298,7 +295,6 @@ class MonacoCodeBlockWidget extends WidgetType {
 		// Escape key deactivates Monaco
 		controller.escapeHandler = (event: KeyboardEvent): void => {
 			if (event.key === 'Escape' && controller.editor && !controller.disposed) {
-				// Only deactivate if the editor is focused or container contains the active element
 				const editorNode = controller.editor.getDomNode();
 				if (editorNode?.contains(document.activeElement)) {
 					event.preventDefault();
@@ -326,8 +322,11 @@ class MonacoCodeBlockWidget extends WidgetType {
 		container.classList.remove('shiki-monaco-active');
 	}
 
-	private resolveCurrentBodyRange(): CodeBlockBodyRange {
-		const state = this.parentView.state;
+	private resolveCurrentBodyRange(container: HTMLElement): CodeBlockBodyRange {
+		const parentView = (container as HTMLElement & { _parentView?: EditorView })._parentView;
+		if (!parentView) return { from: this.block.from, to: this.block.to };
+
+		const state = parentView.state;
 		const doc = state.doc;
 		let openingLine = doc.lineAt(Math.max(0, Math.min(this.block.from, doc.length)));
 

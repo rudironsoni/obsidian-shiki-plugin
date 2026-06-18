@@ -1,7 +1,7 @@
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { type EditorState, Prec, type Range, StateEffect, StateField } from '@codemirror/state';
+import { type EditorState, Prec, type Range, StateField } from '@codemirror/state';
 import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
@@ -17,8 +17,6 @@ import {
 	shouldUpdateCodeBlockDecorations,
 	syncEditableCodeBlockScroll,
 	type EditableCodeBlock,
-	buildEditableCodeBlockDecorations as buildEditableCodeBlockHighlightDecorations,
-	buildEditableCodeBlockLineDecorations,
 } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 import { buildCodeBlockEditorDecoration } from 'packages/obsidian/src/codemirror/CodeBlockEditorWidget';
 
@@ -29,11 +27,6 @@ enum DecorationUpdateType {
 
 type DecorationUpdate = InsertDecoration | RemoveDecoration;
 
-interface Cm6ViewPluginInstance {
-	view: EditorView;
-	updateWidgets(view: EditorView): Promise<void>;
-}
-
 interface InsertDecoration {
 	type: DecorationUpdateType.Insert;
 	from: number;
@@ -42,9 +35,6 @@ interface InsertDecoration {
 	content: string;
 	hideLang?: boolean;
 	hideTo?: number;
-	replaceFrom?: number;
-	replaceTo?: number;
-	editableCodeBlock?: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>;
 }
 
 interface RemoveDecoration {
@@ -53,120 +43,62 @@ interface RemoveDecoration {
 	to: number;
 }
 
+function buildMonacoDecorations(state: EditorState, plugin: ShikiPlugin): DecorationSet {
+	const doc = state.doc;
+	const decorations: Range<Decoration>[] = [];
+
+	for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
+		const openingLine = doc.line(lineNumber);
+		const openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
+		if (!openingMatch) continue;
+		const fenceInfo = parseFenceInfo(openingLine.text);
+		if (!fenceInfo.language) continue;
+		const fence = openingMatch[2];
+		for (let closingLineNumber = lineNumber + 1; closingLineNumber <= doc.lines; closingLineNumber++) {
+			const closingLine = doc.line(closingLineNumber);
+			if (!closingLine.text.trimStart().startsWith(fence)) continue;
+			const bodyFrom = doc.line(lineNumber + 1).from;
+			const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
+			const lineStarts: number[] = [];
+			for (let bln = lineNumber + 1; bln < closingLineNumber; bln++) {
+				lineStarts.push(doc.line(bln).from);
+			}
+			const block: EditableCodeBlock = {
+				from: bodyFrom,
+				to: bodyTo,
+				language: fenceInfo.language,
+				content: doc.sliceString(bodyFrom, bodyTo),
+				showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || fenceInfo.showLineNumbers,
+				wrap: plugin.loadedSettings.ecDefaultWrap || fenceInfo.wrap,
+				lineStarts,
+			};
+			decorations.push(
+				Decoration.mark({ attributes: { class: 'shiki-hidden-codeblock-fence-text' } }).range(openingLine.from, bodyFrom),
+			);
+			decorations.push(buildCodeBlockEditorDecoration(plugin, block));
+			decorations.push(
+				Decoration.mark({ attributes: { class: 'shiki-hidden-codeblock-fence-text' } }).range(
+					Math.min(bodyTo + 1, closingLine.to),
+					closingLine.to,
+				),
+			);
+			lineNumber = closingLineNumber;
+			break;
+		}
+	}
+	return Decoration.set(decorations, true);
+}
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
 export function createCm6Plugin(plugin: ShikiPlugin) {
-	let currentView: EditorView | null = null;
-	const views = new Set<Cm6ViewPluginInstance>();
-
 	const monacoCodeBlocksField = StateField.define<DecorationSet>({
-		create: () => Decoration.none,
+		create: (state) => buildMonacoDecorations(state, plugin),
 		update(value, transaction) {
-			if (!currentView) return Decoration.none;
-			if (value !== Decoration.none && !transaction.docChanged) return value;
-			const state = transaction.state;
-			const doc = state.doc;
-			const decorations: Range<Decoration>[] = [];
-			for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
-				const openingLine = doc.line(lineNumber);
-				const openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
-				if (!openingMatch) continue;
-				const fenceInfo = parseFenceInfo(openingLine.text);
-				if (!fenceInfo.language) continue;
-				const fence = openingMatch[2];
-				for (let closingLineNumber = lineNumber + 1; closingLineNumber <= doc.lines; closingLineNumber++) {
-					const closingLine = doc.line(closingLineNumber);
-					if (!closingLine.text.trimStart().startsWith(fence)) continue;
-					const bodyFrom = doc.line(lineNumber + 1).from;
-					const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
-					const lineStarts: number[] = [];
-					for (let bln = lineNumber + 1; bln < closingLineNumber; bln++) {
-						lineStarts.push(doc.line(bln).from);
-					}
-					const block: EditableCodeBlock = {
-						from: bodyFrom,
-						to: bodyTo,
-						language: fenceInfo.language,
-						content: doc.sliceString(bodyFrom, bodyTo),
-						showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || fenceInfo.showLineNumbers,
-						wrap: plugin.loadedSettings.ecDefaultWrap || fenceInfo.wrap,
-						lineStarts,
-					};
-					decorations.push(
-						Decoration.mark({ attributes: { class: 'shiki-hidden-codeblock-fence-text' } }).range(openingLine.from, bodyFrom),
-					);
-					decorations.push(buildCodeBlockEditorDecoration(plugin, currentView, block));
-					decorations.push(
-						Decoration.mark({ attributes: { class: 'shiki-hidden-codeblock-fence-text' } }).range(
-							Math.min(bodyTo + 1, closingLine.to),
-							closingLine.to,
-						),
-					);
-					lineNumber = closingLineNumber;
-					break;
-				}
-			}
-			return Decoration.set(decorations, true);
+			if (!transaction.docChanged && value !== Decoration.none) return value;
+			return buildMonacoDecorations(transaction.state, plugin);
 		},
-		provide: field => EditorView.decorations.from(field, value => value),
+		provide: (field) => EditorView.decorations.from(field),
 	});
-
-	const findEditableCodeBlockAtPosition = (state: EditorState, pos: number): InsertDecoration | null => {
-		const doc = state.doc;
-		const head = Math.max(0, Math.min(pos, doc.length));
-		let openingLine = doc.lineAt(head);
-		let openingMatch: RegExpExecArray | null = null;
-
-		while (openingLine.number >= 1) {
-			openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
-			if (openingMatch) break;
-			if (openingLine.number === 1) return null;
-			openingLine = doc.line(openingLine.number - 1);
-		}
-
-		if (!openingMatch) return null;
-
-		const fenceInfo = parseFenceInfo(openingLine.text);
-		if (!fenceInfo.language) return null;
-
-		const fence = openingMatch[2];
-		let closingLine = openingLine;
-		let foundClosingFence = false;
-		while (closingLine.number < doc.lines) {
-			closingLine = doc.line(closingLine.number + 1);
-			if (closingLine.text.trimStart().startsWith(fence)) {
-				foundClosingFence = true;
-				break;
-			}
-		}
-
-		if (!foundClosingFence || closingLine.number <= openingLine.number + 1) return null;
-
-		const bodyFrom = doc.line(openingLine.number + 1).from;
-		const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
-		if (head < bodyFrom || head > bodyTo) return null;
-
-		const lineStarts: number[] = [];
-		for (let lineNumber = openingLine.number + 1; lineNumber < closingLine.number; lineNumber++) {
-			lineStarts.push(doc.line(lineNumber).from);
-		}
-
-		return {
-			type: DecorationUpdateType.Insert,
-			from: bodyFrom,
-			to: bodyTo,
-			lang: fenceInfo.language,
-			content: doc.sliceString(bodyFrom, bodyTo),
-			replaceFrom: bodyFrom,
-			replaceTo: bodyTo,
-			editableCodeBlock: {
-				showLineNumbers: fenceInfo.showLineNumbers,
-				wrap: fenceInfo.wrap,
-				lineStarts,
-			},
-		};
-	};
-
-
 
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
@@ -528,7 +460,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 			constructor(view: EditorView) {
 				this.view = view;
-				currentView = view;
 				this.decorations = Decoration.none;
 				window.addEventListener('pointerdown', this.handleEditableCodeBlockGlobalPointerDown, true);
 				window.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove, { capture: true, passive: false });
@@ -553,20 +484,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				view.dom.addEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				view.dom.addEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
 				view.dom.addEventListener('wheel', this.handleEditableCodeBlockWheel, { capture: true, passive: false });
-				views.add(this);
-				const diag = (window as Window & { __shikiDiag?: { updates: number; errors: string[] } }).__shikiDiag = (window as Window & { __shikiDiag?: { updates: number; errors: string[] } }).__shikiDiag ?? { updates: 0, errors: [] };
-				diag.updates = 0;
-				void this.updateWidgets(view).catch(e => { diag.errors.push(String(e)); });
 
-			// Force state field to build initial decorations even when no inline code blocks exist
-			requestAnimationFrame(() => {
-				view.dispatch(view.state.update({}));
-			});
-
-			plugin.updateCm6Plugin = (): Promise<void> => {
-				return Promise.all([...views].map(instance => instance.updateWidgets(instance.view))).then(() => undefined);
-			};
-		}
+				void this.updateWidgets(view);
+			}
 
 			/**
 			 * Triggered by codemirror when the view updates.
@@ -594,7 +514,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				) {
 					this.view = update.view;
 					void this.updateWidgets(update.view);
-					}
+				}
 			}
 
 			isLivePreview(state: EditorState): boolean {
@@ -654,70 +574,25 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 							return;
 						}
 
-						if (props.has('HyperMD-codeblock') && !props.has('HyperMD-codeblock-begin') && !props.has('HyperMD-codeblock-end')) {
-							state.push(node);
+						// Skip HyperMD-codeblock nodes — the state field handles Monaco widgets for these.
+						// We only handle inline code highlighting in this ViewPlugin.
+						if (
+							props.has('HyperMD-codeblock') ||
+							props.has('HyperMD-codeblock-begin') ||
+							props.has('HyperMD-codeblock-end')
+						) {
 							return;
-						}
-
-						if (props.has('HyperMD-codeblock-begin')) {
-							const content = Cm6_Util.getContent(view.state, node.from, node.to);
-							fenceInfo = parseFenceInfo(content);
-
-							lang = fenceInfo.language;
-						}
-
-						if (props.has('HyperMD-codeblock-end')) {
-							if (state.length > 0 && lang !== '') {
-								const start = state[0].from;
-								const end = state[state.length - 1].to;
-
-								decorationUpdates.push({
-									type: DecorationUpdateType.Insert,
-									from: start,
-									to: end,
-									lang,
-									content: Cm6_Util.getContent(view.state, start, end),
-									editableCodeBlock: {
-										showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || (fenceInfo?.showLineNumbers ?? false),
-										wrap: plugin.loadedSettings.ecDefaultWrap || (fenceInfo?.wrap ?? false),
-										lineStarts: state.map(line => line.from),
-									},
-								});
-							}
-
-							if (state.length > 0 && lang === '') {
-								const start = state[0].from;
-								const end = state[state.length - 1].to;
-
-								decorationUpdates.push({
-									type: DecorationUpdateType.Remove,
-									from: start,
-									to: end,
-								});
-							}
-
-							lang = '';
-							fenceInfo = parseFenceInfo('');
-							state = [];
 						}
 					},
 				});
 
-				for (const documentCodeBlock of this.findEditableCodeBlocksFromDocument(view)) {
-					const existingUpdate = decorationUpdates.find(
-						update => update.type === DecorationUpdateType.Insert && update.from === documentCodeBlock.from && update.to === documentCodeBlock.to,
-					);
-					if (!existingUpdate) decorationUpdates.push(documentCodeBlock);
-				}
 				const allDecorations: Range<Decoration>[] = [];
 				for (const node of decorationUpdates) {
 					try {
 						if (node.type === DecorationUpdateType.Remove) {
 							continue;
 						}
-							const decorations = node.editableCodeBlock
-								? []
-								: await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
+						const decorations = await this.buildDecorations(node.from, node.to, node.lang, node.content);
 						if (this.view.state.doc !== capturedState.doc) {
 							return;
 						}
@@ -732,167 +607,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 				if (allDecorations.length > 0) {
 					this.decorations = Decoration.set(allDecorations, true);
-					const diag2 = (window as Window & { __shikiDiag?: { updates: number; decorUpdates: number; allDecorLen: number } }).__shikiDiag;
-					if (diag2) { diag2.updates++; diag2.decorUpdates = decorationUpdates.length; diag2.allDecorLen = allDecorations.length; }
 					requestAnimationFrame(() => {
-						this.view.dispatch(this.view.state.update({}));
+						this.view.dispatch(view.state.update({}));
 					});
 				}
-
-				// console.log('Traversed syntax tree in', performance.now() - t1, 'ms');
-			}
-
-			bindEditableCodeBlockScrollLines(): void {
-				normalizeEditableCodeBlockScrollWidths(this.view.dom);
-				for (const line of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-line')) {
-					if (this.scrollBoundLines.has(line)) {
-						continue;
-					}
-
-					line.addEventListener('scroll', this.handleEditableCodeBlockScroll);
-					line.addEventListener('pointerdown', this.handleEditableCodeBlockPointerDown);
-					line.addEventListener('pointermove', this.handleEditableCodeBlockPointerMove);
-					line.addEventListener('pointerup', this.handleEditableCodeBlockPointerEnd);
-					line.addEventListener('pointercancel', this.handleEditableCodeBlockPointerEnd);
-					this.scrollBoundLines.add(line);
-				}
-			}
-
-			findEditableCodeBlocksFromDocument(view: EditorView): InsertDecoration[] {
-				const doc = view.state.doc;
-				const blocks: InsertDecoration[] = [];
-				for (let lineNumber = 1; lineNumber <= doc.lines; lineNumber++) {
-					const openingLine = doc.line(lineNumber);
-					const openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
-					if (!openingMatch) continue;
-					const fenceInfo = parseFenceInfo(openingLine.text);
-					if (!fenceInfo.language) continue;
-					const fence = openingMatch[2];
-					for (let closingLineNumber = lineNumber + 1; closingLineNumber <= doc.lines; closingLineNumber++) {
-						const closingLine = doc.line(closingLineNumber);
-						if (!closingLine.text.trimStart().startsWith(fence)) continue;
-						const bodyStartLine = doc.line(Math.min(lineNumber + 1, doc.lines));
-						const bodyFrom = bodyStartLine.from;
-						const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
-						const lineStarts: number[] = [];
-						for (let bodyLineNumber = lineNumber + 1; bodyLineNumber < closingLineNumber; bodyLineNumber++) {
-							lineStarts.push(doc.line(bodyLineNumber).from);
-						}
-						blocks.push({
-							type: DecorationUpdateType.Insert,
-							from: bodyFrom,
-							to: bodyTo,
-							lang: fenceInfo.language,
-							content: doc.sliceString(bodyFrom, bodyTo),
-							hideLang: true,
-							hideTo: openingLine.to,
-							replaceFrom: openingLine.from,
-							replaceTo: closingLine.to,
-							editableCodeBlock: {
-								showLineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers || fenceInfo.showLineNumbers,
-								wrap: plugin.loadedSettings.ecDefaultWrap || fenceInfo.wrap,
-								lineStarts,
-							},
-						});
-						lineNumber = closingLineNumber;
-						break;
-					}
-				}
-				return blocks;
-			}
-
-			findActiveEditableCodeBlock(view: EditorView): InsertDecoration | null {
-				const doc = view.state.doc;
-				const storedHead = Number(view.dom.dataset.shikiActiveEditableCodeBlockPosition);
-				const head = Math.max(0, Math.min(Number.isFinite(storedHead) ? storedHead : view.state.selection.main.head, doc.length));
-				let line = doc.lineAt(head);
-				let openingLine = line;
-				let openingMatch: RegExpExecArray | null = null;
-
-				while (openingLine.number >= 1) {
-					openingMatch = /^(\s*)(```|~~~)/.exec(openingLine.text);
-					if (openingMatch) break;
-					if (openingLine.number === 1) return null;
-					openingLine = doc.line(openingLine.number - 1);
-				}
-
-				if (!openingMatch) return null;
-
-				const fenceInfo = parseFenceInfo(openingLine.text);
-				if (!fenceInfo.language) return null;
-
-				const fence = openingMatch[2];
-				let closingLine = openingLine;
-				let foundClosingFence = false;
-				while (closingLine.number < doc.lines) {
-					closingLine = doc.line(closingLine.number + 1);
-					if (closingLine.text.trimStart().startsWith(fence)) {
-						foundClosingFence = true;
-						break;
-					}
-				}
-
-				if (!foundClosingFence || closingLine.number <= openingLine.number + 1) return null;
-
-				if (line.number <= openingLine.number || line.number >= closingLine.number) {
-					line = doc.line(openingLine.number + 1);
-				}
-
-				const bodyFrom = doc.line(openingLine.number + 1).from;
-				const bodyTo = Math.max(bodyFrom, closingLine.from - 1);
-				const lineStarts: number[] = [];
-				for (let lineNumber = openingLine.number + 1; lineNumber < closingLine.number; lineNumber++) {
-					lineStarts.push(doc.line(lineNumber).from);
-				}
-
-				return {
-					type: DecorationUpdateType.Insert,
-					from: bodyFrom,
-					to: bodyTo,
-					lang: fenceInfo.language,
-					content: doc.sliceString(bodyFrom, bodyTo),
-					hideLang: true,
-					hideTo: openingLine.to,
-					replaceFrom: openingLine.from,
-					replaceTo: closingLine.to,
-					editableCodeBlock: {
-						showLineNumbers: fenceInfo.showLineNumbers,
-						wrap: fenceInfo.wrap,
-						lineStarts,
-					},
-				};
-			}
-
-			async buildEditableCodeBlockDecorations(
-				view: EditorView,
-				from: number,
-				to: number,
-				language: string,
-				content: string,
-				block: Pick<EditableCodeBlock, 'showLineNumbers' | 'wrap' | 'lineStarts'>,
-				_replaceRange?: { from: number; to: number },
-			): Promise<Range<Decoration>[]> {
-				if (language === '') {
-					return [];
-				}
-
-				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());
-
-				if (!highlight) {
-					return [];
-				}
-
-				const fullBlock: EditableCodeBlock = {
-					from,
-					to,
-					language,
-					content,
-					showLineNumbers: block.showLineNumbers,
-					wrap: block.wrap,
-					lineStarts: block.lineStarts,
-				};
-
-				return buildEditableCodeBlockHighlightDecorations(fullBlock, highlight);
 			}
 
 			/**
@@ -902,38 +620,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			 * @param to
 			 */
 			removeDecoration(from: number, to: number): void {
-				if (this.isLivePreview(this.view.state) && this.findActiveEditableCodeBlock(this.view)?.editableCodeBlock) {
-					return;
-				}
-
 				this.decorations = this.decorations.update({
 					filterFrom: from,
 					filterTo: to,
 					filter: (_from3, _to3, _decoration) => {
 						return false;
 					},
-				});
-			}
-
-			/**
-			 * Adds a widget at a given node if it does not exist yet.
-			 *
-			 * @param from
-			 * @param to
-			 * @param newDecorations
-			 */
-			addDecoration(from: number, to: number, newDecorations: Range<Decoration>[]): void {
-				// check if the decoration already exists and only add it if it does not exist
-				if (Cm6_Util.existsDecorationBetween(this.decorations, from, to)) {
-					return;
-				}
-
-				if (newDecorations.length === 0) {
-					return;
-				}
-
-				this.decorations = this.decorations.update({
-					add: newDecorations,
 				});
 			}
 
@@ -1006,8 +698,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				this.view.dom.removeEventListener('touchend', this.handleEditableCodeBlockTouchEnd, true);
 				this.view.dom.removeEventListener('touchcancel', this.handleEditableCodeBlockTouchEnd, true);
 				this.view.dom.removeEventListener('wheel', this.handleEditableCodeBlockWheel, true);
-				views.delete(this);
-				if (currentView === this.view) currentView = null;
 				this.decorations = Decoration.none;
 			}
 		},
