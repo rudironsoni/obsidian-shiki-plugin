@@ -22,6 +22,9 @@ export interface Settings {
 	ecDefaultShowLineNumbers: boolean;
 	ecDefaultWrap: boolean;
 	ecDefaultFrame: FrameType;
+	ecEditorFontSize: number;
+	ecEditorFontFamily: string;
+	ecEditorLineHeight: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,4 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	ecDefaultShowLineNumbers: false,
 	ecDefaultWrap: false,
 	ecDefaultFrame: FrameType.Auto,
+	ecEditorFontSize: 14,
+	ecEditorFontFamily: 'var(--font-monospace)',
+	ecEditorLineHeight: 22,
 };
