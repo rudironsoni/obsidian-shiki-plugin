@@ -273,6 +273,12 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	-webkit-overflow-scrolling: touch;
 }
 
+/* Ensure Monaco editor fills container height */
+.cm-content .shiki-monaco-codeblock .monaco-editor,
+.cm-content .shiki-monaco-codeblock .monaco-editor .overflow-guard {
+	height: 100% !important;
+}
+
 .cm-content .shiki-monaco-codeblock:focus-within {
 	outline: 1px solid var(--interactive-accent);
 	outline-offset: 1px;

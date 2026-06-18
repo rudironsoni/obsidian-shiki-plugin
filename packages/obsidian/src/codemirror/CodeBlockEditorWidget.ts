@@ -170,10 +170,18 @@ async function loadMonacoCss(plugin: ShikiPlugin): Promise<void> {
 
 async function configureShikiMonaco(plugin: ShikiPlugin, runtime: MonacoRuntime): Promise<string> {
 	shikiMonacoConfigured ??= plugin.highlighter.load().then(highlighter => {
-		runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
-		const theme = highlighter.themeMapper.getThemeIdentifier() ?? plugin.loadedSettings.darkTheme;
-		runtime.monaco.editor.setTheme(theme);
-		return theme;
+		try {
+			runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
+			const theme = highlighter.themeMapper.getThemeIdentifier() ?? plugin.loadedSettings.darkTheme;
+			runtime.monaco.editor.setTheme(theme);
+			return theme;
+		} catch (error) {
+			console.error('[Shiki] Failed to configure Monaco with Shiki:', error);
+			return plugin.loadedSettings.darkTheme;
+		}
+	}).catch(error => {
+		console.error('[Shiki] Failed to load highlighter for Monaco:', error);
+		return plugin.loadedSettings.darkTheme;
 	});
 
 	return shikiMonacoConfigured;
@@ -450,6 +458,8 @@ function updateMonacoEditorHeight(monaco: MonacoModule, container: HTMLElement, 
 	const lineHeight = editor.getOption(monaco.editor.EditorOption.lineHeight);
 	const verticalPadding = 16;
 	const height = Math.max(72, model.getLineCount() * lineHeight + verticalPadding);
+	// eslint-disable-next-line no-console
+	console.log('[Shiki] updateMonacoEditorHeight: lines=', model.getLineCount(), 'lineHeight=', lineHeight, 'height=', height);
 	container.style.height = `${height}px`;
 	editor.layout({ width: Math.max(1, container.clientWidth), height: Math.max(1, height) });
 }
