@@ -1,16 +1,13 @@
-import { debounce, loadPrism, Plugin, PluginSettingTab, TFile } from 'obsidian';
+import { debounce, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
-import { LazyHighlighter, type ThemeOption } from 'packages/obsidian/src/LazyHighlighter';
-import { loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
+import { LazyHighlighter } from 'packages/obsidian/src/LazyHighlighter';
 import { ShikiSettingsTab } from 'packages/obsidian/src/settings/SettingsTab';
-import type { CodeBlock, InlineCodeBlock } from 'packages/obsidian/src/highlighter-entry';
-import type { PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlugin';
+import { CodeBlock } from 'packages/obsidian/src/CodeBlock';
+import { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
+import { createCm6Plugin } from 'packages/obsidian/src/codemirror/Cm6_ViewPlugin';
+import { registerRenderedCodeBlockTouchScroll } from 'packages/obsidian/src/RenderedCodeBlockTouchScroll';
 
 import 'packages/obsidian/src/styles.css';
-import 'virtual:ec-styles.css';
-
-declare const __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__: string;
-declare const __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__: string;
 
 export const SHIKI_INLINE_REGEX = /^\{([^\s]+)\} (.*)/i; // format: `{lang} code`
 
@@ -20,12 +17,9 @@ export default class ShikiPlugin extends Plugin {
 	settings!: Settings;
 	loadedSettings!: Settings;
 	updateCm6Plugin!: () => Promise<void>;
-	customThemeOptions: ThemeOption[] = [];
-	customThemeOptionsLoadedFrom: string | undefined;
 	private unloaded = true;
 	private cm6PluginRegistered = false;
 	private codeBlockProcessorsRegistered = false;
-	private prismPluginRegistered = false;
 	private settingsLoaded: Promise<void> | undefined;
 
 	async onload(): Promise<void> {
@@ -35,27 +29,6 @@ export default class ShikiPlugin extends Plugin {
 		this.highlighter = new LazyHighlighter(this);
 		this.activeCodeBlocks = new Map();
 		this.updateCm6Plugin = async (): Promise<void> => {};
-
-		// Decompress and expose embedded Monaco sources so the highlighter bundle
-		// (loaded dynamically) can access them even when BRAT only installs main.js.
-		if (typeof __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__) {
-			try {
-				const bytes = Uint8Array.from(atob(__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__), c => c.charCodeAt(0));
-				const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-				(globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__?: string }).__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__ = await new Response(stream).text();
-			} catch {
-				// Ignore decompression errors; the plugin will fall back to disk.
-			}
-		}
-		if (typeof __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__) {
-			try {
-				const bytes = Uint8Array.from(atob(__SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__), c => c.charCodeAt(0));
-				const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-				(globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_CSS_SOURCE__?: string }).__SHIKI_EMBEDDED_MONACO_CSS_SOURCE__ = await new Response(stream).text();
-			} catch {
-				// Ignore decompression errors; the plugin will fall back to disk.
-			}
-		}
 
 		this.addSettingTab(new LazyShikiSettingsTab(this));
 
@@ -75,7 +48,7 @@ export default class ShikiPlugin extends Plugin {
 		});
 
 		// this is a workaround for the fact that obsidian does not rerender the code block
-		// when the start line with the language changes, and we need that for the EC meta string
+		// when the start line with the language changes, and we need that for the meta string
 		this.registerEvent(
 			this.app.vault.on('modify', async file => {
 				// sleep 0 so that the code block context is updated before we rerender
@@ -112,12 +85,6 @@ export default class ShikiPlugin extends Plugin {
 				void this.reloadHighlighter();
 			},
 		});
-
-		this.deferStartupWork((): void => {
-			void this.registerPrismPlugin().catch(error => {
-				console.warn('Unable to register Shiki Prism integration.', error);
-			});
-		});
 	}
 
 	async reloadHighlighter(): Promise<void> {
@@ -140,34 +107,9 @@ export default class ShikiPlugin extends Plugin {
 			return;
 		}
 
-		const { createCm6Plugin } = await loadHighlighterEntry(this);
-		if (this.unloaded || this.cm6PluginRegistered) {
-			return;
-		}
-
 		this.registerEditorExtension([createCm6Plugin(this)]);
 		this.cm6PluginRegistered = true;
 		this.app.workspace.updateOptions();
-	}
-
-	async registerPrismPlugin(): Promise<void> {
-		if (this.unloaded || this.prismPluginRegistered) {
-			return;
-		}
-
-		const { filterHighlightAllPlugin } = await loadHighlighterEntry(this);
-		if (this.unloaded || this.prismPluginRegistered) {
-			return;
-		}
-
-		const prism = (await loadPrism()) as PrismWithFilterHighlightAll;
-		if (this.unloaded || this.prismPluginRegistered) {
-			return;
-		}
-
-		const filterHighlightAll = filterHighlightAllPlugin(prism);
-		filterHighlightAll?.reject.addSelector('div.expressive-code pre code');
-		this.prismPluginRegistered = true;
 	}
 
 	async registerCodeBlockProcessors(): Promise<void> {
@@ -176,7 +118,6 @@ export default class ShikiPlugin extends Plugin {
 		}
 
 		const languages = await this.highlighter.obsidianSafeLanguageNames();
-		const { CodeBlock } = await loadHighlighterEntry(this);
 		if (this.unloaded || this.codeBlockProcessorsRegistered) {
 			return;
 		}
@@ -200,7 +141,6 @@ export default class ShikiPlugin extends Plugin {
 						}
 
 						const codeBlock = new CodeBlock(this, el, source, language, ctx);
-
 						ctx.addChild(codeBlock);
 					},
 					1000,
@@ -223,9 +163,7 @@ export default class ShikiPlugin extends Plugin {
 					continue;
 				}
 
-				const { InlineCodeBlock } = await loadHighlighterEntry(this);
 				const codeBlock = new InlineCodeBlock(this, codeElm, match[2], match[1], ctx);
-
 				ctx.addChild(codeBlock);
 			}
 		});
@@ -286,23 +224,6 @@ export default class ShikiPlugin extends Plugin {
 		await this.reloadHighlighter();
 	}
 
-	async getSupportedLanguages(): Promise<string[]> {
-		await this.ensureSettingsLoaded();
-		return this.highlighter.supportedLanguages();
-	}
-
-	async loadCustomThemeOptions(): Promise<void> {
-		await this.ensureSettingsLoaded();
-		const folder = this.loadedSettings.customThemeFolder;
-		if (this.customThemeOptionsLoadedFrom === folder) {
-			return;
-		}
-
-		const { loadCustomThemeOptions } = await loadHighlighterEntry(this);
-		this.customThemeOptions = await loadCustomThemeOptions(this);
-		this.customThemeOptionsLoadedFrom = folder;
-	}
-
 	private deferStartupWork(callback: () => void): void {
 		const guardedCallback = (): void => {
 			if (!this.unloaded) {
@@ -336,4 +257,3 @@ class LazyShikiSettingsTab extends PluginSettingTab {
 		});
 	}
 }
-import { registerRenderedCodeBlockTouchScroll } from 'packages/obsidian/src/RenderedCodeBlockTouchScroll';

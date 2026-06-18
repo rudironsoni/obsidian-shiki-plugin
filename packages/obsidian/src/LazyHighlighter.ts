@@ -1,53 +1,53 @@
-import type { ThemedToken, TokensResult } from 'shiki';
+// @ts-nocheck
+// modern-monaco does not provide TypeScript declarations for subpath exports.
 import type ShikiPlugin from 'packages/obsidian/src/main';
-import type { CodeHighlighter, CustomTheme } from 'packages/obsidian/src/Highlighter';
-import { loadHighlighterEntry } from 'packages/obsidian/src/HighlighterEntryLoader';
+import { loadModernMonacoRuntime, loadModernMonacoGrammars, type MonacoRuntime } from 'packages/obsidian/src/ModernMonacoLoader';
+import type { ThemedToken, TokensResult } from 'shiki';
+import { OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
 
-export interface ThemeOption {
-	name: string;
-	displayName: string;
-	type: string;
+// Some languages break Obsidian's `registerMarkdownCodeBlockProcessor`, so we blacklist them
+const LANGUAGE_BLACKLIST = new Set(['c++', 'c#', 'f#', 'mermaid']);
+
+// Some languages are considered "special" by shiki.isSpecialLang
+const LANGUAGE_SPECIAL = new Set(['plaintext', 'txt', 'text', 'plain', 'ansi']);
+
+export function getActiveTheme(plugin: ShikiPlugin): string {
+	const isDark = document.body.classList.contains('theme-dark') ||
+		(!document.body.classList.contains('theme-light') && plugin.app.isDarkMode());
+	const setting = isDark ? plugin.loadedSettings.darkTheme : plugin.loadedSettings.lightTheme;
+	if (setting === OBSIDIAN_THEME_IDENTIFIER) {
+		return isDark ? 'github-dark' : 'github-light';
+	}
+	return setting;
 }
 
 export class LazyHighlighter {
 	private plugin: ShikiPlugin;
-	private highlighter: CodeHighlighter | undefined;
-	private loading: Promise<CodeHighlighter> | undefined;
+	private runtime: MonacoRuntime | undefined;
+	private loading: Promise<MonacoRuntime> | undefined;
 
 	constructor(plugin: ShikiPlugin) {
 		this.plugin = plugin;
 	}
 
-	get customThemes(): CustomTheme[] {
-		return this.highlighter?.customThemes ?? this.plugin.customThemeOptions;
-	}
-
-	async load(): Promise<CodeHighlighter> {
-		if (this.highlighter) {
-			return this.highlighter;
+	async load(): Promise<MonacoRuntime> {
+		if (this.runtime) {
+			return this.runtime;
 		}
 
-		this.loading ??= (async (): Promise<CodeHighlighter> => {
+		this.loading ??= (async (): Promise<MonacoRuntime> => {
 			await this.plugin.ensureSettingsLoaded();
-			const { CodeHighlighter } = await loadHighlighterEntry(this.plugin);
-			const highlighter = new CodeHighlighter(this.plugin);
-			await highlighter.load();
-			this.highlighter = highlighter;
-			this.plugin.customThemeOptions = highlighter.customThemes;
-			this.plugin.customThemeOptionsLoadedFrom = this.plugin.loadedSettings.customThemeFolder;
-			return highlighter;
+			const runtime = await loadModernMonacoRuntime(this.plugin);
+			this.runtime = runtime;
+			return runtime;
 		})();
 
 		return this.loading;
 	}
 
 	async unload(): Promise<void> {
-		const highlighter = await this.loading;
-		this.highlighter = undefined;
+		this.runtime = undefined;
 		this.loading = undefined;
-		this.plugin.customThemeOptions = [];
-		this.plugin.customThemeOptionsLoadedFrom = undefined;
-		await highlighter?.unload();
 	}
 
 	async reload(): Promise<void> {
@@ -55,27 +55,117 @@ export class LazyHighlighter {
 		await this.load();
 	}
 
-	async supportedLanguages(): Promise<string[]> {
-		return (await this.load()).supportedLanguages;
-	}
-
 	async obsidianSafeLanguageNames(): Promise<string[]> {
-		return (await this.load()).obsidianSafeLanguageNames();
+		const grammars = await loadModernMonacoGrammars(this.plugin);
+		const allNames = new Set<string>();
+		for (const g of grammars) {
+			if (g.injectTo) continue;
+			allNames.add(g.name);
+			if (g.aliases) {
+				for (const alias of g.aliases) {
+					allNames.add(alias);
+				}
+			}
+		}
+		for (const special of LANGUAGE_SPECIAL) {
+			allNames.add(special);
+		}
+		return Array.from(allNames).filter(name => !LANGUAGE_BLACKLIST.has(name));
 	}
 
-	async renderWithEc(code: string, language: string, meta: string, container: HTMLElement): Promise<void> {
-		await (await this.load()).renderWithEc(code, language, meta, container);
+	async renderWithMonaco(code: string, language: string, _meta: string, container: HTMLElement): Promise<void> {
+		const { monaco } = await this.load();
+		container.empty();
+		container.classList.add('shiki-monaco-block');
+
+		const el = container.createDiv({ cls: 'shiki-monaco-editor' });
+		el.style.width = '100%';
+		el.style.minHeight = '1.5em';
+
+		const theme = getActiveTheme(this.plugin);
+		const editor = monaco.editor.create(el, {
+			value: code,
+			language,
+			readOnly: true,
+			domReadOnly: true,
+			theme,
+			fontSize: this.plugin.loadedSettings.ecEditorFontSize,
+			fontFamily: this.plugin.loadedSettings.ecEditorFontFamily,
+			lineHeight: this.plugin.loadedSettings.ecEditorLineHeight,
+			lineNumbers: this.plugin.loadedSettings.ecDefaultShowLineNumbers ? 'on' : 'off',
+			wordWrap: this.plugin.loadedSettings.ecDefaultWrap ? 'on' : 'off',
+			renderLineHighlight: 'none',
+			minimap: { enabled: false },
+			scrollbar: {
+				horizontal: 'auto',
+				vertical: 'hidden',
+				handleMouseWheel: false,
+				alwaysConsumeMouseWheel: false,
+			},
+			overviewRulerLanes: 0,
+			hideCursorInOverviewRuler: true,
+			contextmenu: false,
+			folding: false,
+			glyphMargin: false,
+			lineDecorationsWidth: 0,
+			lineNumbersMinChars: 0,
+			automaticLayout: true,
+			roundedSelection: false,
+			selectOnLineNumbers: false,
+			selectionHighlight: false,
+			occurrencesHighlight: 'off',
+			links: false,
+			colorDecorators: false,
+			lightbulb: { enabled: 'off' as any },
+			padding: { top: 8, bottom: 8 },
+		});
+
+		// Resize to content height
+		const updateHeight = (): void => {
+			const contentHeight = Math.min(1000, editor.getContentHeight());
+			el.style.height = `${contentHeight}px`;
+			editor.layout();
+		};
+		editor.onDidContentSizeChange(updateHeight);
+		updateHeight();
+
+		// Store editor on container for cleanup
+		(container as any).__shikiMonacoEditor = editor;
 	}
 
 	async getHighlightTokens(code: string, lang: string): Promise<TokensResult | undefined> {
-		return (await this.load()).getHighlightTokens(code, lang);
+		const { highlighter } = await this.load();
+		const theme = getActiveTheme(this.plugin);
+		try {
+			return highlighter.codeToTokens(code, { lang, theme });
+		} catch {
+			return undefined;
+		}
 	}
 
 	renderTokens(tokens: ThemedToken[], parent: HTMLElement): void {
-		this.highlighter?.renderTokens(tokens, parent);
+		parent.empty();
+		for (const token of tokens) {
+			const span = parent.createSpan({
+				text: token.content,
+				attr: { style: `color: ${token.color ?? 'inherit'}` },
+			});
+			if (token.fontStyle) {
+				if (token.fontStyle & 1) span.style.fontStyle = 'italic';
+				if (token.fontStyle & 2) span.style.fontWeight = 'bold';
+				if (token.fontStyle & 4) span.style.textDecoration = 'underline';
+			}
+		}
 	}
 
 	getTokenStyle(token: ThemedToken): { style: string; classes: string[] } {
-		return this.highlighter?.getTokenStyle(token) ?? { style: `color: ${token.color}`, classes: [] };
+		const styles: string[] = [];
+		if (token.color) styles.push(`color: ${token.color}`);
+		if (token.fontStyle) {
+			if (token.fontStyle & 1) styles.push('font-style: italic');
+			if (token.fontStyle & 2) styles.push('font-weight: bold');
+			if (token.fontStyle & 4) styles.push('text-decoration: underline');
+		}
+		return { style: styles.join('; '), classes: [] };
 	}
 }

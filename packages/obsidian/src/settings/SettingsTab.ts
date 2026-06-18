@@ -16,17 +16,10 @@ export class ShikiSettingsTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
-		if (this.plugin.settings.customThemeFolder && this.plugin.customThemeOptionsLoadedFrom !== this.plugin.settings.customThemeFolder) {
-			void this.plugin.loadCustomThemeOptions().then(() => {
-				this.display();
-			});
-		}
 
-		const customThemes = Object.fromEntries(this.plugin.customThemeOptions.map(theme => [theme.name, `${theme.displayName} (${theme.type})`]));
 		const builtInThemes = Object.fromEntries(BUNDLED_THEMES_INFO.map(theme => [theme.id, `${theme.displayName} (${theme.type})`]));
 		const themes = {
 			[OBSIDIAN_THEME_IDENTIFIER]: 'Obsidian built-in (both)',
-			...customThemes,
 			...builtInThemes,
 		};
 
@@ -190,7 +183,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addButton(button => {
 				button.setButtonText('Add Language Rule').onClick(async () => {
 					button.setDisabled(true);
-					const languages = await this.plugin.getSupportedLanguages();
+					const languages = await this.plugin.highlighter.obsidianSafeLanguageNames();
 					button.setDisabled(false);
 
 					const modal = new StringSelectModal(this.plugin, languages, language => {
