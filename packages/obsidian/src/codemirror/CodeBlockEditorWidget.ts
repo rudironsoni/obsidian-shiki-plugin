@@ -169,8 +169,19 @@ async function loadMonacoCss(plugin: ShikiPlugin): Promise<void> {
 }
 
 async function configureShikiMonaco(plugin: ShikiPlugin, runtime: MonacoRuntime): Promise<string> {
-	shikiMonacoConfigured ??= plugin.highlighter.load().then(highlighter => {
+	shikiMonacoConfigured ??= plugin.highlighter.load().then(async highlighter => {
 		try {
+			// Load every language that Monaco knows about individually.
+			// If a language is not bundled in Shiki or its grammar is broken,
+			// the error is caught and that language is simply skipped.
+			for (const lang of runtime.monaco.languages.getLanguages()) {
+				try {
+					await highlighter.shiki.loadLanguage(lang.id as never);
+				} catch {
+					// Not a Shiki-bundled language or broken grammar; skip.
+				}
+			}
+
 			runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
 			const theme = highlighter.themeMapper.getThemeIdentifier() ?? plugin.loadedSettings.darkTheme;
 			runtime.monaco.editor.setTheme(theme);

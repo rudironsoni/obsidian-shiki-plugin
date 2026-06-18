@@ -144,7 +144,7 @@ export class CodeHighlighter {
 	async loadShiki(): Promise<void> {
 		this.shiki = await createHighlighter({
 			themes: [await this.themeMapper.getTheme()],
-			langs: [...Object.keys(bundledLanguages), ...this.customLanguages],
+			langs: this.customLanguages,
 		});
 	}
 
