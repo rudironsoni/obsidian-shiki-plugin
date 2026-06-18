@@ -281,3 +281,41 @@ export function buildEditableCodeBlockDecorations(block: EditableCodeBlock, high
 
 	return decorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide || a.to - b.to);
 }
+
+export function buildEditableCodeBlockLineDecorations(block: EditableCodeBlock, highlight: TokensResult): Range<Decoration>[] {
+	const decorations: Range<Decoration>[] = [];
+	const lineStarts = block.lineStarts.length > 0 ? block.lineStarts : [block.from];
+	const blockId = `${block.from}-${block.to}`;
+
+	for (let index = 0; index < lineStarts.length; index++) {
+		const lineStart = lineStarts[index];
+		const classes = [
+			'shiki-editing-codeblock-line',
+			index === 0 ? 'shiki-editing-codeblock-first-line' : undefined,
+			index === lineStarts.length - 1 ? 'shiki-editing-codeblock-last-line' : undefined,
+			block.showLineNumbers ? 'shiki-editing-codeblock-with-line-numbers' : undefined,
+			block.wrap ? 'shiki-editing-codeblock-wrap' : 'shiki-editing-codeblock-nowrap',
+		].filter(Boolean) as string[];
+
+		decorations.push(
+			Decoration.line({
+				attributes: {
+					class: classes.join(' '),
+					style: `background-color: ${highlight.bg ?? 'var(--shiki-code-background)'}; color: ${highlight.fg ?? 'var(--shiki-code-normal)'}`,
+					'data-shiki-editing-block-id': blockId,
+				},
+			}).range(lineStart),
+		);
+
+		if (block.showLineNumbers) {
+			decorations.push(
+				Decoration.widget({
+					widget: new LineNumberWidget(index + 1),
+					side: -1,
+				}).range(lineStart),
+			);
+		}
+	}
+
+	return decorations.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide || a.to - b.to);
+}

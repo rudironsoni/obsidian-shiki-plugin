@@ -159,7 +159,7 @@ class MonacoCodeBlockWidget extends WidgetType {
 
 		toDOM(): HTMLElement {
 		const container = document.createElement('div');
-		container.className = 'shiki-monaco-codeblock';
+		container.className = 'shiki-monaco-codeblock shiki-monaco-active';
 		container.dataset.language = this.block.language;
 
 		const fallback = document.createElement('pre');
@@ -179,9 +179,10 @@ class MonacoCodeBlockWidget extends WidgetType {
 		};
 		controllers.set(container, controller);
 
-		if (this.autofocus) {
-			void this.activate(container, controller);
-		}
+		void this.activate(container, controller).catch(e => {
+			console.error('Monaco widget activation failed:', e);
+			container.classList.remove('shiki-monaco-active');
+		});
 
 		return container;
 	}

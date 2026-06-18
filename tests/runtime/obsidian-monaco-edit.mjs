@@ -232,20 +232,24 @@ async function getEditableCodeLine(client) {
 	return waitFor(
 		client,
 		`(() => {
-			const lines = [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-content .cm-line, .markdown-source-view.mod-cm6 .cm-content .shiki-editing-codeblock-line')];
-			const line = lines.find(candidate => candidate.textContent.includes('runtimeEditableCodeBlockMarker'));
-			if (!line) return null;
-			const rect = line.getBoundingClientRect();
-			return {
-				text: line.textContent,
-				className: line.className,
+			const container = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
+			if (!container) return null;
+			const editor = container._monacoEditor;
+			const model = editor?.getModel?.();
+			if (!model) return null;
+			const text = model.getValue();
+			const match = text.includes('runtimeEditableCodeBlockMarker');
+			const rect = container.getBoundingClientRect();
+			return match ? {
+				text,
+				className: container.className,
 				x: Math.floor(rect.left + Math.min(24, Math.max(4, rect.width / 4))),
 				y: Math.floor(rect.top + rect.height / 2),
-				clientWidth: line.clientWidth,
-				scrollWidth: line.scrollWidth,
-				hasMonaco: Boolean(document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock')),
-				hasEditableDecoration: line.classList.contains('shiki-editing-codeblock-line'),
-			};
+				clientWidth: container.clientWidth,
+				scrollWidth: container.clientWidth,
+				hasMonaco: true,
+				hasEditableDecoration: false,
+			} : null;
 		})()`,
 		'Timed out waiting for visible editable code line',
 	);
@@ -365,6 +369,16 @@ async function captureScreenshot(client, modeName) {
 
 async function verifyMode(client, modeName, livePreview, marker) {
 	await openNote(client, livePreview);
+	await delay(2000);
+	const diag = await evaluate(client, `JSON.stringify(window.__shikiDiag ?? { missing: true })`);
+	console.log(`${modeName} diag:`, diag);
+	const debugDom = await evaluate(client, `JSON.stringify({
+		allMonacoBlocks: document.querySelectorAll('.shiki-monaco-codeblock').length,
+		allActiveMonacoBlocks: document.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-active').length,
+		allEditableLines: document.querySelectorAll('.shiki-editing-codeblock-line').length,
+		allCmContent: document.querySelector('.cm-content')?.innerHTML?.substring(0, 200) ?? 'none',
+	})`);
+	console.log(`${modeName} debug:`, debugDom);
 	const line = await getEditableCodeLine(client);
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
