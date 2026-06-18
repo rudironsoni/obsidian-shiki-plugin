@@ -5,6 +5,9 @@ import type * as Monaco from 'monaco-editor-core';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import type { EditableCodeBlock } from 'packages/obsidian/src/codemirror/EditableCodeBlockDecorations';
 
+declare const __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__: string;
+declare const __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__: string;
+
 type MonacoModule = typeof Monaco;
 type MonacoCodeEditor = Monaco.editor.IStandaloneCodeEditor;
 type MonacoTextModel = Monaco.editor.ITextModel;
@@ -56,6 +59,38 @@ let monacoRuntime: Promise<MonacoRuntime> | undefined;
 let shikiMonacoConfigured: Promise<string> | undefined;
 let monacoCssLoaded = false;
 
+async function decompressGzipBase64(source: string): Promise<string> {
+	const bytes = Uint8Array.from(atob(source), character => character.charCodeAt(0));
+	const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+	return await new Response(stream).text();
+}
+
+async function getEmbeddedMonacoEditorSource(): Promise<string | undefined> {
+	const runtimeGlobal = globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__?: string };
+	if (typeof runtimeGlobal.__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__ === 'string' && runtimeGlobal.__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__) {
+		return runtimeGlobal.__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__;
+	}
+
+	if (typeof __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__) {
+		return decompressGzipBase64(__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__);
+	}
+
+	return undefined;
+}
+
+async function getEmbeddedMonacoCssSource(): Promise<string | undefined> {
+	const runtimeGlobal = globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_CSS_SOURCE__?: string };
+	if (typeof runtimeGlobal.__SHIKI_EMBEDDED_MONACO_CSS_SOURCE__ === 'string' && runtimeGlobal.__SHIKI_EMBEDDED_MONACO_CSS_SOURCE__) {
+		return runtimeGlobal.__SHIKI_EMBEDDED_MONACO_CSS_SOURCE__;
+	}
+
+	if (typeof __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__) {
+		return decompressGzipBase64(__SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__);
+	}
+
+	return undefined;
+}
+
 export function selectionIsInsideCodeBlockBody(state: EditorView['state'], block: EditableCodeBlock): boolean {
 	const selection = state.selection.main;
 	return selection.from >= block.from && selection.to <= block.to;
@@ -80,10 +115,18 @@ async function loadMonacoRuntime(plugin: ShikiPlugin): Promise<MonacoRuntime> {
 }
 
 async function loadMonacoEntry(plugin: ShikiPlugin): Promise<MonacoEntry> {
+	const embeddedSource = await getEmbeddedMonacoEditorSource();
+	if (embeddedSource) {
+		const module = { exports: {} as MonacoEntry };
+		// eslint-disable-next-line @typescript-eslint/no-implied-eval
+		const loadModule = new Function('module', 'exports', embeddedSource) as (module: { exports: MonacoEntry }, exports: MonacoEntry) => void;
+		loadModule(module, module.exports);
+		return module.exports;
+	}
+
 	const pluginDir = `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
 	const source = await plugin.app.vault.adapter.read(`${pluginDir}/monaco-editor.js`);
 	const module = { exports: {} as MonacoEntry };
-	// Obsidian does not resolve sibling plugin files through require() or import().
 	// eslint-disable-next-line @typescript-eslint/no-implied-eval
 	const loadModule = new Function('module', 'exports', source) as (module: { exports: MonacoEntry }, exports: MonacoEntry) => void;
 	loadModule(module, module.exports);
@@ -92,6 +135,16 @@ async function loadMonacoEntry(plugin: ShikiPlugin): Promise<MonacoEntry> {
 
 async function loadMonacoCss(plugin: ShikiPlugin): Promise<void> {
 	if (monacoCssLoaded) return;
+
+	const embeddedCss = await getEmbeddedMonacoCssSource();
+	if (embeddedCss) {
+		const style = document.createElement('style');
+		style.textContent = embeddedCss;
+		style.dataset.shikiMonacoEditor = 'true';
+		document.head.appendChild(style);
+		monacoCssLoaded = true;
+		return;
+	}
 
 	const pluginDir = `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
 	if (!(await plugin.app.vault.adapter.exists(`${pluginDir}/monaco-editor.css`))) {

@@ -19,6 +19,8 @@ const entryFile = 'packages/obsidian/src/main.ts';
 const highlighterEntryFile = 'packages/obsidian/src/highlighter-entry.ts';
 const monacoEntryFile = 'packages/obsidian/src/monaco-entry.ts';
 const highlighterBundleFile = 'dist/highlighter.js';
+const monacoEditorBundleFile = 'dist/monaco-editor.js';
+const monacoCssFile = 'dist/monaco-editor.css';
 const EC_RUNTIME_MODULE_ID = 'virtual:ec-runtime';
 const EC_STYLES_MODULE_ID = 'virtual:ec-styles.css';
 const EC_RUNTIME_RESOLVED_ID = `\0${EC_RUNTIME_MODULE_ID}`;
@@ -99,6 +101,19 @@ function embeddedHighlighterCssFallbackPlugin(source: string, outDir: string) {
 	};
 }
 
+function embeddedMonacoCssFallbackPlugin(source: string, outDir: string) {
+	return {
+		name: 'embedded-monaco-css-fallback',
+		writeBundle(): void {
+			if (!source) {
+				return;
+			}
+
+			appendFileSync(path.join(outDir, 'styles.css'), `\n/* shiki-monaco-css-fallback:${source} */\n`);
+		},
+	};
+}
+
 export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
@@ -107,6 +122,14 @@ export default defineConfig(({ mode }) => {
 	const embeddedHighlighterSource =
 		buildEntry === 'main' && process.env.SHIKI_EMBED_HIGHLIGHTER === 'true' && existsSync(highlighterBundleFile)
 			? gzipSync(readFileSync(highlighterBundleFile)).toString('base64')
+			: '';
+	const embeddedMonacoEditorSource =
+		buildEntry === 'main' && process.env.SHIKI_EMBED_HIGHLIGHTER === 'true' && existsSync(monacoEditorBundleFile)
+			? gzipSync(readFileSync(monacoEditorBundleFile)).toString('base64')
+			: '';
+	const embeddedMonacoCssSource =
+		buildEntry === 'main' && process.env.SHIKI_EMBED_HIGHLIGHTER === 'true' && existsSync(monacoCssFile)
+			? gzipSync(readFileSync(monacoCssFile)).toString('base64')
 			: '';
 	const external = [
 		'obsidian',
@@ -133,6 +156,7 @@ export default defineConfig(({ mode }) => {
 			}),
 			expressiveCodeBundlePlugin(),
 			embeddedHighlighterCssFallbackPlugin(embeddedHighlighterSource, outDir),
+			embeddedMonacoCssFallbackPlugin(embeddedMonacoCssSource, outDir),
 			banner({
 				outDir,
 				content: getBuildBanner(prod ? 'Release Build' : 'Dev Build', version => version),
@@ -152,6 +176,8 @@ export default defineConfig(({ mode }) => {
 		},
 		define: {
 			__SHIKI_EMBEDDED_HIGHLIGHTER_SOURCE_GZIP_BASE64__: JSON.stringify(embeddedHighlighterSource),
+			__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__: JSON.stringify(embeddedMonacoEditorSource),
+			__SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__: JSON.stringify(embeddedMonacoCssSource),
 		},
 		build: {
 			lib: {

@@ -9,6 +9,9 @@ import type { PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlu
 import 'packages/obsidian/src/styles.css';
 import 'virtual:ec-styles.css';
 
+declare const __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__: string;
+declare const __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__: string;
+
 export const SHIKI_INLINE_REGEX = /^\{([^\s]+)\} (.*)/i; // format: `{lang} code`
 
 export default class ShikiPlugin extends Plugin {
@@ -32,6 +35,27 @@ export default class ShikiPlugin extends Plugin {
 		this.highlighter = new LazyHighlighter(this);
 		this.activeCodeBlocks = new Map();
 		this.updateCm6Plugin = async (): Promise<void> => {};
+
+		// Decompress and expose embedded Monaco sources so the highlighter bundle
+		// (loaded dynamically) can access them even when BRAT only installs main.js.
+		if (typeof __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__) {
+			try {
+				const bytes = Uint8Array.from(atob(__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE_GZIP_BASE64__), c => c.charCodeAt(0));
+				const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+				(globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__?: string }).__SHIKI_EMBEDDED_MONACO_EDITOR_SOURCE__ = await new Response(stream).text();
+			} catch {
+				// Ignore decompression errors; the plugin will fall back to disk.
+			}
+		}
+		if (typeof __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__ !== 'undefined' && __SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__) {
+			try {
+				const bytes = Uint8Array.from(atob(__SHIKI_EMBEDDED_MONACO_CSS_SOURCE_GZIP_BASE64__), c => c.charCodeAt(0));
+				const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+				(globalThis as typeof globalThis & { __SHIKI_EMBEDDED_MONACO_CSS_SOURCE__?: string }).__SHIKI_EMBEDDED_MONACO_CSS_SOURCE__ = await new Response(stream).text();
+			} catch {
+				// Ignore decompression errors; the plugin will fall back to disk.
+			}
+		}
 
 		this.addSettingTab(new LazyShikiSettingsTab(this));
 
