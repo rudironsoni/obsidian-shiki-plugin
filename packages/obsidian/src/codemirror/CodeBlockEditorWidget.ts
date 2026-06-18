@@ -183,7 +183,34 @@ async function configureShikiMonaco(plugin: ShikiPlugin, runtime: MonacoRuntime)
 				}
 			}
 
-			runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
+			// Monkey-patch setTokensProvider so every provider is wrapped in try/catch.
+			// This prevents a single broken grammar from crashing the Monaco editor.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const originalSetTokensProvider = (runtime.monaco.languages.setTokensProvider as any).bind(runtime.monaco.languages);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			(runtime.monaco.languages as any).setTokensProvider = (languageId: string, provider: any): any => {
+				const originalTokenize = provider.tokenize.bind(provider);
+				return originalSetTokensProvider(languageId, {
+					getInitialState: () => provider.getInitialState(),
+					tokenize(line: string, state: unknown) {
+						try {
+							return originalTokenize(line, state);
+						} catch (e) {
+							// eslint-disable-next-line no-console
+							console.warn('[Shiki] Broken grammar for', languageId, e);
+							// Broken grammar — return plain uncolored tokens.
+							return { endState: state, tokens: [{ startIndex: 0, scopes: '' }] };
+						}
+					},
+				});
+			};
+
+			try {
+				runtime.shikiToMonaco(highlighter.shiki, runtime.monaco);
+			} catch (e) {
+				// eslint-disable-next-line no-console
+				console.warn('[Shiki] shikiToMonaco failed, falling back to built-in Monaco tokenization:', e);
+			}
 			const theme = highlighter.themeMapper.getThemeIdentifier() ?? plugin.loadedSettings.darkTheme;
 			runtime.monaco.editor.setTheme(theme);
 			return theme;
