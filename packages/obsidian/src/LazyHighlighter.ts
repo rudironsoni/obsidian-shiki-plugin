@@ -74,15 +74,26 @@ export class LazyHighlighter {
 	}
 
 	async renderWithMonaco(code: string, language: string, _meta: string, container: HTMLElement): Promise<void> {
-		const { monaco } = await this.load();
+		const runtime = await this.load();
+		const { monaco } = runtime;
 		container.empty();
 		container.classList.add('shiki-monaco-block');
 
 		const el = container.createDiv({ cls: 'shiki-monaco-editor' });
 		el.style.width = '100%';
-		el.style.minHeight = '1.5em';
 
 		const theme = getActiveTheme(this.plugin);
+
+		// Eagerly load grammar so tokenization is ready before editor creation
+		// Failures are non-fatal - editor still renders without syntax highlighting
+		try {
+			await runtime.registerLanguage(language);
+		} catch {
+			/* ignore - grammar loading is best-effort */
+		}
+
+		const showLineNumbers = this.plugin.loadedSettings.ecDefaultShowLineNumbers;
+
 		const editor = monaco.editor.create(el, {
 			value: code,
 			language,
@@ -92,7 +103,8 @@ export class LazyHighlighter {
 			fontSize: this.plugin.loadedSettings.ecEditorFontSize,
 			fontFamily: this.plugin.loadedSettings.ecEditorFontFamily,
 			lineHeight: this.plugin.loadedSettings.ecEditorLineHeight,
-			lineNumbers: this.plugin.loadedSettings.ecDefaultShowLineNumbers ? 'on' : 'off',
+			lineNumbers: showLineNumbers ? 'on' : 'off',
+			lineNumbersMinChars: showLineNumbers ? 3 : 0,
 			wordWrap: this.plugin.loadedSettings.ecDefaultWrap ? 'on' : 'off',
 			renderLineHighlight: 'none',
 			minimap: { enabled: false },
@@ -102,13 +114,13 @@ export class LazyHighlighter {
 				handleMouseWheel: false,
 				alwaysConsumeMouseWheel: false,
 			},
+			scrollBeyondLastLine: false,
 			overviewRulerLanes: 0,
 			hideCursorInOverviewRuler: true,
 			contextmenu: false,
 			folding: false,
 			glyphMargin: false,
 			lineDecorationsWidth: 0,
-			lineNumbersMinChars: 0,
 			automaticLayout: true,
 			roundedSelection: false,
 			selectOnLineNumbers: false,
@@ -120,9 +132,9 @@ export class LazyHighlighter {
 			padding: { top: 8, bottom: 8 },
 		});
 
-		// Resize to content height
+		// Resize to exact content height so vertical scroll is handled by Obsidian, not Monaco
 		const updateHeight = (): void => {
-			const contentHeight = Math.min(1000, editor.getContentHeight());
+			const contentHeight = editor.getContentHeight();
 			el.style.height = `${contentHeight}px`;
 			editor.layout();
 		};

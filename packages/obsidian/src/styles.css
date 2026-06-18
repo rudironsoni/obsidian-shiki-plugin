@@ -155,6 +155,29 @@ span.shiki-ul {
 	text-decoration: underline;
 }
 
+/* Monaco read-only blocks in reading mode */
+.shiki-monaco-block {
+	position: relative;
+}
+
+.shiki-monaco-editor {
+	width: 100%;
+}
+
+/* Prevent Monaco from creating internal vertical scroll - let Obsidian handle it */
+.shiki-monaco-editor .monaco-scrollable-element {
+	overflow-y: visible !important;
+}
+
+.shiki-monaco-editor .monaco-scrollable-element > .scrollbar.vertical {
+	display: none !important;
+}
+
+/* Ensure horizontal scroll still works */
+.shiki-monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
+	pointer-events: auto;
+}
+
 /* Settings tab  */
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;
