@@ -260,12 +260,17 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 
 .cm-content .shiki-monaco-codeblock {
 	box-sizing: border-box;
+	position: relative;
 	width: 100%;
 	max-width: 100%;
-	overflow: hidden;
+	overflow-x: auto;
+	overflow-y: visible;
 	background-color: var(--shiki-code-background);
 	border: var(--shiki-code-block-border-width) solid var(--shiki-code-block-border-color);
 	border-radius: var(--shiki-code-block-border-radius);
+	min-height: 3em;
+	touch-action: pan-x pan-y;
+	-webkit-overflow-scrolling: touch;
 }
 
 .cm-content .shiki-monaco-codeblock:focus-within {
@@ -282,6 +287,11 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 .cm-content .shiki-monaco-codeblock .monaco-editor {
 	font-family: var(--font-monospace);
 	line-height: var(--line-height-code);
+	width: 100% !important;
+}
+
+.cm-content .shiki-monaco-active .shiki-monaco-codeblock-fallback {
+	display: none;
 }
 
 .cm-content .shiki-editing-token {
@@ -305,9 +315,6 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;
 }
-.cm-content .shiki-monaco-codeblock {
-	min-height: 3em;
-}
 
 .cm-content .shiki-monaco-codeblock-fallback {
 	box-sizing: border-box;
@@ -315,20 +322,41 @@ body.is-phone .cm-content .shiki-editing-codeblock-nowrap::-webkit-scrollbar {
 	padding: var(--size-2-2) var(--size-2-3);
 	width: 100%;
 	max-width: 100%;
-	overflow-x: auto;
 	color: var(--code-normal);
-	background: var(--code-background);
+	background: transparent;
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
 	line-height: var(--line-height-code);
 	white-space: pre;
-	-webkit-overflow-scrolling: touch;
 }
 
-.cm-content .shiki-monaco-codeblock:not(.shiki-monaco-codeblock-loading) > .shiki-monaco-codeblock-fallback {
-	display: none;
+body.is-phone .cm-content .shiki-monaco-codeblock {
+	overflow-x: auto;
+	overflow-y: visible;
+	-webkit-overflow-scrolling: touch;
+	touch-action: pan-x pan-y;
+	overscroll-behavior-x: contain;
+}
+
+body.is-phone .cm-content .shiki-monaco-edit-button {
+	opacity: 1;
+	padding: 6px 12px;
 }
 
 .cm-content .shiki-hidden-codeblock-fence-text {
 	display: none !important;
+}
+
+/* Ensure Monaco editor fills container and allows horizontal overflow */
+.cm-content .shiki-monaco-codeblock .monaco-editor .overflow-guard {
+	width: 100% !important;
+}
+
+.cm-content .shiki-monaco-codeblock .monaco-editor .view-lines {
+	white-space: pre;
+}
+
+/* Allow Monaco content to be wider than container for horizontal scroll */
+.cm-content .shiki-monaco-codeblock .monaco-editor .editor-scrollable {
+	min-width: 100%;
 }

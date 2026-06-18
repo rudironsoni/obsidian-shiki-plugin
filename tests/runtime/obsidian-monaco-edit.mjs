@@ -266,14 +266,18 @@ async function clickLine(client, line) {
 		button: 'left',
 		clickCount: 1,
 	});
-	await delay(200);
+	await delay(600);
+	const log = await evaluate(client, `JSON.stringify(window.__shikiMonacoActivationLog ?? [])`);
+	console.log('Activation log:', log);
 }
 
 async function typeText(client, text) {
 	await evaluate(
 		client,
 		`(() => {
-			const editor = window.__shikiLastMonacoEditor;
+			const container = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
+			if (!container) throw new Error('No active Monaco code block found');
+			const editor = container._monacoEditor;
 			const model = editor?.getModel?.();
 			if (!editor || !model) throw new Error('Monaco editor/model missing');
 			model.setValue(${JSON.stringify(text)} + model.getValue());
@@ -284,7 +288,7 @@ async function typeText(client, text) {
 
 async function waitForMonaco(client, modeName) {
 	const expression = `(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
 			const editor = document.querySelector('.markdown-source-view.mod-cm6 .cm-editor');
 			const detail = {
 				editorClass: editor?.className ?? null,
@@ -320,7 +324,7 @@ async function waitForMonaco(client, modeName) {
 				height: rect.height,
 				viewLines,
 				text,
-				hasEditorHook: Boolean(window.__shikiLastMonacoEditor),
+				hasEditorHook: Boolean(block.querySelector('.monaco-editor')),
 				fallbackVisible: Boolean(fallback && fallbackStyle?.display !== 'none' && fallbackStyle?.visibility !== 'hidden'),
 				fallbackBoxHeight: fallbackRect?.height ?? 0,
 				fallbackBoxWidth: fallbackRect?.width ?? 0,
@@ -374,7 +378,10 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(monaco.fallbackBoxHeight === 0 && monaco.fallbackBoxWidth === 0, `${modeName}: Monaco fallback still occupies layout`, monaco);
 	assert(!monaco.fenceTextVisible, `${modeName}: raw fenced code block is still visible outside Monaco`, monaco);
 
-	await evaluate(client, `window.__shikiLastMonacoEditor?.focus?.()`);
+	await evaluate(client, `(() => {
+		const container = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
+		if (container && container._monacoEditor) container._monacoEditor.focus();
+	})()`);
 	await typeText(client, marker);
 	const content = await assertFileContains(client, marker);
 	assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });

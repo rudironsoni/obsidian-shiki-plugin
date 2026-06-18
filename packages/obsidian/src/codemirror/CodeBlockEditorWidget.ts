@@ -25,6 +25,9 @@ interface MonacoCodeBlockController {
 	model: MonacoTextModel | undefined;
 	updatingFromParent: boolean;
 	disposed: boolean;
+	syncTimeout: ReturnType<typeof setTimeout> | null;
+	rafHandles: number[];
+	escapeHandler: ((event: KeyboardEvent) => void) | null;
 }
 
 export interface CodeBlockBodyRange {
@@ -64,10 +67,11 @@ export function buildCodeBlockEditorDecoration(
 	parentView: EditorView,
 	block: EditableCodeBlock,
 	replaceRange: CodeBlockBodyRange = block,
+	autofocus = false,
 ): Range<Decoration> {
 	return Decoration.replace({
 		block: true,
-		widget: new MonacoCodeBlockWidget(plugin, parentView, block),
+		widget: new MonacoCodeBlockWidget(plugin, parentView, block, autofocus),
 	}).range(replaceRange.from, replaceRange.to);
 }
 
@@ -133,6 +137,8 @@ function ensureMonacoLanguage(monaco: MonacoModule, language: string): void {
 }
 
 class MonacoCodeBlockWidget extends WidgetType {
+	private static readonly SYNC_DEBOUNCE_MS = 150;
+
 	constructor(
 		private readonly plugin: ShikiPlugin,
 		private readonly parentView: EditorView,
@@ -151,11 +157,11 @@ class MonacoCodeBlockWidget extends WidgetType {
 		);
 	}
 
-	toDOM(): HTMLElement {
-		document.body.dataset.shikiMonacoWidgetToDom = `${Number(document.body.dataset.shikiMonacoWidgetToDom ?? 0) + 1}`;
+		toDOM(): HTMLElement {
 		const container = document.createElement('div');
-		container.className = 'shiki-monaco-codeblock shiki-monaco-codeblock-loading';
+		container.className = 'shiki-monaco-codeblock';
 		container.dataset.language = this.block.language;
+
 		const fallback = document.createElement('pre');
 		fallback.className = 'shiki-monaco-codeblock-fallback';
 		fallback.textContent = this.block.content;
@@ -167,10 +173,15 @@ class MonacoCodeBlockWidget extends WidgetType {
 			model: undefined,
 			updatingFromParent: false,
 			disposed: false,
+			syncTimeout: null,
+			rafHandles: [],
+			escapeHandler: null,
 		};
 		controllers.set(container, controller);
 
-		void this.mountMonaco(container, controller);
+		if (this.autofocus) {
+			void this.activate(container, controller);
+		}
 
 		return container;
 	}
@@ -199,9 +210,136 @@ class MonacoCodeBlockWidget extends WidgetType {
 		if (!controller) return;
 
 		controller.disposed = true;
+		if (controller.syncTimeout) {
+			clearTimeout(controller.syncTimeout);
+		}
+		for (const handle of controller.rafHandles) {
+			cancelAnimationFrame(handle);
+		}
+		if (controller.escapeHandler) {
+			document.removeEventListener('keydown', controller.escapeHandler);
+		}
 		controller.editor?.dispose();
 		controller.model?.dispose();
 		controllers.delete(dom);
+	}
+
+	private async activate(container: HTMLElement, controller: MonacoCodeBlockController): Promise<void> {
+		if (controller.editor) {
+			// Already active
+			controller.editor.focus();
+			return;
+		}
+
+		container.classList.add('shiki-monaco-active');
+
+		await loadMonacoCss(this.plugin);
+		const runtime = await loadMonacoRuntime(this.plugin);
+		if (controller.disposed || controllers.get(container) !== controller) return;
+
+		const widget = controller.widget;
+		ensureMonacoLanguage(runtime.monaco, widget.block.language);
+
+		const model = runtime.monaco.editor.createModel(widget.block.content, normalizeMonacoLanguage(widget.block.language));
+		const lineHeight = 19; // approximate default
+		const initialHeight = Math.max(72, model.getLineCount() * lineHeight + 16);
+
+		const editor = runtime.monaco.editor.create(container, {
+			model,
+			automaticLayout: false,
+			contextmenu: false,
+			fontFamily: 'var(--font-monospace)',
+			fontLigatures: false,
+			fontSize: Number.parseFloat(getComputedStyle(document.body).getPropertyValue('--code-size')) || 13,
+			glyphMargin: false,
+			lineDecorationsWidth: 8,
+			lineNumbers: widget.block.showLineNumbers ? 'on' : 'off',
+			lineNumbersMinChars: widget.block.showLineNumbers ? 3 : 0,
+			minimap: { enabled: false },
+			overviewRulerLanes: 0,
+			renderLineHighlight: 'none',
+			scrollBeyondLastLine: false,
+			scrollbar: {
+				alwaysConsumeMouseWheel: false,
+				horizontal: 'hidden',
+				vertical: 'hidden',
+			},
+			wordWrap: widget.block.wrap ? 'on' : 'off',
+		});
+
+		controller.editor = editor;
+		controller.model = model;
+		(container as HTMLElement & { _monacoEditor?: MonacoCodeEditor })._monacoEditor = editor;
+
+		updateMonacoEditorHeight(runtime.monaco, container, editor, model);
+
+		const rafHandle = requestAnimationFrame(() => {
+			editor.layout({ width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) });
+		});
+		controller.rafHandles.push(rafHandle);
+
+		const contentChangeDisposable = model.onDidChangeContent(() => {
+			if (controller.updatingFromParent) return;
+			if (controller.disposed) return;
+
+			updateMonacoEditorHeight(runtime.monaco, container, editor, model);
+
+			if (controller.syncTimeout) {
+				clearTimeout(controller.syncTimeout);
+			}
+			controller.syncTimeout = setTimeout(() => {
+				if (controller.disposed) return;
+
+				const currentWidget = controller.widget;
+				const bodyRange = currentWidget.resolveCurrentBodyRange();
+				currentWidget.parentView.dispatch({
+					changes: {
+						from: bodyRange.from,
+						to: bodyRange.to,
+						insert: model.getValue(),
+					},
+				});
+			}, MonacoCodeBlockWidget.SYNC_DEBOUNCE_MS);
+		});
+
+		void configureShikiMonaco(this.plugin, runtime).then(theme => {
+			if (controllers.get(container) !== controller) return;
+			editor.updateOptions({ theme });
+		});
+
+		// Escape key deactivates Monaco
+		controller.escapeHandler = (event: KeyboardEvent): void => {
+			if (event.key === 'Escape' && controller.editor && !controller.disposed) {
+				// Only deactivate if the editor is focused or container contains the active element
+				const editorNode = controller.editor.getDomNode();
+				if (editorNode?.contains(document.activeElement)) {
+					event.preventDefault();
+					event.stopPropagation();
+					this.deactivate(container, controller);
+				}
+			}
+		};
+		document.addEventListener('keydown', controller.escapeHandler, true);
+
+		if (this.autofocus) {
+			editor.focus();
+		}
+	}
+
+	private deactivate(container: HTMLElement, controller: MonacoCodeBlockController): void {
+		if (controller.escapeHandler) {
+			document.removeEventListener('keydown', controller.escapeHandler, true);
+			controller.escapeHandler = null;
+		}
+		if (controller.syncTimeout) {
+			clearTimeout(controller.syncTimeout);
+			controller.syncTimeout = null;
+		}
+		controller.editor?.dispose();
+		controller.model?.dispose();
+		controller.editor = undefined;
+		controller.model = undefined;
+		container.classList.remove('shiki-monaco-active');
 	}
 
 	private resolveCurrentBodyRange(): CodeBlockBodyRange {
@@ -231,91 +369,14 @@ class MonacoCodeBlockWidget extends WidgetType {
 		return resolveEditableCodeBlockBodyRange(this.block, doc.length, []);
 	}
 
-	private async mountMonaco(container: HTMLElement, controller: MonacoCodeBlockController): Promise<void> {
-		await loadMonacoCss(this.plugin);
-		const runtime = await loadMonacoRuntime(this.plugin);
-		if (controller.disposed || controllers.get(container) !== controller) return;
-
-		const widget = controller.widget;
-		ensureMonacoLanguage(runtime.monaco, widget.block.language);
-
-		const model = runtime.monaco.editor.createModel(widget.block.content, normalizeMonacoLanguage(widget.block.language));
-		const editor = runtime.monaco.editor.create(container, {
-			model,
-			automaticLayout: true,
-			contextmenu: false,
-			fontFamily: 'var(--font-monospace)',
-			fontLigatures: false,
-			fontSize: Number.parseFloat(getComputedStyle(document.body).getPropertyValue('--code-size')) || 13,
-			glyphMargin: false,
-			lineDecorationsWidth: 8,
-			lineNumbers: widget.block.showLineNumbers ? 'on' : 'off',
-			lineNumbersMinChars: widget.block.showLineNumbers ? 3 : 0,
-			minimap: { enabled: false },
-			overviewRulerLanes: 0,
-			renderLineHighlight: 'none',
-			scrollBeyondLastLine: false,
-			scrollbar: {
-				alwaysConsumeMouseWheel: false,
-				horizontal: 'auto',
-				vertical: 'auto',
-			},
-			wordWrap: widget.block.wrap ? 'on' : 'off',
-		});
-
-		controller.editor = editor;
-		controller.model = model;
-		(window as typeof window & { __shikiLastMonacoEditor?: MonacoCodeEditor }).__shikiLastMonacoEditor = editor;
-		container.classList.remove('shiki-monaco-codeblock-loading');
-		const markReadyWhenPainted = (): void => {
-			const editorNode = editor.getDomNode();
-			const editorRect = editorNode?.getBoundingClientRect();
-			if (editorRect && editorRect.width > 0 && editorRect.height > 0 && model.getLineCount() > 0) {
-				container.classList.add('shiki-monaco-codeblock-ready');
-			}
-		};
-		updateMonacoEditorHeight(runtime.monaco, container, editor, model);
-		requestAnimationFrame(() => {
-			editor.layout({ width: Math.max(1, container.clientWidth), height: Math.max(1, container.clientHeight) });
-			markReadyWhenPainted();
-			requestAnimationFrame(markReadyWhenPainted);
-		});
-
-		model.onDidChangeContent(() => {
-			if (controller.updatingFromParent) return;
-
-			const currentWidget = controller.widget;
-			const bodyRange = currentWidget.resolveCurrentBodyRange();
-			document.body.dataset.shikiMonacoDispatchRange = `${bodyRange.from}-${bodyRange.to}`;
-			document.body.dataset.shikiMonacoDispatchCount = `${Number(document.body.dataset.shikiMonacoDispatchCount ?? 0) + 1}`;
-			currentWidget.parentView.dispatch({
-				changes: {
-					from: bodyRange.from,
-					to: bodyRange.to,
-					insert: model.getValue(),
-				},
-			});
-			updateMonacoEditorHeight(runtime.monaco, container, editor, model);
-		});
-
-		void configureShikiMonaco(this.plugin, runtime).then(theme => {
-			if (controllers.get(container) !== controller) return;
-
-			editor.updateOptions({ theme });
-		});
-
-		this.focusFromParentSelection(runtime.monaco, editor, model);
-		if (this.autofocus) {
-			editor.focus();
-		}
-	}
-
 	private updateMountedEditor(dom: HTMLElement, controller: MonacoCodeBlockController): void {
 		const editor = controller.editor;
 		const model = controller.model;
 		if (!editor || !model) return;
 
 		void loadMonacoRuntime(this.plugin).then(({ monaco }) => {
+			if (controller.disposed || !controller.editor || !controller.model) return;
+
 			const language = normalizeMonacoLanguage(this.block.language);
 			ensureMonacoLanguage(monaco, language);
 			monaco.editor.setModelLanguage(model, language);
@@ -338,25 +399,12 @@ class MonacoCodeBlockWidget extends WidgetType {
 			}
 		});
 	}
-
-	private focusFromParentSelection(monaco: MonacoModule, editor: MonacoCodeEditor, model: MonacoTextModel): void {
-		if (!this.parentView.hasFocus || !selectionIsInsideCodeBlockBody(this.parentView.state, this.block)) {
-			return;
-		}
-
-		window.requestAnimationFrame(() => {
-			const offset = Math.max(0, Math.min(model.getValueLength(), this.parentView.state.selection.main.head - this.block.from));
-			editor.setPosition(model.getPositionAt(offset));
-			editor.revealPositionInCenterIfOutsideViewport(editor.getPosition() ?? new monaco.Position(1, 1));
-			editor.focus();
-		});
-	}
 }
 
 function updateMonacoEditorHeight(monaco: MonacoModule, container: HTMLElement, editor: MonacoCodeEditor, model: MonacoTextModel): void {
 	const lineHeight = editor.getOption(monaco.editor.EditorOption.lineHeight);
-	const verticalPadding = 20;
+	const verticalPadding = 16;
 	const height = Math.max(72, model.getLineCount() * lineHeight + verticalPadding);
 	container.style.height = `${height}px`;
-	editor.layout();
+	editor.layout({ width: Math.max(1, container.clientWidth), height: Math.max(1, height) });
 }
