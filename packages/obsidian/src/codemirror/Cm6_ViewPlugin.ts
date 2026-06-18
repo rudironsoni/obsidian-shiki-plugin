@@ -60,8 +60,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 	const monacoCodeBlocksField = StateField.define<DecorationSet>({
 		create: () => Decoration.none,
-		update(_value, transaction) {
+		update(value, transaction) {
 			if (!currentView) return Decoration.none;
+			if (value !== Decoration.none && !transaction.docChanged) return value;
 			const state = transaction.state;
 			const doc = state.doc;
 			const decorations: Range<Decoration>[] = [];
@@ -557,10 +558,15 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				diag.updates = 0;
 				void this.updateWidgets(view).catch(e => { diag.errors.push(String(e)); });
 
-				plugin.updateCm6Plugin = (): Promise<void> => {
-					return Promise.all([...views].map(instance => instance.updateWidgets(instance.view))).then(() => undefined);
-				};
-			}
+			// Force state field to build initial decorations even when no inline code blocks exist
+			requestAnimationFrame(() => {
+				view.dispatch(view.state.update({}));
+			});
+
+			plugin.updateCm6Plugin = (): Promise<void> => {
+				return Promise.all([...views].map(instance => instance.updateWidgets(instance.view))).then(() => undefined);
+			};
+		}
 
 			/**
 			 * Triggered by codemirror when the view updates.
