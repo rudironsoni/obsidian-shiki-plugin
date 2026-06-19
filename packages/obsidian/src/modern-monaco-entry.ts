@@ -1,12 +1,11 @@
 // @ts-nocheck
 // modern-monaco does not provide TypeScript declarations for subpath exports.
-// Import core first for its side-effect: sets the default WASM loader for shiki.
-// We destructure an export to prevent Vite from tree-shaking the module away
-// (the package.json sideEffects array only includes dist/index.mjs).
-import { init } from 'modern-monaco/core';
-void init;
 import * as monaco from 'modern-monaco/editor-core';
-import { initShiki, initShikiMonacoTokenizer, registerShikiMonacoTokenizer, grammars } from 'modern-monaco/shiki';
+import { initShiki, initShikiMonacoTokenizer, registerShikiMonacoTokenizer, grammars, setDefaultWasmLoader } from 'modern-monaco/shiki';
+import { getWasmInstance } from 'shiki-wasm';
+
+// Set the default WASM loader BEFORE initShiki creates the engine.
+setDefaultWasmLoader(getWasmInstance);
 
 export interface MonacoRuntime {
 	monaco: typeof monaco;

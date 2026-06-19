@@ -115,7 +115,16 @@ export default class ShikiPlugin extends Plugin {
 			return;
 		}
 
-		const languages = await this.highlighter.obsidianSafeLanguageNames();
+		console.log('[Shiki] Registering code block processors...');
+		let languages: string[];
+		try {
+			languages = await this.highlighter.obsidianSafeLanguageNames();
+		} catch (error) {
+			console.error('[Shiki] Failed to load language names, code blocks will not be highlighted:', error);
+			return;
+		}
+		console.log('[Shiki] Registering', languages.length, 'code block processors');
+
 		if (this.unloaded || this.codeBlockProcessorsRegistered) {
 			return;
 		}
@@ -138,24 +147,19 @@ export default class ShikiPlugin extends Plugin {
 							return;
 						}
 
-						// Guard against duplicate processing of the same element
-						if ((el as any).__shikiProcessed) {
-							return;
-						}
-						(el as any).__shikiProcessed = true;
-
 						const codeBlock = new CodeBlock(this, el, source, language, ctx);
 						ctx.addChild(codeBlock);
 					},
 					1000,
 				);
 			} catch (e) {
-				console.warn(`Failed to register code block processor for ${language}.`, e);
+				console.warn(`[Shiki] Failed to register code block processor for ${language}.`, e);
 			}
 		}
 
 		this.codeBlockProcessorsRegistered = true;
 		this.app.workspace.updateOptions();
+		console.log('[Shiki] Code block processors registered');
 	}
 
 	registerInlineCodeProcessor(): void {

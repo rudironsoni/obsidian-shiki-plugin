@@ -62,6 +62,7 @@ export default defineConfig(({ mode }) => {
 		resolve: {
 			alias: {
 				packages: path.resolve(__dirname, './packages'),
+				'shiki-wasm': path.resolve(__dirname, './node_modules/modern-monaco/dist/shiki-wasm.mjs'),
 			},
 		},
 		build: {
@@ -85,7 +86,6 @@ export default defineConfig(({ mode }) => {
 					codeSplitting: false,
 				},
 				external,
-				...(buildEntry === 'modern-monaco' ? { treeshake: false } : {}),
 			},
 		},
 	} as UserConfig;

@@ -77,11 +77,6 @@ export class LazyHighlighter {
 	}
 
 	async renderWithMonaco(code: string, language: string, _meta: string, container: HTMLElement): Promise<void> {
-		// Prevent duplicate Monaco editors in the same container
-		if ((container as any).__shikiMonacoEditor) {
-			return;
-		}
-
 		const runtime = await this.load();
 		const { monaco } = runtime;
 		container.empty();

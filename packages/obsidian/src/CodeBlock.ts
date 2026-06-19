@@ -39,7 +39,13 @@ export class CodeBlock extends MarkdownRenderChild {
 	}
 
 	private async render(metaString: string): Promise<void> {
-		await this.plugin.highlighter.renderWithMonaco(this.source, this.language, metaString, this.containerEl);
+		try {
+			await this.plugin.highlighter.renderWithMonaco(this.source, this.language, metaString, this.containerEl);
+		} catch (error) {
+			console.error(`[Shiki] Failed to render ${this.language} code block:`, error);
+			this.containerEl.empty();
+			this.containerEl.createEl('pre', { text: this.source });
+		}
 	}
 
 	public async rerenderOnNoteChange(): Promise<void> {
@@ -76,6 +82,7 @@ export class CodeBlock extends MarkdownRenderChild {
 		if (editor) {
 			editor.dispose();
 		}
+		(this.containerEl as any).__shikiMonacoEditor = undefined;
 
 		this.containerEl.empty();
 		this.containerEl.innerText = 'unloaded shiki code block';
