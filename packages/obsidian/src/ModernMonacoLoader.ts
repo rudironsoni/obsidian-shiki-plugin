@@ -37,8 +37,14 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 
 			const { getActiveTheme } = await import('packages/obsidian/src/LazyHighlighter');
 			const themes = new Set<string>();
-			if (plugin.loadedSettings.darkTheme) themes.add(plugin.loadedSettings.darkTheme);
-			if (plugin.loadedSettings.lightTheme) themes.add(plugin.loadedSettings.lightTheme);
+			const resolveTheme = (raw: string, mode: 'dark' | 'light'): string => {
+				const sentinel = raw === 'obsidian-theme';
+				return sentinel ? (mode === 'dark' ? 'github-dark' : 'github-light') : raw;
+			};
+			const darkResolved = resolveTheme(plugin.loadedSettings.darkTheme, 'dark');
+			const lightResolved = resolveTheme(plugin.loadedSettings.lightTheme, 'light');
+			if (darkResolved) themes.add(darkResolved);
+			if (lightResolved) themes.add(lightResolved);
 
 			console.log('[Shiki] Creating Monaco runtime...');
 			const runtime = await entry.createMonacoRuntime({

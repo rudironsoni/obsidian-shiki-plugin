@@ -4,9 +4,10 @@
     "obsidian-cli": {
       "type": "local",
       "command": [
-        "npx",
-        "-y",
-        "github:Storks/obsidian-mcp"
+        "uvx",
+        "--from",
+        "git+https://github.com/Storks/obsidian-mcp",
+        "obsidian-mcp"
       ],
       "enabled": true,
       "environment": {}
@@ -16,7 +17,7 @@
       "command": [
         "npx",
         "-y",
-        "github:sh3ll3x3c/native-devtools-mcp"
+        "native-devtools-mcp"
       ],
       "enabled": true,
       "environment": {}
