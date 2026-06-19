@@ -24,7 +24,9 @@ describe('startup bundle', () => {
 		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
 
-		expect(startupBundle.length).toBeLessThan(3 * 1024 * 1024);
+		// main.js now includes the inlined modern-monaco runtime (~4.8MB)
+		// This is necessary for mobile compatibility where separate files aren't synced
+		expect(startupBundle.length).toBeLessThan(6 * 1024 * 1024);
 		expect(styles).not.toContain('shiki-highlighter-fallback:');
 	});
 

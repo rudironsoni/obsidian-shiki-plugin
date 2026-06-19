@@ -1,4 +1,5 @@
 import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
+import { MODERN_MONACO_SOURCE } from 'packages/obsidian/src/modern-monaco-inline';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 
 let runtimePromise: Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> | undefined;
@@ -17,15 +18,11 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 	runtimePromise ??= (async (): Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> => {
 		try {
 			await plugin.ensureSettingsLoaded();
-			const pluginDir = `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
-			const filePath = `${pluginDir}/modern-monaco.js`;
-			console.log('[Shiki] Loading modern-monaco from:', filePath);
-			const source = await plugin.app.vault.adapter.read(filePath);
-			console.log('[Shiki] modern-monaco source length:', source.length);
+			console.log('[Shiki] Loading modern-monaco from inlined source...');
 
 			const module = { exports: {} as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; grammars?: unknown[] } };
 			// eslint-disable-next-line @typescript-eslint/no-implied-eval
-			const loadModule = new Function('exports', 'module', 'require', source) as (
+			const loadModule = new Function('exports', 'module', 'require', MODERN_MONACO_SOURCE) as (
 				exports: unknown,
 				module: { exports: unknown },
 				require: (id: string) => unknown,

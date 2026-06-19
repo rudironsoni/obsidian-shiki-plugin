@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite build --mode=development --watch",
 		"clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-		"build": "bun run typecheck && bun run clean:dist && SHIKI_BUILD_ENTRY=modern-monaco vite build --mode=production && SHIKI_BUILD_ENTRY=main vite build --mode=production",
+		"build": "bun run clean:dist && SHIKI_BUILD_ENTRY=modern-monaco vite build --mode=production && node scripts/inline-modern-monaco.mjs && bun run typecheck && SHIKI_BUILD_ENTRY=main vite build --mode=production",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "bun test",
 		"test:log": "LOG_TESTS=true bun test",
@@ -30,6 +30,7 @@
 		"@codemirror/state": "^6.6.0",
 		"@codemirror/view": "^6.41.1",
 		"@eslint/js": "^9.39.4",
+		"@happy-dom/global-registrator": "^20.10.6",
 		"@lemons_dev/lemons-obsidian-plugin-automation": "^0.1.3",
 		"@lezer/common": "^1.5.2",
 		"@tsconfig/svelte": "^5.0.8",

@@ -42,4 +42,12 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
 - For debugging, use raw command without rtk prefix
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
+
+## Resource Rules
+
+- **One Obsidian instance only.** Never spawn a second. Before launching, check `lsof -i :9230` or the helper's `isObsidianRunning()` check.
+- If an instance is already running, reuse it: reload the plugin, re-copy plugin files into the existing vault, reload the test note. Do not create a new vault, user-data-dir, or `--user-data-dir`.
+- If you accidentally launch twice, kill the duplicate. Never leave orphan processes.
+- `plugin:reload` is cheap and idempotent. Prefer it over relaunching Obsidian.
+- Visual-test scripts must probe the CDP port first and skip `spawn()` when a target is alive.
   <!-- /headroom:rtk-instructions -->
