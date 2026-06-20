@@ -104,6 +104,13 @@ export class LazyHighlighter {
 
 		const showLineNumbers = this.plugin.loadedSettings.ecDefaultShowLineNumbers;
 
+		// Monaco's font measurement can return 0 on some mobile browsers (notably WKWebView),
+		// which collapses the line number area to 0 width. Monaco exposes `__monaco_maxDigitWidth`
+		// as a global override for this exact case; force a sane digit width before layout.
+		if (showLineNumbers) {
+			(globalThis as any).__monaco_maxDigitWidth = 10;
+		}
+
 		const editor = monaco.editor.create(el, {
 			value: code,
 			language,
@@ -130,7 +137,7 @@ export class LazyHighlighter {
 			contextmenu: false,
 			folding: showLineNumbers,
 			glyphMargin: false,
-			lineDecorationsWidth: showLineNumbers ? 0 : 0,
+			lineDecorationsWidth: 0,
 			automaticLayout: true,
 			roundedSelection: false,
 			selectOnLineNumbers: false,
