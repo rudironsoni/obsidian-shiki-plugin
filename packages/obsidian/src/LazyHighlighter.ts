@@ -79,6 +79,14 @@ export class LazyHighlighter {
 	async renderWithMonaco(code: string, language: string, _meta: string, container: HTMLElement): Promise<void> {
 		const runtime = await this.load();
 		const { monaco } = runtime;
+
+		// Dispose any existing editor before re-rendering
+		const existingEditor = (container as any).__shikiMonacoEditor;
+		if (existingEditor) {
+			existingEditor.dispose();
+			(container as any).__shikiMonacoEditor = undefined;
+		}
+
 		container.empty();
 		container.classList.add('shiki-monaco-block');
 
