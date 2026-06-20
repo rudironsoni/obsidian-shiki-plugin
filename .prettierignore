@@ -7,6 +7,7 @@ AGENTS.md
 .serena
 
 # Generated AI tool configs (rulesync output)
+.agent/
 .agents/
 .augment/
 .augmentcode/
@@ -16,6 +17,7 @@ AGENTS.md
 .copilot/
 .cursor/
 .deepagents/
+.devin/
 .factory/
 .gemini/
 .grok/
@@ -39,3 +41,8 @@ kilo.jsonc
 opencode.jsonc
 QWEN.md
 replit.md
+
+# GitHub generated configs
+.github/copilot-instructions.md
+.github/skills/
+.github/agents/
