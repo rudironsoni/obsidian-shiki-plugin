@@ -138,6 +138,16 @@ span.shiki-ul {
 	   (notably Safari/WKWebView). The margin-view-overlays sit at the bottom edge
 	   of the margin and can be clipped out. Disable paint containment only. */
 	contain: layout style !important;
+	/* `transform: translate3d()` creates a compositing layer on iOS that clips
+	   absolutely positioned children at the parent's bounds. Remove it. */
+	transform: none !important;
+}
+
+/* Monaco places margin-view-overlays after a 126px .glyph-margin sibling,
+   pushing it to the bottom edge of .margin. On iOS this gets clipped.
+   Force it to the top of .margin where it belongs. */
+.shiki-monaco-editor .monaco-editor .margin-view-overlays {
+	top: 0 !important;
 }
 
 .shiki-monaco-editor .monaco-editor .line-numbers {
