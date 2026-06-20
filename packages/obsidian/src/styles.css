@@ -167,7 +167,14 @@ span.shiki-ul {
 	white-space: nowrap !important;
 }
 
-/* Settings tab  */
+/* Monaco folding controls use a custom icon font (codicon) that often
+   fails to load on iOS, showing as fallback characters (◻, ⊘, etc.).
+   Hide them entirely in read-only blocks where they're not useful. */
+.shiki-monaco-editor .monaco-editor .margin-view-overlays .cldr {
+	display: none !important;
+}
+
+/* Settings tab */
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;
 }
