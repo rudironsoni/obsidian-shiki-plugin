@@ -134,6 +134,10 @@ span.shiki-ul {
 .shiki-monaco-editor .monaco-editor .margin {
 	display: block !important;
 	visibility: visible !important;
+	/* Monaco sets `contain: strict` which clips children on some mobile browsers
+	   (notably Safari/WKWebView). The margin-view-overlays sit at the bottom edge
+	   of the margin and can be clipped out. Disable paint containment only. */
+	contain: layout style !important;
 }
 
 .shiki-monaco-editor .monaco-editor .line-numbers {
