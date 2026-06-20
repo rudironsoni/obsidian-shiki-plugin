@@ -105,7 +105,10 @@ export async function createMonacoRuntime(options?: {
 						[/\/\*.*\*\//, 'comment'],
 						[/"(?:[^"\\]|\\.)*"/, 'string'],
 						[/'(?:[^'\\]|\\.)*'/, 'string'],
-						[/\b(?:const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|try|catch|throw|new|this|true|false|null|undefined)\b/, 'keyword'],
+						[
+							/\b(?:const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|try|catch|throw|new|this|true|false|null|undefined)\b/,
+							'keyword',
+						],
 						[/\b(?:def|class|return|if|else|elif|for|while|try|except|import|from|as|with|lambda|yield|pass|break|continue)\b/, 'keyword'],
 						[/\b\d+(?:\.\d+)?\b/, 'number'],
 						[/[a-zA-Z_]\w*(?=\()/, 'function'],
