@@ -130,6 +130,18 @@ span.shiki-ul {
 	pointer-events: auto;
 }
 
+/* Force Monaco line numbers to be visible on all viewports including mobile */
+.shiki-monaco-editor .monaco-editor .margin {
+	display: block !important;
+	visibility: visible !important;
+}
+
+.shiki-monaco-editor .monaco-editor .line-numbers {
+	display: block !important;
+	visibility: visible !important;
+	color: var(--text-faint) !important;
+}
+
 /* Settings tab  */
 .setting-item-control input.shiki-custom-theme-folder {
 	min-width: 250px;
