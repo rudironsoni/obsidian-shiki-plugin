@@ -185,7 +185,7 @@ export class LazyHighlighter {
 
 	private aliasMap: Map<string, string> | undefined;
 
-	private resolveLanguageAlias(lang: string): string | undefined {
+	resolveLanguageAlias(lang: string): string | undefined {
 		return this.aliasMap?.get(lang.toLowerCase());
 	}
 

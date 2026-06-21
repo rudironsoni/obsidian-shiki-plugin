@@ -48,6 +48,7 @@ interface MonacoBlockHandle {
 	codeFrom: number;
 	codeTo: number;
 	container: HTMLDivElement;
+	cleanup: () => void;
 	editor: any;
 	focusDisposable: { dispose(): void };
 	blurDisposable: { dispose(): void };
@@ -404,6 +405,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				const fontSize = Number.parseFloat(computedStyle.fontSize) || this.view.defaultLineHeight;
 				const lineHeight = Number.parseFloat(computedStyle.lineHeight) || this.view.defaultLineHeight;
 				const theme = getActiveTheme(plugin);
+				const canonicalLanguage = plugin.highlighter.resolveLanguageAlias(block.language) ?? block.language;
 
 				let handle = this.monacoBlocks.get(block.blockId);
 				if (!handle) {
@@ -416,7 +418,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 					const editor = monaco.editor.create(container, {
 						value: block.code,
-						language: block.language,
+						language: canonicalLanguage,
 						theme,
 						readOnly: false,
 						domReadOnly: false,
@@ -431,7 +433,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						scrollbar: {
 							horizontal: 'auto',
 							vertical: 'hidden',
-							handleMouseWheel: true,
+							handleMouseWheel: false,
 							alwaysConsumeMouseWheel: false,
 						},
 						scrollBeyondLastLine: false,
@@ -453,6 +455,103 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					});
 					(container as any)._monacoEditor = editor;
 					(globalThis as any).__shikiLastMonacoEditor = editor;
+
+					const focusFromPoint = (clientX: number, clientY: number): void => {
+						const target = editor.getTargetAtClientPoint?.(clientX, clientY);
+						const position = target?.position;
+						if (position) {
+							editor.setPosition(position);
+						}
+						editor.focus();
+					};
+
+					const clickHandler = (event: MouseEvent): void => {
+						const target = editor.getTargetAtClientPoint?.(event.clientX, event.clientY);
+						const position = target?.position;
+						if (position) {
+							editor.setPosition(position);
+						}
+						editor.focus();
+					};
+
+					const wheelHandler = (event: WheelEvent): void => {
+						const horizontalDelta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+						if (horizontalDelta !== 0) {
+							event.preventDefault();
+							editor.setScrollLeft(Math.max(0, editor.getScrollLeft() + horizontalDelta));
+						}
+					};
+
+					let touchState:
+						| {
+							startX: number;
+							startY: number;
+							startScrollLeft: number;
+							horizontal: boolean | undefined;
+						}
+						| undefined;
+
+					const touchStartHandler = (event: TouchEvent): void => {
+						const touch = event.touches[0];
+						if (!touch) {
+							return;
+						}
+						touchState = {
+							startX: touch.clientX,
+							startY: touch.clientY,
+							startScrollLeft: editor.getScrollLeft(),
+							horizontal: undefined,
+						};
+					};
+
+					const touchMoveHandler = (event: TouchEvent): void => {
+						if (!touchState) {
+							return;
+						}
+						const touch = event.touches[0];
+						if (!touch) {
+							return;
+						}
+						const dx = touch.clientX - touchState.startX;
+						const dy = touch.clientY - touchState.startY;
+						if (touchState.horizontal === undefined && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+							touchState.horizontal = Math.abs(dx) > Math.abs(dy);
+						}
+						if (touchState.horizontal) {
+							event.preventDefault();
+							editor.setScrollLeft(Math.max(0, touchState.startScrollLeft - dx));
+						}
+					};
+
+					const touchEndHandler = (event: TouchEvent): void => {
+						if (!touchState) {
+							return;
+						}
+						const touch = event.changedTouches[0];
+						const horizontal = touchState.horizontal;
+						const dx = touch ? touch.clientX - touchState.startX : 0;
+						const dy = touch ? touch.clientY - touchState.startY : 0;
+						if (!horizontal && Math.abs(dx) < 6 && Math.abs(dy) < 6 && touch) {
+							focusFromPoint(touch.clientX, touch.clientY);
+						}
+						touchState = undefined;
+					};
+
+					container.addEventListener('click', clickHandler);
+					container.addEventListener('wheel', wheelHandler, { passive: false });
+					container.addEventListener('touchstart', touchStartHandler, { passive: true });
+					container.addEventListener('touchmove', touchMoveHandler, { passive: false });
+					container.addEventListener('touchend', touchEndHandler, { passive: true });
+					container.addEventListener('touchcancel', touchEndHandler, { passive: true });
+
+					const cleanup = (): void => {
+						container.removeEventListener('click', clickHandler);
+						container.removeEventListener('wheel', wheelHandler);
+						container.removeEventListener('touchstart', touchStartHandler);
+						container.removeEventListener('touchmove', touchMoveHandler);
+						container.removeEventListener('touchend', touchEndHandler);
+						container.removeEventListener('touchcancel', touchEndHandler);
+					};
 
 					const focusDisposable = editor.onDidFocusEditorWidget(() => {
 						container.classList.add('shiki-monaco-active');
@@ -492,11 +591,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						codeFrom: block.codeFrom,
 						codeTo: block.codeTo,
 						container,
+						cleanup,
 						editor,
 						focusDisposable,
 						blurDisposable,
 						changeDisposable,
-						language: block.language,
+						language: canonicalLanguage,
 						suppressModelSync: false,
 					};
 					this.monacoBlocks.set(block.blockId, handle);
@@ -515,9 +615,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				handle.container.classList.add('shiki-monaco-active');
 				(globalThis as any).__shikiLastMonacoEditor = handle.editor;
 
-				if (handle.language !== block.language) {
-					monaco.editor.setModelLanguage(handle.editor.getModel(), block.language);
-					handle.language = block.language;
+				if (handle.language !== canonicalLanguage) {
+					monaco.editor.setModelLanguage(handle.editor.getModel(), canonicalLanguage);
+					handle.language = canonicalLanguage;
 				}
 
 				if (handle.editor.getValue() !== block.code && !this.syncingLivePreview) {
@@ -555,6 +655,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					this.rebuildLivePreviewBlocks(this.view);
 				}
 				this.applyHiddenClass(handle.blockId, false);
+				handle.cleanup();
 				handle.changeDisposable.dispose();
 				handle.focusDisposable.dispose();
 				handle.blurDisposable.dispose();

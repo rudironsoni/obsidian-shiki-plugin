@@ -126,8 +126,9 @@ span.shiki-ul {
 	border-radius: var(--code-radius);
 	overflow: hidden;
 	pointer-events: auto;
-	/* Let Obsidian own vertical scrolling. Keep horizontal pan for long code lines. */
-	touch-action: pan-x pinch-zoom;
+	/* Let Obsidian own vertical scrolling. Horizontal code movement is handled
+	   by the wrapper so the note still scrolls vertically like normal. */
+	touch-action: pan-y pinch-zoom;
 	-webkit-tap-highlight-color: transparent;
 }
 
@@ -140,6 +141,18 @@ span.shiki-ul {
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root .shiki-monaco-codeblock {
 	pointer-events: auto;
+}
+
+@media (hover: none) {
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .lines-content,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin,
+	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays {
+		pointer-events: none !important;
+	}
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
