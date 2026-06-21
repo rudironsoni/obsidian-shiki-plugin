@@ -474,11 +474,21 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						editor.focus();
 					};
 
+					const getNoteScroller = (): HTMLElement => {
+						return (container.closest('.markdown-source-view')?.querySelector('.cm-scroller') as HTMLElement | null) ?? this.view.scrollDOM;
+					};
+
 					const wheelHandler = (event: WheelEvent): void => {
+						const noteScroller = getNoteScroller();
 						const horizontalDelta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
 						if (horizontalDelta !== 0) {
 							event.preventDefault();
 							editor.setScrollLeft(Math.max(0, editor.getScrollLeft() + horizontalDelta));
+							return;
+						}
+						if (event.deltaY !== 0) {
+							event.preventDefault();
+							noteScroller.scrollTop += event.deltaY;
 						}
 					};
 
@@ -486,6 +496,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						| {
 							startX: number;
 							startY: number;
+							startNoteScrollTop: number;
 							startScrollLeft: number;
 							horizontal: boolean | undefined;
 						}
@@ -496,9 +507,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						if (!touch) {
 							return;
 						}
+						const noteScroller = getNoteScroller();
 						touchState = {
 							startX: touch.clientX,
 							startY: touch.clientY,
+							startNoteScrollTop: noteScroller.scrollTop,
 							startScrollLeft: editor.getScrollLeft(),
 							horizontal: undefined,
 						};
@@ -520,6 +533,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						if (touchState.horizontal) {
 							event.preventDefault();
 							editor.setScrollLeft(Math.max(0, touchState.startScrollLeft - dx));
+						} else if (touchState.horizontal === false) {
+							event.preventDefault();
+							getNoteScroller().scrollTop = Math.max(0, touchState.startNoteScrollTop - dy);
 						}
 					};
 
