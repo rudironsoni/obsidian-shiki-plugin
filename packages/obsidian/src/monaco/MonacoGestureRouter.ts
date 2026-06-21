@@ -30,7 +30,7 @@ export class MonacoGestureRouter {
 		this.selectionController = options.selectionController;
 		this.scrollState = options.scrollState;
 		this.getNoteScroller = options.getNoteScroller;
-		this.host.addEventListener('wheel', this.onWheel, { passive: false });
+		this.host.addEventListener('wheel', this.onWheel, { passive: false, capture: true });
 		this.host.addEventListener('click', this.onClick);
 		this.host.addEventListener('touchstart', this.onTouchStart, { passive: true });
 		this.host.addEventListener('touchmove', this.onTouchMove, { passive: false });
@@ -40,7 +40,7 @@ export class MonacoGestureRouter {
 
 	dispose(): void {
 		this.clearLongPressTimer();
-		this.host.removeEventListener('wheel', this.onWheel);
+		this.host.removeEventListener('wheel', this.onWheel, true);
 		this.host.removeEventListener('click', this.onClick);
 		this.host.removeEventListener('touchstart', this.onTouchStart);
 		this.host.removeEventListener('touchmove', this.onTouchMove);

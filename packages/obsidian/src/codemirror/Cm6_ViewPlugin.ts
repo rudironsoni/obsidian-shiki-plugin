@@ -18,25 +18,39 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			private view: EditorView;
 			private readonly livePreviewAdapter: LivePreviewAdapter;
 			private readonly sourceModeAdapter: SourceModeAdapter;
+			private lastIsLivePreview: boolean;
 
 			constructor(view: EditorView) {
 				this.view = view;
 				this.livePreviewAdapter = new LivePreviewAdapter(plugin, view);
 				this.sourceModeAdapter = new SourceModeAdapter(plugin, view);
+				this.lastIsLivePreview = this.isLivePreview(view.state);
 				void this.updateInlineDecorations();
-				void this.livePreviewAdapter.forceRefresh();
-				void this.sourceModeAdapter.retokenize();
+				if (this.lastIsLivePreview) {
+					void this.livePreviewAdapter.forceRefresh();
+				} else {
+					void this.sourceModeAdapter.retokenize();
+				}
 				this.refreshDecorations();
 			}
 
 			update(update: ViewUpdate): void {
 				this.view = update.view;
 				const isLivePreview = this.isLivePreview(update.view.state);
+				const modeChanged = isLivePreview !== this.lastIsLivePreview;
+				this.lastIsLivePreview = isLivePreview;
 				if (update.docChanged || update.viewportChanged || update.selectionSet) {
 					void this.updateInlineDecorations();
 				}
 				this.livePreviewAdapter.update(update, isLivePreview);
 				this.sourceModeAdapter.update(update, isLivePreview);
+				if (modeChanged) {
+					if (isLivePreview) {
+						void this.livePreviewAdapter.forceRefresh();
+					} else {
+						void this.sourceModeAdapter.retokenize();
+					}
+				}
 				this.refreshDecorations();
 			}
 

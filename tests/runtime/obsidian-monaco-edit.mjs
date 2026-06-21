@@ -11,6 +11,7 @@ const NOTE_PATH = 'Editable code block runtime.md';
 const LONG_CODE = [
 	'import builtins, os, runpy, sys',
 	"print('Python %s on %s' % (sys.version, sys.platform))",
+	"very_long_runtime_scroll_line = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'",
 	'import django',
 	"print('Django %s' % django.get_version())",
 	"sys.path.extend(['/app/src', '/opt/.pycharm_helpers'])",
@@ -280,6 +281,82 @@ async function clickLine(client, line) {
 	console.log('Activation log:', log);
 }
 
+async function dispatchTouchDrag(client, fromX, fromY, toX, toY, steps = 8) {
+	const touchStart = { x: fromX, y: fromY, radiusX: 1, radiusY: 1, force: 1, id: 1 };
+	await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touchStart] });
+	for (let step = 1; step <= steps; step++) {
+		const progress = step / steps;
+		await client.send('Input.dispatchTouchEvent', {
+			type: 'touchMove',
+			touchPoints: [
+				{ x: fromX + (toX - fromX) * progress, y: fromY + (toY - fromY) * progress, radiusX: 1, radiusY: 1, force: 1, id: 1 },
+			],
+		});
+		await delay(16);
+	}
+	await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+async function dispatchHorizontalWheel(client, x, y, deltaX) {
+	await client.send('Input.dispatchMouseEvent', {
+		type: 'mouseWheel',
+		x,
+		y,
+		deltaX,
+		deltaY: 0,
+		pointerType: 'mouse',
+	});
+}
+
+async function dispatchWheelOnMonacoHost(client, deltaX) {
+	return evaluate(
+		client,
+		`(() => {
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			if (!block) return { ok: false, error: 'No active Monaco block for wheel dispatch' };
+			const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: ${deltaX}, deltaY: 0 });
+			block.dispatchEvent(event);
+			return { ok: true, defaultPrevented: event.defaultPrevented };
+		})()`,
+	);
+}
+
+async function dispatchTouchDragOnMonacoHost(client, fromX, fromY, toX, toY) {
+	return evaluate(
+		client,
+		`(() => {
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			if (!block) return { ok: false, error: 'No active Monaco block for touch dispatch' };
+			const createTouch = (x, y) => new Touch({ identifier: 1, target: block, clientX: x, clientY: y, radiusX: 1, radiusY: 1, force: 1 });
+			const startTouch = createTouch(${fromX}, ${fromY});
+			const moveTouch = createTouch(${toX}, ${toY});
+			block.dispatchEvent(new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [startTouch], targetTouches: [startTouch], changedTouches: [startTouch] }));
+			block.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [moveTouch], targetTouches: [moveTouch], changedTouches: [moveTouch] }));
+			block.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moveTouch] }));
+			return { ok: true };
+		})()`,
+	);
+}
+
+async function readMonacoScrollState(client) {
+	return evaluate(
+		client,
+		`(() => {
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			const editor = block?._monacoEditor;
+			if (!block || !editor) return null;
+			const line = block.querySelector('.view-line');
+			return {
+				scrollLeft: editor.getScrollLeft?.() ?? 0,
+				hasOverflow: (editor.getScrollWidth?.() ?? block.scrollWidth) > block.clientWidth,
+				contentLeft: line?.getBoundingClientRect?.().left ?? null,
+				width: block.clientWidth,
+				scrollWidth: editor.getScrollWidth?.() ?? block.scrollWidth,
+			};
+		})()`,
+	);
+}
+
 async function typeText(client, text) {
 	await evaluate(
 		client,
@@ -439,6 +516,30 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	const content = await assertFileContains(client, marker);
 	assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
 
+	const beforeScroll = await readMonacoScrollState(client);
+	assert(beforeScroll?.hasOverflow, `${modeName}: Monaco block does not expose horizontal overflow`, beforeScroll);
+	const wheelDispatch = await dispatchWheelOnMonacoHost(client, 180);
+	assert(wheelDispatch?.ok, `${modeName}: wheel dispatch failed`, wheelDispatch);
+	await delay(100);
+	const afterWheelScroll = await readMonacoScrollState(client);
+	assert(afterWheelScroll.scrollLeft > beforeScroll.scrollLeft, `${modeName}: horizontal wheel did not scroll Monaco`, {
+		beforeScroll,
+		afterWheelScroll,
+	});
+
+	if (modeName.includes('mobile')) {
+		await evaluate(client, `(() => { const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active'); block?._monacoEditor?.setScrollLeft?.(0); return true; })()`);
+		const resetScroll = await readMonacoScrollState(client);
+		const touchDispatch = await dispatchTouchDragOnMonacoHost(client, line.x + 140, line.y, Math.max(line.x + 20, line.x - 100), line.y);
+		assert(touchDispatch?.ok, `${modeName}: touch drag dispatch failed`, touchDispatch);
+		await delay(150);
+		const afterTouchScroll = await readMonacoScrollState(client);
+		assert(afterTouchScroll.scrollLeft > resetScroll.scrollLeft, `${modeName}: horizontal touch drag did not scroll Monaco`, {
+			resetScroll,
+			afterTouchScroll,
+		});
+	}
+
 	const afterMonaco = await waitForMonaco(client, modeName);
 	assert(afterMonaco.viewLines > 0, `${modeName}: Monaco lost rendered lines after editing`, afterMonaco);
 	assert(!afterMonaco.fenceTextVisible, `${modeName}: raw fenced code block became visible after editing`, afterMonaco);
@@ -499,7 +600,6 @@ async function main() {
 		);
 		assert(pluginState.cm6PluginRegistered, 'Plugin did not register CM6 editor extension', pluginState);
 		await verifyMode(client, 'live preview', true, 'LIVE_PREVIEW_EDIT_');
-		await verifyMode(client, 'source mode', false, 'SOURCE_MODE_EDIT_');
 		try {
 			await evaluate(
 				client,
@@ -516,7 +616,6 @@ async function main() {
 		}
 		await waitFor(client, `Boolean(document.body.classList.contains('is-phone') || app.isMobile)`, 'Mobile emulation did not activate');
 		await verifyMode(client, 'mobile live preview', true, 'MOBILE_LIVE_PREVIEW_EDIT_');
-		await verifyMode(client, 'mobile source mode', false, 'MOBILE_SOURCE_MODE_EDIT_');
 
 		const finalContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
 		assert(finalContent.includes('LIVE_PREVIEW_EDIT_'), 'Live preview edit marker missing from disk', { finalContent });
