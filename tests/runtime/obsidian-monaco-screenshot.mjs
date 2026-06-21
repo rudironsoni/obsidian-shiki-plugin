@@ -45,7 +45,7 @@ async function prepareVault() {
 	await mkdir(USER_DATA, { recursive: true });
 	await mkdir(OUT_DIR, { recursive: true });
 
-	for (const file of ['main.js', 'manifest.json', 'styles.css', 'highlighter.js', 'highlighter.css', 'monaco-editor.js', 'monaco-editor.css']) {
+	for (const file of ['main.js', 'manifest.json', 'styles.css', 'modern-monaco.js']) {
 		await cp(path.join(PLUGIN_SOURCE_DIR, file), path.join(VAULT, '.obsidian', 'plugins', PLUGIN_ID, file));
 	}
 

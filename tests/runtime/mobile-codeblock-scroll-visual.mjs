@@ -139,7 +139,7 @@ resetDir(root);
 resetDir(report);
 mkdirSync(userData, { recursive: true });
 mkdirSync(pluginDir, { recursive: true });
-for (const file of ['main.js', 'styles.css', 'manifest.json', 'highlighter.js', 'highlighter.css']) {
+for (const file of ['main.js', 'styles.css', 'manifest.json', 'modern-monaco.js']) {
 	cpSync(path.join(repo, 'dist', file), path.join(pluginDir, file));
 }
 mkdirSync(path.join(vault, '.obsidian'), { recursive: true });

@@ -858,10 +858,10 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			plugin.loadedSettings.lightTheme = 'runtime-selected-light-theme';
 			document.body.classList.remove('theme-dark', 'theme-light');
 			document.body.classList.add('theme-light');
-			themeSelection.light = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			themeSelection.light = plugin.getActiveTheme();
 			document.body.classList.remove('theme-dark', 'theme-light');
 			document.body.classList.add('theme-dark');
-			themeSelection.dark = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			themeSelection.dark = plugin.getActiveTheme();
 			document.body.className = originalClassName;
 			plugin.loadedSettings = originalSettings;
 			const dynamicThemeSelection = {};
@@ -871,17 +871,17 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			await plugin.saveSettingsAndReloadHighlighter();
 			document.body.classList.remove('theme-dark', 'theme-light');
 			document.body.classList.add('theme-light');
-			dynamicThemeSelection.light = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			dynamicThemeSelection.light = plugin.getActiveTheme();
 			document.body.classList.remove('theme-dark', 'theme-light');
 			document.body.classList.add('theme-dark');
-			dynamicThemeSelection.dark = plugin.highlighter.highlighter.themeMapper.getThemeIdentifier();
+			dynamicThemeSelection.dark = plugin.getActiveTheme();
 			document.body.className = originalClassName;
 			plugin.settings = savedSettings;
 			await plugin.saveSettingsAndReloadHighlighter();
 			const viewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
-			const codeBlocks = [...viewRoot.querySelectorAll('.el-pre div.expressive-code')].map(el => ({
+			const codeBlocks = [...viewRoot.querySelectorAll('.shiki-monaco-block')].map(el => ({
 				text: el.textContent,
-				hasLineNumbers: !!el.querySelector('.ln'),
+				hasLineNumbers: !!el.querySelector('.line-numbers'),
 				parentClassName: el.parentElement?.className ?? '',
 				grandParentClassName: el.parentElement?.parentElement?.className ?? '',
 				previousSibling: el.previousElementSibling?.tagName ?? null,
@@ -900,9 +900,9 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			await plugin.updateCm6Plugin();
 			await new Promise(resolve => setTimeout(resolve, 500));
 			const livePreviewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
-			const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.cm-preview-code-block div.expressive-code')].map(el => ({
+			const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-monaco-codeblock')].map(el => ({
 				text: el.textContent,
-				hasLineNumbers: !!el.querySelector('.ln'),
+				hasLineNumbers: !!el.querySelector('.line-numbers'),
 			}));
 			const activeView = app.workspace.activeLeaf?.view;
 			const editor = activeView?.editor;
@@ -932,7 +932,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				loadError,
 				pluginLoaded: !!plugin,
 				settingsTabLoaded: !!app.setting?.pluginTabs?.find?.(tab => tab.id === '${PLUGIN_ID}' || tab.plugin === plugin),
-				highlighterLoaded: !!plugin?.highlighter?.highlighter,
+				highlighterLoaded: !!plugin?.monacoRuntime?.isLoaded?.(),
 				themes: {
 					dark: plugin.settings.darkTheme,
 					light: plugin.settings.lightTheme,
@@ -1197,6 +1197,23 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		await measureEditableGestureSet(activeWsUrl, '__shikiVerifyEditableSource', 'source');
 	}
 
+	await evaluate(
+		activeWsUrl,
+		`(async () => {
+			const app = window.app;
+			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+			const file = app.vault.getAbstractFileByPath('feature-test.md');
+			const leaf = app.workspace.getLeaf(false);
+			await leaf.openFile(file, { state: { mode: 'source', source: true } });
+			const view = leaf.view;
+			if (view?.setState) await view.setState({ file: file.path, mode: 'source', source: true }, { history: false });
+			await new Promise(resolve => setTimeout(resolve, 750));
+			await plugin.updateCm6Plugin();
+			await new Promise(resolve => setTimeout(resolve, 750));
+			return { sourceMode: view?.getMode?.() ?? null };
+		})()`,
+	);
+
 	return evaluate(
 		activeWsUrl,
 		`(async () => {
@@ -1435,7 +1452,7 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 
 async function main() {
 	assert(
-		existsSync(path.join(PLUGIN_SOURCE_DIR, 'main.js')) && (BRAT_INSTALL || existsSync(path.join(PLUGIN_SOURCE_DIR, 'highlighter.js'))),
+		existsSync(path.join(PLUGIN_SOURCE_DIR, 'main.js')) && (BRAT_INSTALL || existsSync(path.join(PLUGIN_SOURCE_DIR, 'modern-monaco.js'))),
 		'plugin artifacts are missing. Run bun run build first or set OBSIDIAN_VERIFY_PLUGIN_DIR.',
 		{ pluginSourceDir: PLUGIN_SOURCE_DIR, bratInstall: BRAT_INSTALL },
 	);

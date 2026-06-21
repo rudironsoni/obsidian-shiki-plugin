@@ -35,7 +35,7 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 				throw new Error('modern-monaco.js does not export createMonacoRuntime');
 			}
 
-			const { getActiveTheme } = await import('packages/obsidian/src/LazyHighlighter');
+			const { getActiveTheme } = await import('packages/obsidian/src/runtime/ThemeBridge');
 			const themes = new Set<string>();
 			const resolveTheme = (raw: string, mode: 'dark' | 'light'): string => {
 				const sentinel = raw === 'obsidian-theme';

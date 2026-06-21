@@ -1,5 +1,6 @@
 import { type MarkdownPostProcessorContext, MarkdownRenderChild } from 'obsidian';
 import type ShikiPlugin from 'packages/obsidian/src/main';
+import { parseCodeBlockMeta } from 'packages/obsidian/src/codeblocks/CodeBlockMeta';
 
 export class CodeBlock extends MarkdownRenderChild {
 	plugin: ShikiPlugin;
@@ -7,6 +8,7 @@ export class CodeBlock extends MarkdownRenderChild {
 	language: string;
 	ctx: MarkdownPostProcessorContext;
 	cachedMetaString: string;
+	private blockId: string | undefined;
 
 	constructor(plugin: ShikiPlugin, containerEl: HTMLElement, source: string, language: string, ctx: MarkdownPostProcessorContext) {
 		super(containerEl);
@@ -16,6 +18,7 @@ export class CodeBlock extends MarkdownRenderChild {
 		this.language = language;
 		this.ctx = ctx;
 		this.cachedMetaString = '';
+		this.blockId = undefined;
 	}
 
 	private getMetaString(): string {
@@ -27,20 +30,21 @@ export class CodeBlock extends MarkdownRenderChild {
 
 		const lines = sectionInfo.text.split('\n');
 		const startLine = lines[sectionInfo.lineStart];
-
-		// regexp to match the text after the code block language
-		const regex = new RegExp('^[^`~]*?\\s*(```+|~~~+)' + this.language + ' (.*)', 'g');
-		const match = regex.exec(startLine);
-		if (match !== null) {
-			return match[2];
-		} else {
+		if (!startLine) {
 			return '';
 		}
+
+		const meta = parseCodeBlockMeta(startLine);
+		if (!meta) {
+			return '';
+		}
+
+		return meta.rawMeta.trim();
 	}
 
 	private async render(metaString: string): Promise<void> {
 		try {
-			await this.plugin.highlighter.renderWithMonaco(this.source, this.language, metaString, this.containerEl);
+			this.blockId = await this.plugin.readingViewAdapter.renderBlock(this.containerEl, this.source, this.language, this.ctx);
 		} catch (error) {
 			console.error(`[Shiki] Failed to render ${this.language} code block:`, error);
 			this.containerEl.empty();
@@ -77,12 +81,7 @@ export class CodeBlock extends MarkdownRenderChild {
 		super.onunload();
 
 		this.plugin.removeActiveCodeBlock(this);
-
-		const editor = (this.containerEl as any).__shikiMonacoEditor;
-		if (editor) {
-			editor.dispose();
-		}
-		(this.containerEl as any).__shikiMonacoEditor = undefined;
+		this.plugin.readingViewAdapter.disposeBlock(this.containerEl);
 
 		this.containerEl.empty();
 		this.containerEl.innerText = 'unloaded shiki code block';

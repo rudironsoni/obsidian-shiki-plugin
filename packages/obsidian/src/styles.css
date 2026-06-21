@@ -143,18 +143,6 @@ span.shiki-ul {
 	pointer-events: auto;
 }
 
-@media (hover: none) {
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .lines-content,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin,
-	.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays {
-		pointer-events: none !important;
-	}
-}
-
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines {
@@ -238,19 +226,9 @@ span.shiki-ul {
 	background-color: var(--code-background) !important;
 }
 
-/* Mobile: allow vertical page scroll to pass through Monaco (prevent scroll trapping).
-   Also disable pointer-events so Monaco doesn't capture touch events for scrolling. */
+/* Mobile: allow vertical page scroll to pass through Monaco (prevent scroll trapping). */
 .shiki-monaco-editor {
 	touch-action: pan-y;
-}
-
-/* On devices without hover (mobile), make the editor non-interactive so
-   touch scroll events bubble to Obsidian. Desktop keeps interaction for
-   text selection. */
-@media (hover: none) {
-	.shiki-monaco-editor .monaco-editor {
-		pointer-events: none !important;
-	}
 }
 
 /* Prevent Monaco from creating internal vertical scroll - let Obsidian handle it */

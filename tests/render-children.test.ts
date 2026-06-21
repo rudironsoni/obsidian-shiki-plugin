@@ -10,15 +10,20 @@ function createContext(markdown: string): { sourcePath: string; getSectionInfo: 
 }
 
 describe('render children', () => {
-	test('CodeBlock calls renderWithMonaco and registers active block', async () => {
+	test('CodeBlock uses reading view adapter and registers active block', async () => {
 		const container = document.createElement('pre');
 		const calls: unknown[] = [];
 		const active: unknown[] = [];
+		const ctx = createContext('```ts title="Meta" showLineNumbers\nconst x = 1;\n```');
 		const plugin = {
-			highlighter: {
-				renderWithMonaco: async (...args: unknown[]): Promise<void> => {
+			readingViewAdapter: {
+				renderBlock: async (...args: unknown[]): Promise<string> => {
 					calls.push(args);
 					container.textContent = 'rendered';
+					return 'block-id';
+				},
+				disposeBlock: (): void => {
+					container.textContent = 'disposed';
 				},
 			},
 			addActiveCodeBlock: (block: unknown): void => {
@@ -33,14 +38,14 @@ describe('render children', () => {
 			container,
 			'const x = 1;',
 			'ts',
-			createContext('```ts title="Meta" showLineNumbers\nconst x = 1;\n```') as never,
+			ctx as never,
 		);
 
 		codeBlock.onload();
 		await new Promise(resolve => setTimeout(resolve, 0));
 
 		expect(active).toEqual([codeBlock]);
-		expect(calls).toEqual([['const x = 1;', 'ts', 'title="Meta" showLineNumbers', container]]);
+		expect(calls).toEqual([[container, 'const x = 1;', 'ts', ctx]]);
 
 		codeBlock.onunload();
 		expect(active).toEqual([]);

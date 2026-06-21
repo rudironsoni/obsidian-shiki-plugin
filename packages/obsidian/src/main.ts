@@ -4,7 +4,13 @@ import { LazyHighlighter } from 'packages/obsidian/src/LazyHighlighter';
 import { ShikiSettingsTab } from 'packages/obsidian/src/settings/SettingsTab';
 import { CodeBlock } from 'packages/obsidian/src/CodeBlock';
 import { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
-import { createCm6Plugin } from 'packages/obsidian/src/codemirror/Cm6_ViewPlugin';
+import { CodeBlockRegistry } from 'packages/obsidian/src/codeblocks/CodeBlockRegistry';
+import { LazyMonacoRuntime } from 'packages/obsidian/src/monaco/LazyMonacoRuntime';
+import { MonacoSurfaceRegistry } from 'packages/obsidian/src/monaco/MonacoSurfaceRegistry';
+import { HydrationQueue } from 'packages/obsidian/src/monaco/HydrationQueue';
+import { SourceModeTokenizationCache } from 'packages/obsidian/src/runtime/SourceModeTokenizationCache';
+import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
+import type { ReadingViewAdapter } from 'packages/obsidian/src/modes/ReadingViewAdapter';
 
 import 'packages/obsidian/src/styles.css';
 
@@ -12,6 +18,12 @@ export const SHIKI_INLINE_REGEX = /^\{([^\s]+)\} (.*)/i; // format: `{lang} code
 
 export default class ShikiPlugin extends Plugin {
 	highlighter!: LazyHighlighter;
+	monacoRuntime!: LazyMonacoRuntime;
+	codeBlockRegistry!: CodeBlockRegistry;
+	surfaceRegistry!: MonacoSurfaceRegistry;
+	hydrationQueue!: HydrationQueue;
+	readingViewAdapter!: ReadingViewAdapter;
+	sourceModeTokenizationCache!: SourceModeTokenizationCache;
 	activeCodeBlocks!: Map<string, (CodeBlock | InlineCodeBlock)[]>;
 	settings!: Settings;
 	loadedSettings!: Settings;
@@ -25,7 +37,13 @@ export default class ShikiPlugin extends Plugin {
 		this.unloaded = false;
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
+		this.monacoRuntime = new LazyMonacoRuntime(this);
 		this.highlighter = new LazyHighlighter(this);
+		this.codeBlockRegistry = new CodeBlockRegistry();
+		this.surfaceRegistry = new MonacoSurfaceRegistry(this);
+		this.hydrationQueue = new HydrationQueue();
+		this.readingViewAdapter = undefined as never;
+		this.sourceModeTokenizationCache = new SourceModeTokenizationCache();
 		this.activeCodeBlocks = new Map();
 		this.updateCm6Plugin = async (): Promise<void> => {};
 
@@ -90,6 +108,8 @@ export default class ShikiPlugin extends Plugin {
 		this.loadedSettings = structuredClone(this.settings);
 
 		await this.highlighter.reload();
+		this.sourceModeTokenizationCache.clear();
+		this.surfaceRegistry.updateThemes();
 
 		for (const [_, codeBlocks] of this.activeCodeBlocks) {
 			for (const codeBlock of codeBlocks) {
@@ -105,6 +125,7 @@ export default class ShikiPlugin extends Plugin {
 			return;
 		}
 
+		const { createCm6Plugin } = await import('packages/obsidian/src/codemirror/Cm6_ViewPlugin');
 		this.registerEditorExtension([createCm6Plugin(this)]);
 		this.cm6PluginRegistered = true;
 		this.app.workspace.updateOptions();
@@ -116,6 +137,10 @@ export default class ShikiPlugin extends Plugin {
 		}
 
 		console.log('[Shiki] Registering reading mode code block processor...');
+		if (!this.readingViewAdapter) {
+			const { ReadingViewAdapter } = await import('packages/obsidian/src/modes/ReadingViewAdapter');
+			this.readingViewAdapter = new ReadingViewAdapter(this);
+		}
 		let languages: Set<string>;
 		try {
 			languages = new Set(await this.highlighter.obsidianSafeLanguageNames());
@@ -180,6 +205,13 @@ export default class ShikiPlugin extends Plugin {
 	onunload(): void {
 		this.unloaded = true;
 		void this.highlighter?.unload();
+		this.surfaceRegistry.clear();
+		this.hydrationQueue.clear();
+		this.codeBlockRegistry.clear();
+	}
+
+	getActiveTheme(): string {
+		return getActiveTheme(this);
 	}
 
 	addActiveCodeBlock(codeBlock: CodeBlock | InlineCodeBlock): void {
