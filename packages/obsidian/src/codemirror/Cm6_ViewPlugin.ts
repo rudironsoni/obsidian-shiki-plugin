@@ -500,9 +500,18 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				});
 				monaco.editor.setTheme(theme);
 				handle.editor.layout({ width: Math.max(firstRect.width, 1), height: Math.max(blockHeight, 1) });
+				this.setBlockVisibility(block.blockId, true);
+			}
+
+			private setBlockVisibility(blockId: string, monacoReady: boolean): void {
+				const selector = `[data-shiki-editing-block-id="${blockId}"]`;
+				for (const element of this.view.contentDOM.querySelectorAll(selector)) {
+					element.classList.toggle('shiki-editing-codeblock-line-hidden', monacoReady);
+				}
 			}
 
 			private disposeMonacoBlock(handle: MonacoBlockHandle): void {
+				this.setBlockVisibility(handle.blockId, false);
 				handle.changeDisposable.dispose();
 				handle.focusDisposable.dispose();
 				handle.blurDisposable.dispose();
