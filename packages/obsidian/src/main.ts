@@ -1,7 +1,6 @@
 import { debounce, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
 import { LazyHighlighter } from 'packages/obsidian/src/LazyHighlighter';
-import { ShikiSettingsTab } from 'packages/obsidian/src/settings/SettingsTab';
 import { CodeBlock } from 'packages/obsidian/src/CodeBlock';
 import { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
 import { CodeBlockRegistry } from 'packages/obsidian/src/codeblocks/CodeBlockRegistry';
@@ -291,6 +290,7 @@ class LazyShikiSettingsTab extends PluginSettingTab {
 	display(): void {
 		this.containerEl.empty();
 		void this.plugin.ensureSettingsLoaded().then(async () => {
+			const { ShikiSettingsTab } = await import('packages/obsidian/src/settings/SettingsTab');
 			const settingsTab = new ShikiSettingsTab(this.plugin);
 			settingsTab.containerEl = this.containerEl;
 			settingsTab.display();

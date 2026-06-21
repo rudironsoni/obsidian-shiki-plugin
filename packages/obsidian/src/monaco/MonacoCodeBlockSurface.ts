@@ -93,6 +93,7 @@ export class MonacoCodeBlockSurface {
 		this.inputController.setSync(sync);
 		this.modeController.setMode('editable');
 		this.editor?.updateOptions({ readOnly: false, domReadOnly: false, contextmenu: true, renderLineHighlight: 'line' });
+		this.updateModeClass();
 		this.editor?.focus();
 	}
 
@@ -100,6 +101,7 @@ export class MonacoCodeBlockSurface {
 		this.inputController.setSync(undefined);
 		this.modeController.setMode('readonly');
 		this.editor?.updateOptions({ readOnly: true, domReadOnly: true, contextmenu: false, renderLineHighlight: 'none' });
+		this.updateModeClass();
 	}
 
 	updateTheme(): void {
@@ -156,7 +158,9 @@ export class MonacoCodeBlockSurface {
 			value: this.block.code,
 			language,
 		});
+		(this.hostEl as HTMLDivElement & { _monacoEditor?: MonacoEditorLike })._monacoEditor = this.editor;
 		this.modeController.setMode(mode);
+		this.updateModeClass();
 		this.hydrated = true;
 		this.selectionController.attach(this.editor as unknown as Parameters<MonacoSelectionController['attach']>[0]);
 		this.gestureRouter = new MonacoGestureRouter({
@@ -172,6 +176,14 @@ export class MonacoCodeBlockSurface {
 		this.editor.onDidScrollChange(() => {
 			this.scrollState.setScrollLeft(this.editor?.getScrollLeft() ?? 0);
 		});
+		this.editor.onDidFocusEditorWidget(() => {
+			this.hostEl.classList.add('shiki-monaco-active');
+		});
+		this.editor.onDidBlurEditorWidget(() => {
+			if (!this.modeController.isEditable()) {
+				this.hostEl.classList.remove('shiki-monaco-active');
+			}
+		});
 		this.editor.onDidChangeModelContent(() => {
 			const value = this.editor?.getValue() ?? this.block.code;
 			this.inputController.commit(value);
@@ -179,5 +191,12 @@ export class MonacoCodeBlockSurface {
 			this.layout();
 		});
 		this.layout();
+	}
+
+	private updateModeClass(): void {
+		const editable = this.modeController.isEditable();
+		this.hostEl.classList.toggle('shiki-monaco-editable', editable);
+		this.hostEl.classList.toggle('shiki-monaco-readonly', !editable);
+		this.hostEl.classList.toggle('shiki-monaco-active', editable);
 	}
 }

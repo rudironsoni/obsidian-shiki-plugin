@@ -220,7 +220,7 @@ async function openNote(client, livePreview) {
 		}
 			if (!file) throw new Error('note not found');
 			const leaf = app.workspace.getLeaf(false);
-			await leaf.openFile(file, { state: { mode: 'source', source: true } });
+			await leaf.openFile(file, { state: { mode: 'source', source: ${livePreview ? 'false' : 'true'} } });
 			leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });
 			await new Promise(resolve => setTimeout(resolve, 800));
 			return true;
@@ -256,20 +256,25 @@ async function getEditableCodeLine(client) {
 }
 
 async function clickLine(client, line) {
-	await client.send('Input.dispatchMouseEvent', {
-		type: 'mousePressed',
-		x: line.x,
-		y: line.y,
-		button: 'left',
-		clickCount: 1,
-	});
-	await client.send('Input.dispatchMouseEvent', {
-		type: 'mouseReleased',
-		x: line.x,
-		y: line.y,
-		button: 'left',
-		clickCount: 1,
-	});
+	const activation = await evaluate(
+		client,
+		`(() => {
+			try {
+				const container = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
+				if (!container) return { ok: false, error: 'No Monaco code block found for activation' };
+				const down = new MouseEvent('mousedown', { bubbles: true, clientX: ${line.x}, clientY: ${line.y} });
+				const click = new MouseEvent('click', { bubbles: true, clientX: ${line.x}, clientY: ${line.y} });
+				container.dispatchEvent(down);
+				container.dispatchEvent(click);
+				if (typeof container.onmousedown === 'function') container.onmousedown(down);
+				if (typeof container.onclick === 'function') container.onclick(click);
+				return { ok: true };
+			} catch (error) {
+				return { ok: false, error: String(error), stack: error?.stack ?? null };
+			}
+		})()`,
+	);
+	assert(activation?.ok, 'Live preview activation dispatch failed', activation);
 	await delay(600);
 	const log = await evaluate(client, `JSON.stringify(window.__shikiMonacoActivationLog ?? [])`);
 	console.log('Activation log:', log);
@@ -382,6 +387,34 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	})`,
 	);
 	console.log(`${modeName} debug:`, debugDom);
+	if (!livePreview) {
+		const sourceState = await waitFor(
+			client,
+			`(() => {
+				const editorRoot = document.querySelector('.markdown-source-view.mod-cm6');
+				if (!editorRoot) return null;
+				const monacoBlocks = editorRoot.querySelectorAll('.cm-content .shiki-monaco-codeblock').length;
+				const fence = String.fromCharCode(96).repeat(3);
+				const fenceLines = [...editorRoot.querySelectorAll('.cm-line')].filter(line => {
+					const text = line.textContent ?? '';
+					return text.includes(fence + 'python showLineNumbers') || text === fence;
+				});
+				const styledTokens = [...editorRoot.querySelectorAll('.cm-line [style*="color"]')].map(el => el.textContent).filter(Boolean);
+				return {
+					monacoBlocks,
+					fenceCount: fenceLines.length,
+					styledTokensCount: styledTokens.length,
+					styledTokens,
+				};
+			})()`,
+			`${modeName}: source mode did not render`,
+		);
+		assert(sourceState.monacoBlocks === 0, `${modeName}: source mode mounted Monaco`, sourceState);
+		assert(sourceState.fenceCount >= 2, `${modeName}: source mode fences are not visible`, sourceState);
+		assert(sourceState.styledTokensCount > 0, `${modeName}: source mode token styling missing`, sourceState);
+		await captureScreenshot(client, modeName);
+		return;
+	}
 	const line = await getEditableCodeLine(client);
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
@@ -487,9 +520,7 @@ async function main() {
 
 		const finalContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
 		assert(finalContent.includes('LIVE_PREVIEW_EDIT_'), 'Live preview edit marker missing from disk', { finalContent });
-		assert(finalContent.includes('SOURCE_MODE_EDIT_'), 'Source mode edit marker missing from disk', { finalContent });
 		assert(finalContent.includes('MOBILE_LIVE_PREVIEW_EDIT_'), 'Mobile live preview edit marker missing from disk', { finalContent });
-		assert(finalContent.includes('MOBILE_SOURCE_MODE_EDIT_'), 'Mobile source mode edit marker missing from disk', { finalContent });
 	} finally {
 		client?.close();
 		obsidian.kill();

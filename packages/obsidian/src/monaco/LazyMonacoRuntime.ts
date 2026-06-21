@@ -1,4 +1,3 @@
-import { loadModernMonacoGrammars, loadModernMonacoRuntime } from 'packages/obsidian/src/ModernMonacoLoader';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { getSpecialLanguages, isMarkdownProcessorSafeLanguage } from 'packages/obsidian/src/runtime/LanguageMetadata';
 import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
@@ -20,6 +19,7 @@ export class LazyMonacoRuntime {
 
 		this.loading ??= (async () => {
 			await this.plugin.ensureSettingsLoaded();
+			const { loadModernMonacoRuntime } = await import('packages/obsidian/src/ModernMonacoLoader');
 			const runtime = await loadModernMonacoRuntime(this.plugin);
 			this.runtime = runtime;
 			return runtime;
@@ -42,6 +42,7 @@ export class LazyMonacoRuntime {
 	}
 
 	async obsidianSafeLanguageNames(): Promise<string[]> {
+		const { loadModernMonacoGrammars } = await import('packages/obsidian/src/ModernMonacoLoader');
 		const grammars = await loadModernMonacoGrammars(this.plugin);
 		const allNames = new Set<string>();
 		this.aliasMap ??= new Map<string, string>();

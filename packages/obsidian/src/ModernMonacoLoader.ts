@@ -1,5 +1,4 @@
 import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
-import { MODERN_MONACO_SOURCE } from 'packages/obsidian/src/modern-monaco-inline';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 
 let runtimePromise: Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> | undefined;
@@ -18,16 +17,31 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 	runtimePromise ??= (async (): Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> => {
 		try {
 			await plugin.ensureSettingsLoaded();
-			console.log('[Shiki] Loading modern-monaco from inlined source...');
+			console.log('[Shiki] Loading modern-monaco sidecar...');
+			const nativeRequire =
+				(globalThis as { electron?: { remote?: { require?: NodeRequire } }; require?: NodeRequire }).electron?.remote?.require ??
+				(globalThis as { require?: NodeRequire }).require ??
+				require;
+			const fs = nativeRequire('fs') as typeof import('node:fs');
+			const path = nativeRequire('path') as typeof import('node:path');
+			const appPlugins = (plugin.app as ShikiPlugin['app'] & { plugins?: { manifests?: Record<string, { dir?: string }> } }).plugins;
+			const vaultBasePath = (plugin.app.vault.adapter as { basePath?: string }).basePath ?? '';
+			const pluginDir =
+				(plugin.manifest as { dir?: string }).dir ??
+				appPlugins?.manifests?.[plugin.manifest.id]?.dir ??
+				__dirname;
+			const pluginDirPath = path.isAbsolute(pluginDir) ? pluginDir : path.join(vaultBasePath, pluginDir);
+			const modernMonacoPath = path.join(pluginDirPath, 'modern-monaco.js');
+			const modernMonacoSource = fs.readFileSync(modernMonacoPath, 'utf8');
 
 			const module = { exports: {} as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; grammars?: unknown[] } };
 			// eslint-disable-next-line @typescript-eslint/no-implied-eval
-			const loadModule = new Function('exports', 'module', 'require', MODERN_MONACO_SOURCE) as (
+			const runtimeFactory = new Function('exports', 'module', 'require', modernMonacoSource) as (
 				exports: unknown,
 				module: { exports: unknown },
 				require: (id: string) => unknown,
 			) => void;
-			loadModule(module.exports, module, require);
+			runtimeFactory(module.exports, module, nativeRequire);
 			console.log('[Shiki] modern-monaco module loaded');
 
 			const entry = module.exports as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; grammars?: unknown[] };

@@ -13,6 +13,7 @@ export class LivePreviewAdapter {
 	private readonly view: EditorView;
 	private blocks: CodeBlockModel[] = [];
 	private retrySyncTimer: number | undefined;
+	private activeBlockId: string | undefined;
 
 	constructor(plugin: ShikiPlugin, view: EditorView) {
 		this.plugin = plugin;
@@ -135,6 +136,13 @@ export class LivePreviewAdapter {
 			const lastRect = last.getBoundingClientRect();
 			surface.attach(this.overlayRoot);
 			surface.hostEl.classList.add('shiki-monaco-codeblock');
+			surface.hostEl.dataset.shikiBlockId = block.id;
+			const activate = (): void => {
+				void this.activateBlock(block.id);
+			};
+			surface.hostEl.onclick = activate;
+			surface.hostEl.onmousedown = activate;
+			surface.hostEl.ontouchend = activate;
 			surface.hostEl.style.position = 'absolute';
 			surface.hostEl.style.left = `${firstRect.left - rootRect.left}px`;
 			surface.hostEl.style.top = `${firstRect.top - rootRect.top}px`;
@@ -182,15 +190,22 @@ export class LivePreviewAdapter {
 	}
 
 	async activateBlock(blockId: string): Promise<void> {
+		if (this.activeBlockId && this.activeBlockId !== blockId) {
+			this.deactivateBlock(this.activeBlockId);
+		}
 		const block = this.blocks.find(candidate => candidate.id === blockId);
 		if (!block) {
 			return;
 		}
 		const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
+		this.activeBlockId = blockId;
 		await surface.activateEditable(this.createEditSync(block));
 	}
 
 	deactivateBlock(blockId: string): void {
+		if (this.activeBlockId === blockId) {
+			this.activeBlockId = undefined;
+		}
 		this.plugin.surfaceRegistry.get(blockId)?.deactivateToReadonly();
 	}
 }
