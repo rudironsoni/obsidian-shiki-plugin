@@ -128,6 +128,7 @@ span.shiki-ul {
 	pointer-events: auto;
 	/* Let Obsidian own vertical scrolling. Keep horizontal pan for long code lines. */
 	touch-action: pan-x pinch-zoom;
+	-webkit-tap-highlight-color: transparent;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root {
@@ -160,6 +161,8 @@ span.shiki-ul {
 	display: block !important;
 	visibility: visible !important;
 	contain: layout style !important;
+	user-select: none !important;
+	-webkit-user-select: none !important;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays {
@@ -172,6 +175,8 @@ span.shiki-ul {
 	color: var(--text-faint) !important;
 	text-align: right !important;
 	white-space: nowrap !important;
+	user-select: none !important;
+	-webkit-user-select: none !important;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .ime-text-area {
