@@ -126,7 +126,8 @@ span.shiki-ul {
 	border-radius: var(--code-radius);
 	overflow: hidden;
 	pointer-events: auto;
-	touch-action: pan-y pinch-zoom;
+	/* Let Obsidian own vertical scrolling. Keep horizontal pan for long code lines. */
+	touch-action: pan-x pinch-zoom;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root {
