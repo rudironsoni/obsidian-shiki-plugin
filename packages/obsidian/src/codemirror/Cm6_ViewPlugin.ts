@@ -71,6 +71,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			view: EditorView;
 			private syncingLivePreview = false;
 			private runtimePromise: Promise<any> | undefined;
+			private retrySyncTimer: number | undefined;
+			private resizeObserver: ResizeObserver;
+			private readonly handleScroll = (): void => {
+				this.scheduleLivePreviewSync();
+			};
 
 			constructor(view: EditorView) {
 				this.view = view;
@@ -82,6 +87,12 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				this.overlayRoot = document.createElement('div');
 				this.overlayRoot.className = 'shiki-monaco-overlay-root';
 				this.view.dom.appendChild(this.overlayRoot);
+				this.view.scrollDOM.addEventListener('scroll', this.handleScroll, { passive: true });
+				this.resizeObserver = new ResizeObserver(() => {
+					this.scheduleLivePreviewSync();
+				});
+				this.resizeObserver.observe(this.view.dom);
+				this.resizeObserver.observe(this.view.contentDOM);
 				this.rebuildLivePreviewBlocks(view);
 				void this.updateWidgets(view);
 				this.scheduleLivePreviewSync();
@@ -310,9 +321,23 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			}
 
 			private scheduleLivePreviewSync(): void {
+				if (this.retrySyncTimer !== undefined) {
+					window.clearTimeout(this.retrySyncTimer);
+					this.retrySyncTimer = undefined;
+				}
 				requestAnimationFrame(() => {
 					void this.syncMonacoBlocks();
 				});
+			}
+
+			private scheduleRetrySync(): void {
+				if (this.retrySyncTimer !== undefined) {
+					return;
+				}
+				this.retrySyncTimer = window.setTimeout(() => {
+					this.retrySyncTimer = undefined;
+					this.scheduleLivePreviewSync();
+				}, 150);
 			}
 
 			private async syncMonacoBlocks(): Promise<void> {
@@ -327,6 +352,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 
 				const visibleBlockIds = new Set<string>();
+				let waitingForVisibleLines = false;
 				for (const block of this.livePreviewBlocks) {
 					if (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to) {
 						continue;
@@ -334,6 +360,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 					const lineElements = [...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.blockId}"]`)] as HTMLElement[];
 					if (lineElements.length === 0) {
+						waitingForVisibleLines = true;
 						continue;
 					}
 
@@ -347,6 +374,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 						this.disposeMonacoBlock(handle);
 						this.monacoBlocks.delete(blockId);
 					}
+				}
+
+				if (waitingForVisibleLines || (this.livePreviewBlocks.length > 0 && visibleBlockIds.size === 0)) {
+					this.scheduleRetrySync();
 				}
 			}
 
@@ -572,6 +603,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				this.decorations = Decoration.none;
 				this.inlineDecorations = Decoration.none;
 				this.blockDecorations = Decoration.none;
+				if (this.retrySyncTimer !== undefined) {
+					window.clearTimeout(this.retrySyncTimer);
+				}
+				this.view.scrollDOM.removeEventListener('scroll', this.handleScroll);
+				this.resizeObserver.disconnect();
 				this.disposeMonacoBlocks();
 				this.overlayRoot.remove();
 			}
