@@ -101,6 +101,60 @@ span.shiki-ul {
 	background-color: var(--code-background);
 }
 
+/* Live preview: keep the native Obsidian note lines and gutter alive, then mount
+   Monaco over the code content column only. */
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence {
+	position: relative;
+	overflow: visible;
+	white-space: pre !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line *,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence * {
+	color: transparent !important;
+	caret-color: transparent !important;
+	text-shadow: none !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
+	background-color: var(--code-background);
+	border-radius: var(--code-radius);
+	overflow: hidden;
+	pointer-events: auto;
+	touch-action: pan-y pinch-zoom;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 3;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root .shiki-monaco-codeblock {
+	pointer-events: auto;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines {
+	background-color: var(--code-background) !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element {
+	overflow-y: hidden !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element > .scrollbar.vertical,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .line-numbers,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays {
+	display: none !important;
+}
+
 /* Ensure Monaco editor inherits the background ONLY on the content area,
    not on .margin which extends into Obsidian's gutter in live preview. */
 .shiki-monaco-editor .monaco-editor .view-lines {
@@ -145,9 +199,6 @@ span.shiki-ul {
 	   (notably Safari/WKWebView). The margin-view-overlays sit at the bottom edge
 	   of the margin and can be clipped out. Disable paint containment only. */
 	contain: layout style !important;
-	/* `transform: translate3d()` creates a compositing layer on iOS that clips
-	   absolutely positioned children at the parent's bounds. Remove it. */
-	transform: none !important;
 }
 
 /* Monaco places margin-view-overlays after a 126px .glyph-margin sibling,
@@ -165,6 +216,13 @@ span.shiki-ul {
 	   and align with the right edge of the margin. */
 	text-align: right !important;
 	white-space: nowrap !important;
+}
+
+/* Ensure the editor content is offset to the right of the margin so it
+   doesn't overlap with line numbers, especially on iOS where font metrics
+   can cause the margin width to be calculated differently. */
+.shiki-monaco-editor .monaco-editor .lines-content {
+	left: auto !important;
 }
 
 /* Monaco folding controls use a custom icon font (codicon) that often

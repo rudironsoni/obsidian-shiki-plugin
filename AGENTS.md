@@ -50,4 +50,7 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - If you accidentally launch twice, kill the duplicate. Never leave orphan processes.
 - `plugin:reload` is cheap and idempotent. Prefer it over relaunching Obsidian.
 - Visual-test scripts must probe the CDP port first and skip `spawn()` when a target is alive.
+- Only use the Obsidian CLI MCP after confirming CLI support is enabled in the reused test vault. If no test vault exists yet, create one under `tests/` and enable it there instead of creating ad hoc vaults elsewhere.
+- Reuse the same test vault and the same Obsidian instance across setup, debugging, and verification. Do not spin up extra instances just to enable CLI access.
+- Always use the model's vision capabilities with screenshots from real Obsidian to verify what is actually rendered before concluding a UI bug is fixed or understood.
   <!-- /headroom:rtk-instructions -->

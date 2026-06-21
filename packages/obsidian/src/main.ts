@@ -115,51 +115,51 @@ export default class ShikiPlugin extends Plugin {
 			return;
 		}
 
-		console.log('[Shiki] Registering code block processors...');
-		let languages: string[];
+		console.log('[Shiki] Registering reading mode code block processor...');
+		let languages: Set<string>;
 		try {
-			languages = await this.highlighter.obsidianSafeLanguageNames();
+			languages = new Set(await this.highlighter.obsidianSafeLanguageNames());
 		} catch (error) {
 			console.error('[Shiki] Failed to load language names, code blocks will not be highlighted:', error);
 			return;
 		}
-		console.log('[Shiki] Registering', languages.length, 'code block processors');
+		console.log('[Shiki] Registering reading mode code block processor');
 
 		if (this.unloaded || this.codeBlockProcessorsRegistered) {
 			return;
 		}
 
-		for (const language of languages) {
-			if (this.unloaded) {
+		this.registerMarkdownPostProcessor((el, ctx) => {
+			if (this.unloaded || el.closest('.markdown-source-view')) {
 				return;
 			}
 
-			try {
-				this.registerMarkdownCodeBlockProcessor(
-					language,
-					async (source, el, ctx) => {
-						if (this.unloaded) {
-							return;
-						}
+			const codeElements = el.querySelectorAll('pre > code[class*="language-"]');
+			for (const codeElement of codeElements) {
+				const className = [...codeElement.classList].find(value => value.startsWith('language-'));
+				const language = className?.slice('language-'.length) ?? '';
+				if (language === '' || !languages.has(language)) {
+					continue;
+				}
 
-						// we need to avoid making the hidden frontmatter code block visible
-						if (el.parentElement?.classList.contains('mod-frontmatter')) {
-							return;
-						}
+				const pre = codeElement.parentElement;
+				if (!(pre instanceof HTMLElement)) {
+					continue;
+				}
 
-						const codeBlock = new CodeBlock(this, el, source, language, ctx);
-						ctx.addChild(codeBlock);
-					},
-					1000,
-				);
-			} catch (e) {
-				console.warn(`[Shiki] Failed to register code block processor for ${language}.`, e);
+				// Keep the frontmatter preview hidden.
+				if (pre.parentElement?.classList.contains('mod-frontmatter')) {
+					continue;
+				}
+
+				const codeBlock = new CodeBlock(this, pre, codeElement.textContent ?? '', language, ctx);
+				ctx.addChild(codeBlock);
 			}
-		}
+		}, 1000);
 
 		this.codeBlockProcessorsRegistered = true;
 		this.app.workspace.updateOptions();
-		console.log('[Shiki] Code block processors registered');
+		console.log('[Shiki] Reading mode code block processor registered');
 	}
 
 	registerInlineCodeProcessor(): void {
