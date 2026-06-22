@@ -17,7 +17,7 @@ export class ReadingViewAdapter {
 			return undefined;
 		}
 		this.plugin.codeBlockRegistry.upsert(block);
-		const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
+		const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 		container.empty();
 		surface.attach(container);
 		this.plugin.hydrationQueue.enqueue(surface);

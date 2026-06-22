@@ -232,8 +232,6 @@ export class MonacoCodeBlockSurface {
 		this.layout();
 	}
 
-
-
 	private startMobileModePoll(enabled: boolean): void {
 		this.stopMobileModePoll();
 		if (!enabled) {
@@ -293,15 +291,15 @@ export class MonacoCodeBlockSurface {
 			let bestIndex = 0;
 			let bestDistance = Number.POSITIVE_INFINITY;
 			for (let index = 0; index < viewLines.length; index++) {
-				const rect = viewLines[index]!.getBoundingClientRect();
+				const rect = viewLines[index].getBoundingClientRect();
 				const distance = Math.abs(rect.top + rect.height / 2 - clientY);
 				if (distance < bestDistance) {
 					bestDistance = distance;
 					bestIndex = index;
 				}
 			}
-			const rect = viewLines[bestIndex]!.getBoundingClientRect();
-			const textLength = lines[bestIndex]?.length ?? viewLines[bestIndex]!.textContent?.length ?? 0;
+			const rect = viewLines[bestIndex].getBoundingClientRect();
+			const textLength = lines[bestIndex]?.length ?? viewLines[bestIndex].textContent?.length ?? 0;
 			const progress = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
 			return { lineNumber: bestIndex + 1, column: Math.max(1, Math.min(textLength + 1, Math.round(progress * textLength) + 1)) };
 		}

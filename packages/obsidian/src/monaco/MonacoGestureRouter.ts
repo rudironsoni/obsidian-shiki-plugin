@@ -131,7 +131,7 @@ export class MonacoGestureRouter {
 
 		const dx = touch.clientX - this.touchState.startX;
 		const dy = touch.clientY - this.touchState.startY;
-		if (this.touchState.axis === 'pending' && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+		if (this.touchState?.axis === 'pending' && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
 			this.touchState.axis = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
 			if (this.touchState.axis === 'horizontal') {
 				this.clearLongPressTimer();
@@ -156,7 +156,7 @@ export class MonacoGestureRouter {
 		this.touchState = null;
 		this.selectionController.endHandleDrag();
 		this.clearLongPressTimer();
-		if (!touch || !state || state.axis !== 'pending') return;
+		if (!touch || state?.axis !== 'pending') return;
 		const nativePosition = this.editor.getTargetAtClientPoint?.(touch.clientX, touch.clientY)?.position ?? null;
 		if (nativePosition && this.nativeInteraction) {
 			event.preventDefault();
@@ -178,7 +178,6 @@ export class MonacoGestureRouter {
 		this.selectionController.endHandleDrag();
 		this.clearLongPressTimer();
 	};
-
 
 	private blurMonacoFocusTarget(): void {
 		this.editor.blur?.();

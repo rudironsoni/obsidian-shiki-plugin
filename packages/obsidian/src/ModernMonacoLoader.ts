@@ -27,7 +27,13 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 			await plugin.ensureSettingsLoaded();
 			const { source: modernMonacoSource, requireFn } = await loadModernMonacoSource(plugin);
 
-			const module = { exports: {} as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; resetModernMonacoRuntime?: () => void; grammars?: unknown[] } };
+			const module = {
+				exports: {} as {
+					createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>;
+					resetModernMonacoRuntime?: () => void;
+					grammars?: unknown[];
+				},
+			};
 			// eslint-disable-next-line @typescript-eslint/no-implied-eval
 			const runtimeFactory = new Function('exports', 'module', 'require', modernMonacoSource) as (
 				exports: unknown,

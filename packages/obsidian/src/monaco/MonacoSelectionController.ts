@@ -175,7 +175,7 @@ export class MonacoSelectionController {
 		let bestIndex = 0;
 		let bestDistance = Number.POSITIVE_INFINITY;
 		for (let index = 0; index < lines.length; index++) {
-			const rect = lines[index]!.getBoundingClientRect();
+			const rect = lines[index].getBoundingClientRect();
 			const centerY = rect.top + rect.height / 2;
 			const distance = Math.abs(centerY - clientY);
 			if (distance < bestDistance) {

@@ -4,1128 +4,957 @@ const LANGUAGE_SPECIAL = new Set(['plaintext', 'txt', 'text', 'plain', 'ansi']);
 
 const LANGUAGE_METADATA = [
 	{
-		"name": "abap",
-		"aliases": []
+		name: 'abap',
+		aliases: [],
 	},
 	{
-		"name": "actionscript-3",
-		"aliases": []
+		name: 'actionscript-3',
+		aliases: [],
 	},
 	{
-		"name": "ada",
-		"aliases": []
+		name: 'ada',
+		aliases: [],
 	},
 	{
-		"name": "angular-expression",
-		"aliases": []
+		name: 'angular-expression',
+		aliases: [],
 	},
 	{
-		"name": "angular-html",
-		"aliases": []
+		name: 'angular-html',
+		aliases: [],
 	},
 	{
-		"name": "angular-ts",
-		"aliases": []
+		name: 'angular-ts',
+		aliases: [],
 	},
 	{
-		"name": "apache",
-		"aliases": []
+		name: 'apache',
+		aliases: [],
 	},
 	{
-		"name": "apex",
-		"aliases": []
+		name: 'apex',
+		aliases: [],
 	},
 	{
-		"name": "apl",
-		"aliases": []
+		name: 'apl',
+		aliases: [],
 	},
 	{
-		"name": "applescript",
-		"aliases": []
+		name: 'applescript',
+		aliases: [],
 	},
 	{
-		"name": "ara",
-		"aliases": []
+		name: 'ara',
+		aliases: [],
 	},
 	{
-		"name": "asciidoc",
-		"aliases": [
-			"adoc"
-		]
+		name: 'asciidoc',
+		aliases: ['adoc'],
 	},
 	{
-		"name": "asm",
-		"aliases": []
+		name: 'asm',
+		aliases: [],
 	},
 	{
-		"name": "astro",
-		"aliases": []
+		name: 'astro',
+		aliases: [],
 	},
 	{
-		"name": "awk",
-		"aliases": []
+		name: 'awk',
+		aliases: [],
 	},
 	{
-		"name": "ballerina",
-		"aliases": []
+		name: 'ballerina',
+		aliases: [],
 	},
 	{
-		"name": "bat",
-		"aliases": [
-			"batch"
-		]
+		name: 'bat',
+		aliases: ['batch'],
 	},
 	{
-		"name": "beancount",
-		"aliases": []
+		name: 'beancount',
+		aliases: [],
 	},
 	{
-		"name": "berry",
-		"aliases": [
-			"be"
-		]
+		name: 'berry',
+		aliases: ['be'],
 	},
 	{
-		"name": "bibtex",
-		"aliases": []
+		name: 'bibtex',
+		aliases: [],
 	},
 	{
-		"name": "bicep",
-		"aliases": []
+		name: 'bicep',
+		aliases: [],
 	},
 	{
-		"name": "bird2",
-		"aliases": [
-			"bird"
-		]
+		name: 'bird2',
+		aliases: ['bird'],
 	},
 	{
-		"name": "blade",
-		"aliases": []
+		name: 'blade',
+		aliases: [],
 	},
 	{
-		"name": "bsl",
-		"aliases": [
-			"1c"
-		]
+		name: 'bsl',
+		aliases: ['1c'],
 	},
 	{
-		"name": "c",
-		"aliases": []
+		name: 'c',
+		aliases: [],
 	},
 	{
-		"name": "c3",
-		"aliases": []
+		name: 'c3',
+		aliases: [],
 	},
 	{
-		"name": "cadence",
-		"aliases": [
-			"cdc"
-		]
+		name: 'cadence',
+		aliases: ['cdc'],
 	},
 	{
-		"name": "cairo",
-		"aliases": []
+		name: 'cairo',
+		aliases: [],
 	},
 	{
-		"name": "clarity",
-		"aliases": []
+		name: 'clarity',
+		aliases: [],
 	},
 	{
-		"name": "clojure",
-		"aliases": [
-			"clj"
-		]
+		name: 'clojure',
+		aliases: ['clj'],
 	},
 	{
-		"name": "cmake",
-		"aliases": []
+		name: 'cmake',
+		aliases: [],
 	},
 	{
-		"name": "cobol",
-		"aliases": []
+		name: 'cobol',
+		aliases: [],
 	},
 	{
-		"name": "codeowners",
-		"aliases": []
+		name: 'codeowners',
+		aliases: [],
 	},
 	{
-		"name": "codeql",
-		"aliases": [
-			"ql"
-		]
+		name: 'codeql',
+		aliases: ['ql'],
 	},
 	{
-		"name": "coffee",
-		"aliases": [
-			"coffeescript"
-		]
+		name: 'coffee',
+		aliases: ['coffeescript'],
 	},
 	{
-		"name": "common-lisp",
-		"aliases": [
-			"lisp"
-		]
+		name: 'common-lisp',
+		aliases: ['lisp'],
 	},
 	{
-		"name": "coq",
-		"aliases": []
+		name: 'coq',
+		aliases: [],
 	},
 	{
-		"name": "cpp",
-		"aliases": [
-			"c++"
-		]
+		name: 'cpp',
+		aliases: ['c++'],
 	},
 	{
-		"name": "cpp-macro",
-		"aliases": []
+		name: 'cpp-macro',
+		aliases: [],
 	},
 	{
-		"name": "crystal",
-		"aliases": []
+		name: 'crystal',
+		aliases: [],
 	},
 	{
-		"name": "csharp",
-		"aliases": [
-			"c#",
-			"cs"
-		]
+		name: 'csharp',
+		aliases: ['c#', 'cs'],
 	},
 	{
-		"name": "css",
-		"aliases": []
+		name: 'css',
+		aliases: [],
 	},
 	{
-		"name": "csv",
-		"aliases": []
+		name: 'csv',
+		aliases: [],
 	},
 	{
-		"name": "cue",
-		"aliases": []
+		name: 'cue',
+		aliases: [],
 	},
 	{
-		"name": "cypher",
-		"aliases": [
-			"cql"
-		]
+		name: 'cypher',
+		aliases: ['cql'],
 	},
 	{
-		"name": "d",
-		"aliases": []
+		name: 'd',
+		aliases: [],
 	},
 	{
-		"name": "dart",
-		"aliases": []
+		name: 'dart',
+		aliases: [],
 	},
 	{
-		"name": "dax",
-		"aliases": []
+		name: 'dax',
+		aliases: [],
 	},
 	{
-		"name": "desktop",
-		"aliases": []
+		name: 'desktop',
+		aliases: [],
 	},
 	{
-		"name": "diff",
-		"aliases": []
+		name: 'diff',
+		aliases: [],
 	},
 	{
-		"name": "docker",
-		"aliases": [
-			"dockerfile"
-		]
+		name: 'docker',
+		aliases: ['dockerfile'],
 	},
 	{
-		"name": "dotenv",
-		"aliases": []
+		name: 'dotenv',
+		aliases: [],
 	},
 	{
-		"name": "dream-maker",
-		"aliases": []
+		name: 'dream-maker',
+		aliases: [],
 	},
 	{
-		"name": "edge",
-		"aliases": []
+		name: 'edge',
+		aliases: [],
 	},
 	{
-		"name": "elixir",
-		"aliases": []
+		name: 'elixir',
+		aliases: [],
 	},
 	{
-		"name": "elm",
-		"aliases": []
+		name: 'elm',
+		aliases: [],
 	},
 	{
-		"name": "emacs-lisp",
-		"aliases": [
-			"elisp"
-		]
+		name: 'emacs-lisp',
+		aliases: ['elisp'],
 	},
 	{
-		"name": "erb",
-		"aliases": []
+		name: 'erb',
+		aliases: [],
 	},
 	{
-		"name": "erlang",
-		"aliases": [
-			"erl"
-		]
+		name: 'erlang',
+		aliases: ['erl'],
 	},
 	{
-		"name": "fennel",
-		"aliases": []
+		name: 'fennel',
+		aliases: [],
 	},
 	{
-		"name": "fish",
-		"aliases": []
+		name: 'fish',
+		aliases: [],
 	},
 	{
-		"name": "fluent",
-		"aliases": [
-			"ftl"
-		]
+		name: 'fluent',
+		aliases: ['ftl'],
 	},
 	{
-		"name": "fortran-fixed-form",
-		"aliases": [
-			"f",
-			"for",
-			"f77"
-		]
+		name: 'fortran-fixed-form',
+		aliases: ['f', 'for', 'f77'],
 	},
 	{
-		"name": "fortran-free-form",
-		"aliases": [
-			"f90",
-			"f95",
-			"f03",
-			"f08",
-			"f18"
-		]
+		name: 'fortran-free-form',
+		aliases: ['f90', 'f95', 'f03', 'f08', 'f18'],
 	},
 	{
-		"name": "fsharp",
-		"aliases": [
-			"f#",
-			"fs"
-		]
+		name: 'fsharp',
+		aliases: ['f#', 'fs'],
 	},
 	{
-		"name": "gdresource",
-		"aliases": [
-			"tscn",
-			"tres"
-		]
+		name: 'gdresource',
+		aliases: ['tscn', 'tres'],
 	},
 	{
-		"name": "gdscript",
-		"aliases": [
-			"gd"
-		]
+		name: 'gdscript',
+		aliases: ['gd'],
 	},
 	{
-		"name": "gdshader",
-		"aliases": []
+		name: 'gdshader',
+		aliases: [],
 	},
 	{
-		"name": "genie",
-		"aliases": []
+		name: 'genie',
+		aliases: [],
 	},
 	{
-		"name": "gherkin",
-		"aliases": []
+		name: 'gherkin',
+		aliases: [],
 	},
 	{
-		"name": "git-commit",
-		"aliases": []
+		name: 'git-commit',
+		aliases: [],
 	},
 	{
-		"name": "git-rebase",
-		"aliases": []
+		name: 'git-rebase',
+		aliases: [],
 	},
 	{
-		"name": "gleam",
-		"aliases": []
+		name: 'gleam',
+		aliases: [],
 	},
 	{
-		"name": "glimmer-js",
-		"aliases": [
-			"gjs"
-		]
+		name: 'glimmer-js',
+		aliases: ['gjs'],
 	},
 	{
-		"name": "glimmer-ts",
-		"aliases": [
-			"gts"
-		]
+		name: 'glimmer-ts',
+		aliases: ['gts'],
 	},
 	{
-		"name": "glsl",
-		"aliases": []
+		name: 'glsl',
+		aliases: [],
 	},
 	{
-		"name": "gn",
-		"aliases": []
+		name: 'gn',
+		aliases: [],
 	},
 	{
-		"name": "gnuplot",
-		"aliases": []
+		name: 'gnuplot',
+		aliases: [],
 	},
 	{
-		"name": "go",
-		"aliases": []
+		name: 'go',
+		aliases: [],
 	},
 	{
-		"name": "graphql",
-		"aliases": [
-			"gql"
-		]
+		name: 'graphql',
+		aliases: ['gql'],
 	},
 	{
-		"name": "groovy",
-		"aliases": []
+		name: 'groovy',
+		aliases: [],
 	},
 	{
-		"name": "hack",
-		"aliases": []
+		name: 'hack',
+		aliases: [],
 	},
 	{
-		"name": "haml",
-		"aliases": []
+		name: 'haml',
+		aliases: [],
 	},
 	{
-		"name": "handlebars",
-		"aliases": [
-			"hbs"
-		]
+		name: 'handlebars',
+		aliases: ['hbs'],
 	},
 	{
-		"name": "haskell",
-		"aliases": [
-			"hs"
-		]
+		name: 'haskell',
+		aliases: ['hs'],
 	},
 	{
-		"name": "haxe",
-		"aliases": []
+		name: 'haxe',
+		aliases: [],
 	},
 	{
-		"name": "hcl",
-		"aliases": []
+		name: 'hcl',
+		aliases: [],
 	},
 	{
-		"name": "hjson",
-		"aliases": []
+		name: 'hjson',
+		aliases: [],
 	},
 	{
-		"name": "hlsl",
-		"aliases": []
+		name: 'hlsl',
+		aliases: [],
 	},
 	{
-		"name": "html",
-		"aliases": []
+		name: 'html',
+		aliases: [],
 	},
 	{
-		"name": "html-derivative",
-		"aliases": []
+		name: 'html-derivative',
+		aliases: [],
 	},
 	{
-		"name": "http",
-		"aliases": []
+		name: 'http',
+		aliases: [],
 	},
 	{
-		"name": "hurl",
-		"aliases": []
+		name: 'hurl',
+		aliases: [],
 	},
 	{
-		"name": "hxml",
-		"aliases": []
+		name: 'hxml',
+		aliases: [],
 	},
 	{
-		"name": "hy",
-		"aliases": []
+		name: 'hy',
+		aliases: [],
 	},
 	{
-		"name": "imba",
-		"aliases": []
+		name: 'imba',
+		aliases: [],
 	},
 	{
-		"name": "ini",
-		"aliases": [
-			"properties"
-		]
+		name: 'ini',
+		aliases: ['properties'],
 	},
 	{
-		"name": "java",
-		"aliases": []
+		name: 'java',
+		aliases: [],
 	},
 	{
-		"name": "javascript",
-		"aliases": [
-			"js",
-			"mjs",
-			"cjs"
-		]
+		name: 'javascript',
+		aliases: ['js', 'mjs', 'cjs'],
 	},
 	{
-		"name": "jinja",
-		"aliases": []
+		name: 'jinja',
+		aliases: [],
 	},
 	{
-		"name": "jinja-html",
-		"aliases": []
+		name: 'jinja-html',
+		aliases: [],
 	},
 	{
-		"name": "jison",
-		"aliases": []
+		name: 'jison',
+		aliases: [],
 	},
 	{
-		"name": "json",
-		"aliases": []
+		name: 'json',
+		aliases: [],
 	},
 	{
-		"name": "json5",
-		"aliases": []
+		name: 'json5',
+		aliases: [],
 	},
 	{
-		"name": "jsonc",
-		"aliases": []
+		name: 'jsonc',
+		aliases: [],
 	},
 	{
-		"name": "jsonl",
-		"aliases": []
+		name: 'jsonl',
+		aliases: [],
 	},
 	{
-		"name": "jsonnet",
-		"aliases": []
+		name: 'jsonnet',
+		aliases: [],
 	},
 	{
-		"name": "jssm",
-		"aliases": [
-			"fsl"
-		]
+		name: 'jssm',
+		aliases: ['fsl'],
 	},
 	{
-		"name": "jsx",
-		"aliases": []
+		name: 'jsx',
+		aliases: [],
 	},
 	{
-		"name": "julia",
-		"aliases": [
-			"jl"
-		]
+		name: 'julia',
+		aliases: ['jl'],
 	},
 	{
-		"name": "just",
-		"aliases": []
+		name: 'just',
+		aliases: [],
 	},
 	{
-		"name": "kdl",
-		"aliases": []
+		name: 'kdl',
+		aliases: [],
 	},
 	{
-		"name": "kotlin",
-		"aliases": [
-			"kt",
-			"kts"
-		]
+		name: 'kotlin',
+		aliases: ['kt', 'kts'],
 	},
 	{
-		"name": "kusto",
-		"aliases": [
-			"kql"
-		]
+		name: 'kusto',
+		aliases: ['kql'],
 	},
 	{
-		"name": "latex",
-		"aliases": []
+		name: 'latex',
+		aliases: [],
 	},
 	{
-		"name": "lean",
-		"aliases": [
-			"lean4"
-		]
+		name: 'lean',
+		aliases: ['lean4'],
 	},
 	{
-		"name": "less",
-		"aliases": []
+		name: 'less',
+		aliases: [],
 	},
 	{
-		"name": "liquid",
-		"aliases": []
+		name: 'liquid',
+		aliases: [],
 	},
 	{
-		"name": "llvm",
-		"aliases": []
+		name: 'llvm',
+		aliases: [],
 	},
 	{
-		"name": "log",
-		"aliases": []
+		name: 'log',
+		aliases: [],
 	},
 	{
-		"name": "logo",
-		"aliases": []
+		name: 'logo',
+		aliases: [],
 	},
 	{
-		"name": "lua",
-		"aliases": []
+		name: 'lua',
+		aliases: [],
 	},
 	{
-		"name": "luau",
-		"aliases": []
+		name: 'luau',
+		aliases: [],
 	},
 	{
-		"name": "make",
-		"aliases": [
-			"makefile"
-		]
+		name: 'make',
+		aliases: ['makefile'],
 	},
 	{
-		"name": "markdown",
-		"aliases": [
-			"md"
-		]
+		name: 'markdown',
+		aliases: ['md'],
 	},
 	{
-		"name": "marko",
-		"aliases": []
+		name: 'marko',
+		aliases: [],
 	},
 	{
-		"name": "matlab",
-		"aliases": []
+		name: 'matlab',
+		aliases: [],
 	},
 	{
-		"name": "mdc",
-		"aliases": []
+		name: 'mdc',
+		aliases: [],
 	},
 	{
-		"name": "mdx",
-		"aliases": []
+		name: 'mdx',
+		aliases: [],
 	},
 	{
-		"name": "mermaid",
-		"aliases": [
-			"mmd"
-		]
+		name: 'mermaid',
+		aliases: ['mmd'],
 	},
 	{
-		"name": "mipsasm",
-		"aliases": [
-			"mips"
-		]
+		name: 'mipsasm',
+		aliases: ['mips'],
 	},
 	{
-		"name": "mojo",
-		"aliases": []
+		name: 'mojo',
+		aliases: [],
 	},
 	{
-		"name": "moonbit",
-		"aliases": [
-			"mbt",
-			"mbti"
-		]
+		name: 'moonbit',
+		aliases: ['mbt', 'mbti'],
 	},
 	{
-		"name": "move",
-		"aliases": []
+		name: 'move',
+		aliases: [],
 	},
 	{
-		"name": "narrat",
-		"aliases": [
-			"nar"
-		]
+		name: 'narrat',
+		aliases: ['nar'],
 	},
 	{
-		"name": "nextflow",
-		"aliases": [
-			"nf"
-		]
+		name: 'nextflow',
+		aliases: ['nf'],
 	},
 	{
-		"name": "nextflow-groovy",
-		"aliases": []
+		name: 'nextflow-groovy',
+		aliases: [],
 	},
 	{
-		"name": "nginx",
-		"aliases": []
+		name: 'nginx',
+		aliases: [],
 	},
 	{
-		"name": "nim",
-		"aliases": []
+		name: 'nim',
+		aliases: [],
 	},
 	{
-		"name": "nix",
-		"aliases": []
+		name: 'nix',
+		aliases: [],
 	},
 	{
-		"name": "nushell",
-		"aliases": [
-			"nu"
-		]
+		name: 'nushell',
+		aliases: ['nu'],
 	},
 	{
-		"name": "objective-c",
-		"aliases": [
-			"objc"
-		]
+		name: 'objective-c',
+		aliases: ['objc'],
 	},
 	{
-		"name": "objective-cpp",
-		"aliases": []
+		name: 'objective-cpp',
+		aliases: [],
 	},
 	{
-		"name": "ocaml",
-		"aliases": []
+		name: 'ocaml',
+		aliases: [],
 	},
 	{
-		"name": "odin",
-		"aliases": []
+		name: 'odin',
+		aliases: [],
 	},
 	{
-		"name": "openscad",
-		"aliases": [
-			"scad"
-		]
+		name: 'openscad',
+		aliases: ['scad'],
 	},
 	{
-		"name": "pascal",
-		"aliases": []
+		name: 'pascal',
+		aliases: [],
 	},
 	{
-		"name": "perl",
-		"aliases": []
+		name: 'perl',
+		aliases: [],
 	},
 	{
-		"name": "php",
-		"aliases": []
+		name: 'php',
+		aliases: [],
 	},
 	{
-		"name": "pkl",
-		"aliases": []
+		name: 'pkl',
+		aliases: [],
 	},
 	{
-		"name": "plsql",
-		"aliases": []
+		name: 'plsql',
+		aliases: [],
 	},
 	{
-		"name": "po",
-		"aliases": [
-			"pot",
-			"potx"
-		]
+		name: 'po',
+		aliases: ['pot', 'potx'],
 	},
 	{
-		"name": "polar",
-		"aliases": []
+		name: 'polar',
+		aliases: [],
 	},
 	{
-		"name": "postcss",
-		"aliases": []
+		name: 'postcss',
+		aliases: [],
 	},
 	{
-		"name": "powerquery",
-		"aliases": []
+		name: 'powerquery',
+		aliases: [],
 	},
 	{
-		"name": "powershell",
-		"aliases": [
-			"ps",
-			"ps1"
-		]
+		name: 'powershell',
+		aliases: ['ps', 'ps1'],
 	},
 	{
-		"name": "prisma",
-		"aliases": []
+		name: 'prisma',
+		aliases: [],
 	},
 	{
-		"name": "prolog",
-		"aliases": []
+		name: 'prolog',
+		aliases: [],
 	},
 	{
-		"name": "proto",
-		"aliases": [
-			"protobuf"
-		]
+		name: 'proto',
+		aliases: ['protobuf'],
 	},
 	{
-		"name": "pug",
-		"aliases": [
-			"jade"
-		]
+		name: 'pug',
+		aliases: ['jade'],
 	},
 	{
-		"name": "puppet",
-		"aliases": []
+		name: 'puppet',
+		aliases: [],
 	},
 	{
-		"name": "purescript",
-		"aliases": []
+		name: 'purescript',
+		aliases: [],
 	},
 	{
-		"name": "python",
-		"aliases": [
-			"py"
-		]
+		name: 'python',
+		aliases: ['py'],
 	},
 	{
-		"name": "qml",
-		"aliases": []
+		name: 'qml',
+		aliases: [],
 	},
 	{
-		"name": "qmldir",
-		"aliases": []
+		name: 'qmldir',
+		aliases: [],
 	},
 	{
-		"name": "qss",
-		"aliases": []
+		name: 'qss',
+		aliases: [],
 	},
 	{
-		"name": "r",
-		"aliases": []
+		name: 'r',
+		aliases: [],
 	},
 	{
-		"name": "racket",
-		"aliases": []
+		name: 'racket',
+		aliases: [],
 	},
 	{
-		"name": "raku",
-		"aliases": [
-			"perl6"
-		]
+		name: 'raku',
+		aliases: ['perl6'],
 	},
 	{
-		"name": "razor",
-		"aliases": []
+		name: 'razor',
+		aliases: [],
 	},
 	{
-		"name": "reg",
-		"aliases": []
+		name: 'reg',
+		aliases: [],
 	},
 	{
-		"name": "regexp",
-		"aliases": [
-			"regex"
-		]
+		name: 'regexp',
+		aliases: ['regex'],
 	},
 	{
-		"name": "rel",
-		"aliases": []
+		name: 'rel',
+		aliases: [],
 	},
 	{
-		"name": "riscv",
-		"aliases": []
+		name: 'riscv',
+		aliases: [],
 	},
 	{
-		"name": "ron",
-		"aliases": []
+		name: 'ron',
+		aliases: [],
 	},
 	{
-		"name": "rosmsg",
-		"aliases": []
+		name: 'rosmsg',
+		aliases: [],
 	},
 	{
-		"name": "rst",
-		"aliases": []
+		name: 'rst',
+		aliases: [],
 	},
 	{
-		"name": "ruby",
-		"aliases": [
-			"rb"
-		]
+		name: 'ruby',
+		aliases: ['rb'],
 	},
 	{
-		"name": "rust",
-		"aliases": [
-			"rs"
-		]
+		name: 'rust',
+		aliases: ['rs'],
 	},
 	{
-		"name": "sas",
-		"aliases": []
+		name: 'sas',
+		aliases: [],
 	},
 	{
-		"name": "sass",
-		"aliases": []
+		name: 'sass',
+		aliases: [],
 	},
 	{
-		"name": "scala",
-		"aliases": []
+		name: 'scala',
+		aliases: [],
 	},
 	{
-		"name": "scheme",
-		"aliases": []
+		name: 'scheme',
+		aliases: [],
 	},
 	{
-		"name": "scss",
-		"aliases": []
+		name: 'scss',
+		aliases: [],
 	},
 	{
-		"name": "sdbl",
-		"aliases": [
-			"1c-query"
-		]
+		name: 'sdbl',
+		aliases: ['1c-query'],
 	},
 	{
-		"name": "shaderlab",
-		"aliases": [
-			"shader"
-		]
+		name: 'shaderlab',
+		aliases: ['shader'],
 	},
 	{
-		"name": "shellscript",
-		"aliases": [
-			"bash",
-			"sh",
-			"shell",
-			"zsh"
-		]
+		name: 'shellscript',
+		aliases: ['bash', 'sh', 'shell', 'zsh'],
 	},
 	{
-		"name": "shellsession",
-		"aliases": [
-			"console"
-		]
+		name: 'shellsession',
+		aliases: ['console'],
 	},
 	{
-		"name": "smalltalk",
-		"aliases": []
+		name: 'smalltalk',
+		aliases: [],
 	},
 	{
-		"name": "solidity",
-		"aliases": []
+		name: 'solidity',
+		aliases: [],
 	},
 	{
-		"name": "soy",
-		"aliases": [
-			"closure-templates"
-		]
+		name: 'soy',
+		aliases: ['closure-templates'],
 	},
 	{
-		"name": "sparql",
-		"aliases": []
+		name: 'sparql',
+		aliases: [],
 	},
 	{
-		"name": "splunk",
-		"aliases": [
-			"spl"
-		]
+		name: 'splunk',
+		aliases: ['spl'],
 	},
 	{
-		"name": "sql",
-		"aliases": []
+		name: 'sql',
+		aliases: [],
 	},
 	{
-		"name": "ssh-config",
-		"aliases": []
+		name: 'ssh-config',
+		aliases: [],
 	},
 	{
-		"name": "stata",
-		"aliases": []
+		name: 'stata',
+		aliases: [],
 	},
 	{
-		"name": "stylus",
-		"aliases": [
-			"styl"
-		]
+		name: 'stylus',
+		aliases: ['styl'],
 	},
 	{
-		"name": "surrealql",
-		"aliases": [
-			"surql"
-		]
+		name: 'surrealql',
+		aliases: ['surql'],
 	},
 	{
-		"name": "svelte",
-		"aliases": []
+		name: 'svelte',
+		aliases: [],
 	},
 	{
-		"name": "swift",
-		"aliases": []
+		name: 'swift',
+		aliases: [],
 	},
 	{
-		"name": "system-verilog",
-		"aliases": []
+		name: 'system-verilog',
+		aliases: [],
 	},
 	{
-		"name": "systemd",
-		"aliases": []
+		name: 'systemd',
+		aliases: [],
 	},
 	{
-		"name": "talonscript",
-		"aliases": [
-			"talon"
-		]
+		name: 'talonscript',
+		aliases: ['talon'],
 	},
 	{
-		"name": "tasl",
-		"aliases": []
+		name: 'tasl',
+		aliases: [],
 	},
 	{
-		"name": "tcl",
-		"aliases": []
+		name: 'tcl',
+		aliases: [],
 	},
 	{
-		"name": "templ",
-		"aliases": []
+		name: 'templ',
+		aliases: [],
 	},
 	{
-		"name": "terraform",
-		"aliases": [
-			"tf",
-			"tfvars"
-		]
+		name: 'terraform',
+		aliases: ['tf', 'tfvars'],
 	},
 	{
-		"name": "tex",
-		"aliases": []
+		name: 'tex',
+		aliases: [],
 	},
 	{
-		"name": "toml",
-		"aliases": []
+		name: 'toml',
+		aliases: [],
 	},
 	{
-		"name": "ts-tags",
-		"aliases": [
-			"lit"
-		]
+		name: 'ts-tags',
+		aliases: ['lit'],
 	},
 	{
-		"name": "tsv",
-		"aliases": []
+		name: 'tsv',
+		aliases: [],
 	},
 	{
-		"name": "tsx",
-		"aliases": []
+		name: 'tsx',
+		aliases: [],
 	},
 	{
-		"name": "turtle",
-		"aliases": []
+		name: 'turtle',
+		aliases: [],
 	},
 	{
-		"name": "twig",
-		"aliases": []
+		name: 'twig',
+		aliases: [],
 	},
 	{
-		"name": "typescript",
-		"aliases": [
-			"ts",
-			"mts",
-			"cts"
-		]
+		name: 'typescript',
+		aliases: ['ts', 'mts', 'cts'],
 	},
 	{
-		"name": "typespec",
-		"aliases": [
-			"tsp"
-		]
+		name: 'typespec',
+		aliases: ['tsp'],
 	},
 	{
-		"name": "typst",
-		"aliases": [
-			"typ"
-		]
+		name: 'typst',
+		aliases: ['typ'],
 	},
 	{
-		"name": "v",
-		"aliases": []
+		name: 'v',
+		aliases: [],
 	},
 	{
-		"name": "vala",
-		"aliases": []
+		name: 'vala',
+		aliases: [],
 	},
 	{
-		"name": "vb",
-		"aliases": [
-			"cmd"
-		]
+		name: 'vb',
+		aliases: ['cmd'],
 	},
 	{
-		"name": "verilog",
-		"aliases": []
+		name: 'verilog',
+		aliases: [],
 	},
 	{
-		"name": "vhdl",
-		"aliases": []
+		name: 'vhdl',
+		aliases: [],
 	},
 	{
-		"name": "viml",
-		"aliases": [
-			"vim",
-			"vimscript"
-		]
+		name: 'viml',
+		aliases: ['vim', 'vimscript'],
 	},
 	{
-		"name": "vue",
-		"aliases": []
+		name: 'vue',
+		aliases: [],
 	},
 	{
-		"name": "vue-html",
-		"aliases": []
+		name: 'vue-html',
+		aliases: [],
 	},
 	{
-		"name": "vue-vine",
-		"aliases": []
+		name: 'vue-vine',
+		aliases: [],
 	},
 	{
-		"name": "vyper",
-		"aliases": [
-			"vy"
-		]
+		name: 'vyper',
+		aliases: ['vy'],
 	},
 	{
-		"name": "wasm",
-		"aliases": []
+		name: 'wasm',
+		aliases: [],
 	},
 	{
-		"name": "wenyan",
-		"aliases": [
-			"文言"
-		]
+		name: 'wenyan',
+		aliases: ['文言'],
 	},
 	{
-		"name": "wgsl",
-		"aliases": []
+		name: 'wgsl',
+		aliases: [],
 	},
 	{
-		"name": "wikitext",
-		"aliases": [
-			"mediawiki",
-			"wiki"
-		]
+		name: 'wikitext',
+		aliases: ['mediawiki', 'wiki'],
 	},
 	{
-		"name": "wit",
-		"aliases": []
+		name: 'wit',
+		aliases: [],
 	},
 	{
-		"name": "wolfram",
-		"aliases": [
-			"wl"
-		]
+		name: 'wolfram',
+		aliases: ['wl'],
 	},
 	{
-		"name": "xml",
-		"aliases": []
+		name: 'xml',
+		aliases: [],
 	},
 	{
-		"name": "xsl",
-		"aliases": []
+		name: 'xsl',
+		aliases: [],
 	},
 	{
-		"name": "yaml",
-		"aliases": [
-			"yml"
-		]
+		name: 'yaml',
+		aliases: ['yml'],
 	},
 	{
-		"name": "zenscript",
-		"aliases": []
+		name: 'zenscript',
+		aliases: [],
 	},
 	{
-		"name": "zig",
-		"aliases": []
-	}
+		name: 'zig',
+		aliases: [],
+	},
 ] as const;
 
 const ALIAS_TO_NAME = new Map<string, string>();

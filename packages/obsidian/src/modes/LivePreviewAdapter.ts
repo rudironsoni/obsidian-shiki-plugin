@@ -191,7 +191,7 @@ export class LivePreviewAdapter {
 				continue;
 			}
 			this.missingLineRetryCount = 0;
-			const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
+			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			if (this.destroyed || !this.plugin.isCurrentInstance()) {
 				return;
 			}
@@ -393,7 +393,6 @@ export class LivePreviewAdapter {
 		return view && 'editor' in view ? (view.editor as ReturnType<LivePreviewAdapter['getObsidianEditor']>) : undefined;
 	}
 
-
 	private readonly handleViewportModeChange = (): void => {
 		if (this.destroyed || !this.plugin.isCurrentInstance()) {
 			return;
@@ -428,7 +427,6 @@ export class LivePreviewAdapter {
 		);
 	}
 
-
 	async activateBlock(blockId: string, point?: { clientX: number; clientY: number }): Promise<void> {
 		if (this.activeBlockId && this.activeBlockId !== blockId) {
 			this.deactivateBlock(this.activeBlockId);
@@ -437,7 +435,7 @@ export class LivePreviewAdapter {
 		if (!block) {
 			return;
 		}
-		const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
+		const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 		this.activeBlockId = blockId;
 		await surface.activateEditable(this.createEditSync(block), point);
 	}
@@ -448,5 +446,4 @@ export class LivePreviewAdapter {
 		}
 		this.plugin.surfaceRegistry.get(blockId)?.deactivateToReadonly();
 	}
-
 }
