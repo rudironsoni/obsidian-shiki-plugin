@@ -146,9 +146,13 @@ export class LivePreviewAdapter {
 			const firstRect = first.getBoundingClientRect();
 			const lastRect = last.getBoundingClientRect();
 			surface.attach(this.overlayRoot);
+			surface.setNativeMobileInteraction(this.isMobile() ? this.createNativeMobileInteraction(block) : undefined);
 			surface.hostEl.classList.add('shiki-monaco-codeblock');
 			surface.hostEl.dataset.shikiBlockId = block.id;
 			const activate = (): void => {
+				if (this.isMobile()) {
+					return;
+				}
 				void this.activateBlock(block.id);
 			};
 			surface.hostEl.onclick = activate;
@@ -231,6 +235,70 @@ export class LivePreviewAdapter {
 				return { from: current.codeFrom, to: current.codeTo };
 			},
 		};
+	}
+
+	private createNativeMobileInteraction(block: CodeBlockModel): {
+		placeCursor(position: { lineNumber: number; column: number }): void;
+		selectWord(position: { lineNumber: number; column: number }): void;
+	} {
+		return {
+			placeCursor: position => {
+				const editorPosition = this.monacoPositionToEditorPosition(block, position);
+				const editor = this.getObsidianEditor();
+				if (!editor || !editorPosition) {
+					return;
+				}
+				editor.setCursor(editorPosition);
+				editor.scrollIntoView({ from: editorPosition, to: editorPosition }, false);
+				editor.focus();
+			},
+			selectWord: position => {
+				const editorPosition = this.monacoPositionToEditorPosition(block, position);
+				const editor = this.getObsidianEditor();
+				if (!editor || !editorPosition) {
+					return;
+				}
+				const word = editor.wordAt(editorPosition);
+				if (word) {
+					editor.setSelection(word.from, word.to);
+				} else {
+					editor.setCursor(editorPosition);
+				}
+				editor.focus();
+			},
+		};
+	}
+
+	private monacoPositionToEditorPosition(block: CodeBlockModel, position: { lineNumber: number; column: number }): { line: number; ch: number } | undefined {
+		if (block.codeFrom === undefined) {
+			return undefined;
+		}
+		const lines = block.code.split('\n');
+		const lineIndex = Math.max(0, Math.min(lines.length - 1, position.lineNumber - 1));
+		let offsetInCode = 0;
+		for (let index = 0; index < lineIndex; index++) {
+			offsetInCode += (lines[index]?.length ?? 0) + 1;
+		}
+		offsetInCode += Math.max(0, Math.min(lines[lineIndex]?.length ?? 0, position.column - 1));
+		const offset = block.codeFrom + offsetInCode;
+		const line = this.view.state.doc.lineAt(offset);
+		return { line: line.number - 1, ch: offset - line.from };
+	}
+
+	private getObsidianEditor(): {
+		setCursor(position: { line: number; ch: number }): void;
+		setSelection(anchor: { line: number; ch: number }, head?: { line: number; ch: number }): void;
+		scrollIntoView(range: { from: { line: number; ch: number }; to: { line: number; ch: number } }, center?: boolean): void;
+		wordAt(position: { line: number; ch: number }): { from: { line: number; ch: number }; to: { line: number; ch: number } } | null;
+		focus(): void;
+	} | undefined {
+		return this.plugin.app.workspace.activeLeaf?.view && 'editor' in this.plugin.app.workspace.activeLeaf.view
+			? (this.plugin.app.workspace.activeLeaf.view.editor as ReturnType<LivePreviewAdapter['getObsidianEditor']>)
+			: undefined;
+	}
+
+	private isMobile(): boolean {
+		return document.body.classList.contains('is-mobile') || Boolean((this.plugin.app as unknown as { isMobile?: boolean }).isMobile);
 	}
 
 	async activateBlock(blockId: string): Promise<void> {

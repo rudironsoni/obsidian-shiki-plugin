@@ -265,6 +265,11 @@ span.shiki-ul {
 	box-shadow: none !important;
 }
 
+body.is-mobile .shiki-monaco-selection-toolbar,
+body.is-mobile .shiki-monaco-selection-handle {
+	display: none !important;
+}
+
 /* Mobile: allow vertical page scroll to pass through Monaco (prevent scroll trapping). */
 .shiki-monaco-editor {
 	touch-action: pan-x pan-y;

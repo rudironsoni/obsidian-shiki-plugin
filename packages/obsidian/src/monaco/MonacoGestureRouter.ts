@@ -5,6 +5,7 @@ type MonacoEditorLike = {
 	getScrollLeft(): number;
 	setScrollLeft(value: number): void;
 	focus(): void;
+	getTargetAtClientPoint?(clientX: number, clientY: number): { position?: { lineNumber: number; column: number } | null } | null;
 };
 
 type GestureState = 'idle' | 'pending' | 'horizontal-scroll' | 'vertical-scroll' | 'selection';
@@ -15,6 +16,7 @@ export class MonacoGestureRouter {
 	private readonly selectionController: MonacoSelectionController;
 	private readonly scrollState: MonacoScrollState;
 	private readonly getNoteScroller: () => HTMLElement;
+	private readonly nativeInteraction: { placeCursor(position: { lineNumber: number; column: number }): void; selectWord(position: { lineNumber: number; column: number }): void } | undefined;
 	private gestureState: GestureState = 'idle';
 	private touchState: { startX: number; startY: number; scrollLeft: number; longPressTimer: number | undefined } | undefined;
 
@@ -24,12 +26,14 @@ export class MonacoGestureRouter {
 		selectionController: MonacoSelectionController;
 		scrollState: MonacoScrollState;
 		getNoteScroller: () => HTMLElement;
+		nativeInteraction?: { placeCursor(position: { lineNumber: number; column: number }): void; selectWord(position: { lineNumber: number; column: number }): void };
 	}) {
 		this.host = options.host;
 		this.editor = options.editor;
 		this.selectionController = options.selectionController;
 		this.scrollState = options.scrollState;
 		this.getNoteScroller = options.getNoteScroller;
+		this.nativeInteraction = options.nativeInteraction;
 		this.host.addEventListener('wheel', this.onWheel, { passive: false, capture: true });
 		this.host.addEventListener('click', this.onClick);
 		this.host.addEventListener('touchstart', this.onTouchStart, { passive: true, capture: true });
@@ -49,6 +53,10 @@ export class MonacoGestureRouter {
 	}
 
 	private readonly onClick = (event: MouseEvent): void => {
+		if (this.placeNativeCursor(event.clientX, event.clientY)) {
+			event.preventDefault();
+			return;
+		}
 		this.selectionController.placeCursor(event.clientX, event.clientY, true);
 	};
 
@@ -82,6 +90,9 @@ export class MonacoGestureRouter {
 			scrollLeft: this.editor.getScrollLeft(),
 			longPressTimer: window.setTimeout(() => {
 				this.gestureState = 'selection';
+				if (this.selectNativeWord(touch.clientX, touch.clientY)) {
+					return;
+				}
 				this.selectionController.selectWordAt(touch.clientX, touch.clientY);
 			}, 350),
 		};
@@ -120,10 +131,34 @@ export class MonacoGestureRouter {
 		if (this.gestureState === 'selection') {
 			this.selectionController.endHandleDrag();
 		} else if (this.gestureState === 'pending' && touch) {
+			if (this.placeNativeCursor(touch.clientX, touch.clientY)) {
+				this.resetTouchState();
+				return;
+			}
 			this.selectionController.placeCursor(touch.clientX, touch.clientY, false);
 		}
 		this.resetTouchState();
 	};
+
+	private placeNativeCursor(clientX: number, clientY: number): boolean {
+		const position = this.editor.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		if (!position || !this.nativeInteraction) {
+			return false;
+		}
+		this.selectionController.placeCursor(clientX, clientY, false);
+		this.nativeInteraction.placeCursor(position);
+		return true;
+	}
+
+	private selectNativeWord(clientX: number, clientY: number): boolean {
+		const position = this.editor.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		if (!position || !this.nativeInteraction) {
+			return false;
+		}
+		this.selectionController.selectWordAt(clientX, clientY);
+		this.nativeInteraction.selectWord(position);
+		return true;
+	}
 
 	private readonly onTouchCancel = (): void => {
 		this.selectionController.endHandleDrag();

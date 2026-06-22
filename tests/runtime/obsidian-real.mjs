@@ -1051,6 +1051,26 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			await dispatchTouchTap(activeWsUrl, livePreviewEditTarget.x, livePreviewEditTarget.y);
 			await evaluate(
 				activeWsUrl,
+				`(() => {
+					const app = window.app;
+					const activeView = app.workspace.activeLeaf?.view;
+					const editor = activeView?.editor;
+					const cursor = editor?.getCursor?.() ?? null;
+					const csharpLine = editor?.getValue?.().split('\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
+					const activeElement = document.activeElement;
+					globalThis.__shikiVerifyMobileNativeTap = {
+						cursor,
+						csharpLine,
+						editorHasFocus: editor?.hasFocus?.() ?? false,
+						activeElementClass: activeElement?.className?.toString?.() ?? null,
+						activeElementTag: activeElement?.tagName ?? null,
+						activeElementInMonaco: !!activeElement?.closest?.('.monaco-editor'),
+					};
+					return globalThis.__shikiVerifyMobileNativeTap;
+				})()`,
+			);
+			await evaluate(
+				activeWsUrl,
 				`(async () => {
 					const app = window.app;
 					const plugin = app.plugins.plugins['${PLUGIN_ID}'];
@@ -1372,6 +1392,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const editableDrag = globalThis.__shikiVerifyEditableDrag ?? null;
 			const editableSource = globalThis.__shikiVerifyEditableSource ?? null;
 			const monacoHorizontal = globalThis.__shikiVerifyMonacoHorizontal ?? null;
+			const mobileNativeTap = globalThis.__shikiVerifyMobileNativeTap ?? null;
 			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
@@ -1428,6 +1449,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				editableDrag,
 				editableSource,
 				monacoHorizontal,
+				mobileNativeTap,
 				editableLineNumbers,
 				sourceModeMonacoBlocks,
 			};
@@ -1501,6 +1523,10 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 	assert(result.sourceModeState.markerInEditor, `${label}: Source mode marker was not present in editor`, result.sourceModeState);
 	assert(result.sourceModeState.markerOnDisk, `${label}: Source mode marker did not persist to disk`, result.sourceModeState);
 	if (result.isMobile) {
+		assert(result.mobileNativeTap !== null, `${label}: mobile native tap was not measured`, result);
+		assert(result.mobileNativeTap.editorHasFocus, `${label}: mobile tap inside Monaco did not keep Obsidian editor focused`, result.mobileNativeTap);
+		assert(!result.mobileNativeTap.activeElementInMonaco, `${label}: mobile tap focused Monaco instead of Obsidian editor`, result.mobileNativeTap);
+		assert(result.mobileNativeTap.cursor?.line === result.mobileNativeTap.csharpLine, `${label}: mobile tap did not move Obsidian cursor into code block`, result.mobileNativeTap);
 		assert(result.monacoHorizontal !== null, `${label}: Monaco horizontal touch scroll was not measured`, result);
 		assert(result.monacoHorizontal.before?.hasOverflow, `${label}: Monaco horizontal touch target did not overflow`, result.monacoHorizontal);
 		assert(

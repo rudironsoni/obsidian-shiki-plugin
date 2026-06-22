@@ -11,6 +11,10 @@ import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
 import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 
 type MonacoEditorLike = ReturnType<MonacoRuntime['monaco']['editor']['create']>;
+type NativeMobileInteraction = {
+	placeCursor(position: { lineNumber: number; column: number }): void;
+	selectWord(position: { lineNumber: number; column: number }): void;
+};
 
 export class MonacoCodeBlockSurface {
 	readonly hostEl: HTMLDivElement;
@@ -26,6 +30,7 @@ export class MonacoCodeBlockSurface {
 	private editorEl: HTMLDivElement | undefined;
 	private resizeObserver: ResizeObserver | undefined;
 	private gestureRouter: MonacoGestureRouter | undefined;
+	private nativeMobileInteraction: NativeMobileInteraction | undefined;
 	private attachedParent: HTMLElement | undefined;
 	private hydrated = false;
 	private disposed = false;
@@ -78,6 +83,13 @@ export class MonacoCodeBlockSurface {
 			});
 		}
 		this.layout();
+	}
+
+	setNativeMobileInteraction(nativeMobileInteraction: NativeMobileInteraction | undefined): void {
+		this.nativeMobileInteraction = nativeMobileInteraction;
+		if (this.editor) {
+			this.installGestureRouter();
+		}
 	}
 
 	async hydrateReadonly(): Promise<void> {
@@ -163,16 +175,7 @@ export class MonacoCodeBlockSurface {
 		this.updateModeClass();
 		this.hydrated = true;
 		this.selectionController.attach(this.editor as unknown as Parameters<MonacoSelectionController['attach']>[0]);
-		this.gestureRouter = new MonacoGestureRouter({
-			host: this.hostEl,
-			editor: this.editor,
-			selectionController: this.selectionController,
-			scrollState: this.scrollState,
-			getNoteScroller: () =>
-				(this.hostEl.closest('.markdown-source-view, .markdown-preview-view')?.querySelector('.cm-scroller, .markdown-preview-sizer') as HTMLElement | null) ??
-				this.attachedParent ??
-				this.hostEl,
-		});
+		this.installGestureRouter();
 		this.editor.onDidScrollChange(() => {
 			this.scrollState.setScrollLeft(this.editor?.getScrollLeft() ?? 0);
 		});
@@ -198,5 +201,23 @@ export class MonacoCodeBlockSurface {
 		this.hostEl.classList.toggle('shiki-monaco-editable', editable);
 		this.hostEl.classList.toggle('shiki-monaco-readonly', !editable);
 		this.hostEl.classList.toggle('shiki-monaco-active', editable);
+	}
+
+	private installGestureRouter(): void {
+		if (!this.editor) {
+			return;
+		}
+		this.gestureRouter?.dispose();
+		this.gestureRouter = new MonacoGestureRouter({
+			host: this.hostEl,
+			editor: this.editor,
+			selectionController: this.selectionController,
+			scrollState: this.scrollState,
+			getNoteScroller: () =>
+				(this.hostEl.closest('.markdown-source-view, .markdown-preview-view')?.querySelector('.cm-scroller, .markdown-preview-sizer') as HTMLElement | null) ??
+				this.attachedParent ??
+				this.hostEl,
+			nativeInteraction: this.nativeMobileInteraction,
+		});
 	}
 }

@@ -301,6 +301,13 @@ async function dispatchTouchDrag(client, fromX, fromY, toX, toY, steps = 8) {
 	await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+async function dispatchTouchTap(client, x, y) {
+	const touch = { x, y, radiusX: 1, radiusY: 1, force: 1, id: 1 };
+	await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch] });
+	await delay(40);
+	await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
 async function dispatchHorizontalWheel(client, x, y, deltaX) {
 	await client.send('Input.dispatchMouseEvent', {
 		type: 'mouseWheel',
@@ -316,7 +323,8 @@ async function dispatchWheelOnMonacoHost(client, deltaX) {
 	return evaluate(
 		client,
 		`(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
+				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
 			if (!block) return { ok: false, error: 'No active Monaco block for wheel dispatch' };
 			const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: ${deltaX}, deltaY: 0 });
 			block.dispatchEvent(event);
@@ -329,7 +337,8 @@ async function dispatchTouchDragOnMonacoHost(client, fromX, fromY, toX, toY) {
 	return evaluate(
 		client,
 		`(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
+				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
 			if (!block) return { ok: false, error: 'No active Monaco block for touch dispatch' };
 			const createTouch = (x, y) => new Touch({ identifier: 1, target: block, clientX: x, clientY: y, radiusX: 1, radiusY: 1, force: 1 });
 			const startTouch = createTouch(${fromX}, ${fromY});
@@ -346,7 +355,8 @@ async function readMonacoScrollState(client) {
 	return evaluate(
 		client,
 		`(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
+				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
 			const editor = block?._monacoEditor;
 			if (!block || !editor) return null;
 			const line = block.querySelector('.view-line');
@@ -376,9 +386,9 @@ async function typeText(client, text) {
 	);
 }
 
-async function waitForMonaco(client, modeName) {
+async function waitForMonaco(client, modeName, activeOnly = true) {
 	const expression = `(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active');
+			const block = document.querySelector(${JSON.stringify(activeOnly ? '.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active' : '.markdown-source-view.mod-cm6 .shiki-monaco-codeblock')});
 			const editor = document.querySelector('.markdown-source-view.mod-cm6 .cm-editor');
 			const detail = {
 				editorClass: editor?.className ?? null,
@@ -391,7 +401,7 @@ async function waitForMonaco(client, modeName) {
 					return [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-line')].flatMap(line => {
 						const rect = line.getBoundingClientRect();
 						const style = getComputedStyle(line);
-						if (rect.width <= 0 || rect.height <= 0 || style.display === 'none' || style.visibility === 'hidden') return [];
+						if (rect.width <= 0 || rect.height <= 0 || style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return [];
 						const text = line.innerText ?? '';
 						if (!text.includes(backtickFence) && !text.includes('~~~')) return [];
 						return [{ text, className: line.className, width: rect.width, height: rect.height, top: rect.top, left: rect.left }];
@@ -500,25 +510,60 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
 
+	const isMobileMode = modeName.includes('mobile');
 	await clickLine(client, line);
-	const monaco = await waitForMonaco(client, modeName);
+	const monaco = await waitForMonaco(client, modeName, !isMobileMode);
 	assert(monaco.width > 0 && monaco.height > 0, `${modeName}: Monaco mounted without visible dimensions`, monaco);
 	assert(monaco.viewLines > 0, `${modeName}: Monaco mounted but rendered no visible editor lines`, monaco);
 	assert(monaco.hasEditorHook, `${modeName}: Monaco mounted without editor instance hook`, monaco);
 	assert(!monaco.fallbackVisible, `${modeName}: Monaco fallback is still visible over the editor`, monaco);
 	assert(monaco.fallbackBoxHeight === 0 && monaco.fallbackBoxWidth === 0, `${modeName}: Monaco fallback still occupies layout`, monaco);
 	assert(!monaco.fenceTextVisible, `${modeName}: raw fenced code block is still visible outside Monaco`, monaco);
-
-	await evaluate(
-		client,
-		`(() => {
-		const container = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
-		if (container && container._monacoEditor) container._monacoEditor.focus();
-	})()`,
-	);
-	await typeText(client, marker);
-	const content = await assertFileContains(client, marker);
-	assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
+	if (isMobileMode) {
+		assert(!monaco.className.includes('shiki-monaco-active'), `${modeName}: mobile tap activated editable Monaco`, monaco);
+		await dispatchTouchTap(client, line.x, line.y);
+		const nativeTap = await evaluate(
+			client,
+			`(() => {
+				const activeView = app.workspace.activeLeaf?.view;
+				const editor = activeView?.editor;
+				const cursor = editor?.getCursor?.() ?? null;
+				const lines = editor?.getValue?.().split('\\n') ?? [];
+				const markerLine = lines.findIndex(line => line.includes('runtimeEditableCodeBlockMarker'));
+				const fence = String.fromCharCode(96).repeat(3);
+				const fenceLine = lines.findIndex(line => line.includes(fence + 'python showLineNumbers'));
+				const activeElement = document.activeElement;
+				return {
+					cursor,
+					markerLine,
+					fenceLine,
+					editorHasFocus: editor?.hasFocus?.() ?? false,
+					activeElementClass: activeElement?.className?.toString?.() ?? null,
+					activeElementInMonaco: !!activeElement?.closest?.('.monaco-editor'),
+				};
+			})()`,
+		);
+		assert(nativeTap.markerLine >= 0, `${modeName}: marker line was not found in native editor`, nativeTap);
+		assert(nativeTap.fenceLine >= 0, `${modeName}: fence line was not found in native editor`, nativeTap);
+		assert(
+			nativeTap.cursor?.line > nativeTap.fenceLine && nativeTap.cursor?.line <= nativeTap.markerLine,
+			`${modeName}: mobile tap did not move native cursor inside code block`,
+			nativeTap,
+		);
+		assert(nativeTap.editorHasFocus, `${modeName}: mobile tap did not focus native Obsidian editor`, nativeTap);
+		assert(!nativeTap.activeElementInMonaco, `${modeName}: mobile tap focused Monaco instead of Obsidian editor`, nativeTap);
+	} else {
+		await evaluate(
+			client,
+			`(() => {
+			const container = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
+			if (container && container._monacoEditor) container._monacoEditor.focus();
+		})()`,
+		);
+		await typeText(client, marker);
+		const content = await assertFileContains(client, marker);
+		assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
+	}
 
 	const beforeScroll = await readMonacoScrollState(client);
 	assert(beforeScroll?.hasOverflow, `${modeName}: Monaco block does not expose horizontal overflow`, beforeScroll);
@@ -531,8 +576,8 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		afterWheelScroll,
 	});
 
-	if (modeName.includes('mobile')) {
-		await evaluate(client, `(() => { const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active'); block?._monacoEditor?.setScrollLeft?.(0); return true; })()`);
+	if (isMobileMode) {
+		await evaluate(client, `(() => { const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active') ?? document.querySelector('.shiki-monaco-codeblock'); block?._monacoEditor?.setScrollLeft?.(0); return true; })()`);
 		const resetScroll = await readMonacoScrollState(client);
 		const touchDispatch = await dispatchTouchDragOnMonacoHost(client, line.x + 140, line.y, Math.max(line.x + 20, line.x - 100), line.y);
 		assert(touchDispatch?.ok, `${modeName}: touch drag dispatch failed`, touchDispatch);
@@ -544,7 +589,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		});
 	}
 
-	const afterMonaco = await waitForMonaco(client, modeName);
+	const afterMonaco = await waitForMonaco(client, modeName, !isMobileMode);
 	assert(afterMonaco.viewLines > 0, `${modeName}: Monaco lost rendered lines after editing`, afterMonaco);
 	assert(!afterMonaco.fenceTextVisible, `${modeName}: raw fenced code block became visible after editing`, afterMonaco);
 	await captureScreenshot(client, modeName);
@@ -623,7 +668,6 @@ async function main() {
 
 		const finalContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
 		assert(finalContent.includes('LIVE_PREVIEW_EDIT_'), 'Live preview edit marker missing from disk', { finalContent });
-		assert(finalContent.includes('MOBILE_LIVE_PREVIEW_EDIT_'), 'Mobile live preview edit marker missing from disk', { finalContent });
 	} finally {
 		client?.close();
 		obsidian.kill();

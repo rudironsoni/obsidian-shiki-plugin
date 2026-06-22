@@ -56,4 +56,17 @@ describe('startup module boundary', () => {
 		expect(livePreview).not.toContain('view.dispatch(this.view.state.update({}))');
 		expect(sourceMode).not.toContain('view.dispatch(this.view.state.update({}))');
 	});
+
+	test('mobile Monaco taps route through the native Obsidian editor', () => {
+		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
+		const gestures = read('packages/obsidian/src/monaco/MonacoGestureRouter.ts');
+
+		expect(livePreview).toContain('setNativeMobileInteraction');
+		expect(livePreview).toContain('editor.setCursor(editorPosition)');
+		expect(livePreview).toContain('editor.focus()');
+		expect(livePreview).toContain('if (this.isMobile())');
+		expect(gestures).toContain('placeNativeCursor');
+		expect(gestures).toContain('selectNativeWord');
+		expect(gestures).toContain('this.selectionController.placeCursor(clientX, clientY, false)');
+	});
 });
