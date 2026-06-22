@@ -57,33 +57,11 @@ export class ShikiSettingsTab extends PluginSettingTab {
 		new Setting(this.containerEl).setName('Editor').setHeading();
 
 		new Setting(this.containerEl)
-			.setName('Font size')
-			.setDesc('Font size for the inline code block editor (in pixels).')
-			.addText(text => {
-				text.setValue(String(this.plugin.settings.ecEditorFontSize)).onChange(async value => {
-					const num = Number.parseInt(value, 10);
-					this.plugin.settings.ecEditorFontSize = Number.isNaN(num) ? 14 : num;
-					await this.plugin.saveSettingsAndReloadHighlighter();
-				});
-			});
-
-		new Setting(this.containerEl)
 			.setName('Font family')
 			.setDesc('Font family for the inline code block editor. Use CSS font-family syntax.')
 			.addText(text => {
 				text.setValue(this.plugin.settings.ecEditorFontFamily).onChange(async value => {
 					this.plugin.settings.ecEditorFontFamily = value || 'var(--font-monospace)';
-					await this.plugin.saveSettingsAndReloadHighlighter();
-				});
-			});
-
-		new Setting(this.containerEl)
-			.setName('Line height')
-			.setDesc('Line height for the inline code block editor (in pixels).')
-			.addText(text => {
-				text.setValue(String(this.plugin.settings.ecEditorLineHeight)).onChange(async value => {
-					const num = Number.parseInt(value, 10);
-					this.plugin.settings.ecEditorLineHeight = Number.isNaN(num) ? 22 : num;
 					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});

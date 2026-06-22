@@ -20,14 +20,12 @@ describe('startup bundle', () => {
 		expect(existsSync(new URL('../dist/modern-monaco.js', import.meta.url))).toBe(true);
 	});
 
-	test('startup bundle carries the renderer sidecar without bloating startup CSS', () => {
+	test('startup bundle keeps Monaco fallback out of startup JavaScript', () => {
 		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
-		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
+		const manifest = readFileSync(new URL('../dist/manifest.json', import.meta.url), 'utf8');
 
-		// main.js now includes the inlined modern-monaco runtime (~4.8MB)
-		// This is necessary for mobile compatibility where separate files aren't synced
-		expect(startupBundle.length).toBeLessThan(6 * 1024 * 1024);
-		expect(styles).not.toContain('shiki-highlighter-fallback:');
+		expect(startupBundle.length).toBeLessThan(256 * 1024);
+		expect(manifest).toContain('shikiModernMonacoFallback');
 	});
 
 	test('Monaco code block CSS owns horizontal mobile pan gestures', () => {

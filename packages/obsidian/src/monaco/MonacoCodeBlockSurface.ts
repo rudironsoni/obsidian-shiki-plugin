@@ -113,7 +113,7 @@ export class MonacoCodeBlockSurface {
 		if (!this.editor || this.disposed) {
 			return;
 		}
-		const metrics = this.blockSizer.measure(this.block, this.hostEl, this.plugin.loadedSettings.ecEditorLineHeight);
+		const metrics = this.blockSizer.measure(this.block, this.hostEl);
 		this.hostEl.style.height = `${metrics.height}px`;
 		this.editorEl!.style.height = `${metrics.height}px`;
 		this.editor.updateOptions({
@@ -149,7 +149,7 @@ export class MonacoCodeBlockSurface {
 		editorEl.style.width = '100%';
 		this.hostEl.appendChild(editorEl);
 		this.editorEl = editorEl;
-		const metrics = this.blockSizer.measure(this.block, this.hostEl, this.plugin.loadedSettings.ecEditorLineHeight);
+		const metrics = this.blockSizer.measure(this.block, this.hostEl);
 		const theme = getActiveTheme(this.plugin);
 		const language = this.plugin.monacoRuntime.resolveLanguageAlias(this.block.language) ?? this.block.language;
 		const options = mode === 'editable' ? buildEditableEditorOptions(this.plugin, metrics, theme) : buildReadonlyEditorOptions(this.plugin, metrics, theme);

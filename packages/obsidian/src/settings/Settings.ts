@@ -14,9 +14,7 @@ export interface Settings {
 	inlineHighlighting: boolean;
 	ecDefaultShowLineNumbers: boolean;
 	ecDefaultWrap: boolean;
-	ecEditorFontSize: number;
 	ecEditorFontFamily: string;
-	ecEditorLineHeight: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,7 +28,5 @@ export const DEFAULT_SETTINGS: Settings = {
 	inlineHighlighting: true,
 	ecDefaultShowLineNumbers: false,
 	ecDefaultWrap: false,
-	ecEditorFontSize: 14,
 	ecEditorFontFamily: 'var(--font-monospace)',
-	ecEditorLineHeight: 22,
 };

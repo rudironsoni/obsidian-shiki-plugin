@@ -12,10 +12,10 @@ export interface MonacoBlockMetrics {
 }
 
 export class MonacoBlockSizer {
-	measure(block: CodeBlockModel, host: HTMLElement, fallbackLineHeight: number): MonacoBlockMetrics {
+	measure(block: CodeBlockModel, host: HTMLElement): MonacoBlockMetrics {
 		const computed = getComputedStyle(host);
-		const fontSize = Number.parseFloat(computed.fontSize) || fallbackLineHeight;
-		const lineHeight = Number.parseFloat(computed.lineHeight) || fallbackLineHeight;
+		const fontSize = Number.parseFloat(computed.fontSize) || 14;
+		const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.5;
 		const paddingTop = 8;
 		const paddingBottom = 8;
 		const lineCount = Math.max(1, block.code.split('\n').length);

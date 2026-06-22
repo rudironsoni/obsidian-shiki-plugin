@@ -39,10 +39,10 @@ describe('startup module boundary', () => {
 	test('modern monaco loader falls back without Node require', () => {
 		const source = read('packages/obsidian/src/ModernMonacoLoader.ts');
 
-		expect(source).toContain("from 'packages/obsidian/src/modern-monaco-inline'");
+		expect(source).toContain('loadBundledModernMonacoSource');
 		expect(source).toContain('native require is unavailable');
 		expect(source).toContain('plugin.app.vault.adapter.read(adapterPath)');
-		expect(source).toContain('source: MODERN_MONACO_SOURCE');
+		expect(source).toContain('source: await loadBundledModernMonacoSource(plugin, requireFn)');
 		expect(source).not.toContain('??\n\t\trequire');
 	});
 });

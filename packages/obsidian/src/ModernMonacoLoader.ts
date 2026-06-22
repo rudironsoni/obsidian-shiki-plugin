@@ -1,6 +1,6 @@
 import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
 import type ShikiPlugin from 'packages/obsidian/src/main';
-import { MODERN_MONACO_SOURCE } from 'packages/obsidian/src/modern-monaco-inline';
+import { loadBundledModernMonacoSource } from 'packages/obsidian/src/modern-monaco-inline';
 
 let runtimePromise: Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> | undefined;
 
@@ -103,7 +103,7 @@ async function loadModernMonacoSource(plugin: ShikiPlugin): Promise<{ source: st
 			return { source, requireFn };
 		} catch (adapterError) {
 			console.warn('[Shiki] Sidecar modern-monaco adapter read failed, using bundled inline runtime.', adapterError);
-			return { source: MODERN_MONACO_SOURCE, requireFn };
+			return { source: await loadBundledModernMonacoSource(plugin, requireFn), requireFn };
 		}
 	}
 }

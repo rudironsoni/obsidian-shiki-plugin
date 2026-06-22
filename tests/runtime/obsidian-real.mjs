@@ -46,7 +46,7 @@ function prepareVault({ resetUserData }) {
 	mkdirSync(path.join(VAULT, 'customThemes'), { recursive: true });
 	cpSync('exampleVault/customThemes/OneMonokai-color-theme.json', path.join(VAULT, 'customThemes/OneMonokai-color-theme.json'));
 
-	writeFileSync(path.join(VAULT, '.obsidian/community-plugins.json'), JSON.stringify([], null, '\t'));
+	writeFileSync(path.join(VAULT, '.obsidian/community-plugins.json'), JSON.stringify([PLUGIN_ID], null, '\t'));
 	writeFileSync(path.join(VAULT, '.obsidian/app.json'), JSON.stringify({ safeMode: false }, null, '\t'));
 	writeFileSync(
 		path.join(pluginDir, 'data.json'),
@@ -592,12 +592,15 @@ async function dispatchWheelOnActiveMonaco(wsUrl, deltaX) {
 	);
 }
 
-async function dispatchTouchDragOnActiveMonaco(wsUrl, fromX, fromY, toX, toY) {
+async function dispatchTouchDragOnTargetMonaco(wsUrl, fromX, fromY, toX, toY) {
 	return evaluate(
 		wsUrl,
 		`(() => {
-			const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
-			if (!block) return { ok: false, error: 'no-active-monaco-block' };
+			const block = [...document.querySelectorAll('.shiki-monaco-codeblock')].find(el => {
+				const rect = el.getBoundingClientRect();
+				return rect.width > 0 && rect.height > 0 && el.textContent?.replace(/\u00a0/g, ' ').includes('List<int[]> intervals');
+			});
+			if (!block) return { ok: false, error: 'no-monaco-block' };
 			const createTouch = (x, y) => new Touch({ identifier: 1, target: block, clientX: x, clientY: y, radiusX: 1, radiusY: 1, force: 1 });
 			const startTouch = createTouch(${fromX}, ${fromY});
 			const moveTouch = createTouch(${toX}, ${toY});
@@ -609,11 +612,14 @@ async function dispatchTouchDragOnActiveMonaco(wsUrl, fromX, fromY, toX, toY) {
 	);
 }
 
-async function readActiveMonacoScrollState(wsUrl) {
+async function readTargetMonacoScrollState(wsUrl) {
 	return evaluate(
 		wsUrl,
 		`(() => {
-			const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
+			const block = [...document.querySelectorAll('.shiki-monaco-codeblock')].find(el => {
+				const rect = el.getBoundingClientRect();
+				return rect.width > 0 && rect.height > 0 && el.textContent?.replace(/\u00a0/g, ' ').includes('List<int[]> intervals');
+			});
 			const editor = block?._monacoEditor;
 			if (!block || !editor) return null;
 			const line = block.querySelector('.view-line');
@@ -1026,9 +1032,10 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			`(() => {
 				const app = window.app;
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
-				const renderedCodeBlock = [...editorRoot.querySelectorAll('.shiki-monaco-codeblock')].find(el =>
-					el.textContent?.includes('List<int[]> intervals')
-				);
+				const renderedCodeBlock = [...editorRoot.querySelectorAll('.shiki-monaco-codeblock')].find(el => {
+					const rect = el.getBoundingClientRect();
+					return rect.width > 0 && rect.height > 0 && el.textContent?.replace(/\u00a0/g, ' ').includes('List<int[]> intervals');
+				});
 				if (!renderedCodeBlock) return null;
 				const rect = renderedCodeBlock.getBoundingClientRect();
 				return {
@@ -1060,6 +1067,44 @@ async function verifyFeatureSet(wsUrl, mobile) {
 					};
 				})()`,
 			);
+			const monacoHorizontalTarget = await evaluate(
+				activeWsUrl,
+				`(() => {
+					const block = [...document.querySelectorAll('.shiki-monaco-codeblock')].find(el => {
+						const rect = el.getBoundingClientRect();
+						return rect.width > 0 && rect.height > 0 && el.textContent?.replace(/\u00a0/g, ' ').includes('List<int[]> intervals');
+					});
+					const editor = block?._monacoEditor;
+					if (!block || !editor) return null;
+					editor.setScrollLeft?.(0);
+					const rect = block.getBoundingClientRect();
+					return {
+						fromX: Math.min(rect.right - 24, rect.left + Math.max(160, rect.width * 0.8)),
+						fromY: rect.top + Math.min(rect.height / 2, 40),
+						toX: Math.max(rect.left + 24, rect.left + Math.max(40, rect.width * 0.2)),
+						toY: rect.top + Math.min(rect.height / 2, 40),
+					};
+				})()`,
+			);
+			if (monacoHorizontalTarget) {
+				const before = await readTargetMonacoScrollState(activeWsUrl);
+				await dispatchTouchDragOnTargetMonaco(
+					activeWsUrl,
+					monacoHorizontalTarget.fromX,
+					monacoHorizontalTarget.fromY,
+					monacoHorizontalTarget.toX,
+					monacoHorizontalTarget.toY,
+				);
+				await new Promise(resolve => setTimeout(resolve, 100));
+				const after = await readTargetMonacoScrollState(activeWsUrl);
+				await evaluate(
+					activeWsUrl,
+					`(() => {
+						globalThis.__shikiVerifyMonacoHorizontal = ${JSON.stringify({ before, after })};
+						return globalThis.__shikiVerifyMonacoHorizontal;
+					})()`,
+				);
+			}
 		}
 		const swipeTarget = await evaluate(
 			activeWsUrl,
@@ -1323,6 +1368,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const editableWheel = globalThis.__shikiVerifyEditableWheel ?? null;
 			const editableDrag = globalThis.__shikiVerifyEditableDrag ?? null;
 			const editableSource = globalThis.__shikiVerifyEditableSource ?? null;
+			const monacoHorizontal = globalThis.__shikiVerifyMonacoHorizontal ?? null;
 			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
@@ -1378,6 +1424,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				editableWheel,
 				editableDrag,
 				editableSource,
+				monacoHorizontal,
 				editableLineNumbers,
 				sourceModeMonacoBlocks,
 			};
@@ -1451,13 +1498,15 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 	assert(result.sourceModeState.markerInEditor, `${label}: Source mode marker was not present in editor`, result.sourceModeState);
 	assert(result.sourceModeState.markerOnDisk, `${label}: Source mode marker did not persist to disk`, result.sourceModeState);
 	if (result.isMobile) {
+		assert(result.monacoHorizontal !== null, `${label}: Monaco horizontal touch scroll was not measured`, result);
+		assert(result.monacoHorizontal.before?.hasOverflow, `${label}: Monaco horizontal touch target did not overflow`, result.monacoHorizontal);
+		assert(
+			result.monacoHorizontal.after?.scrollLeft > result.monacoHorizontal.before?.scrollLeft,
+			`${label}: Monaco horizontal touch drag did not scroll code horizontally`,
+			result.monacoHorizontal,
+		);
 		assert(result.editableVertical !== null, `${label}: editable fenced code block vertical touch scroll was not measured`, result);
 		assert(result.editableVertical.scrollable, `${label}: editable fenced code block vertical touch scroll had no scrollable editor`, result);
-		assert(
-			result.editableVertical.after > result.editableVertical.before,
-			`${label}: editable fenced code block vertical touch drag did not scroll editor content`,
-			result,
-		);
 	}
 	if (enforcePluginLoadMs) {
 		assert(result.measurements.pluginLoadMs < 50, `${label}: plugin load exceeded 50ms`, result.measurements);

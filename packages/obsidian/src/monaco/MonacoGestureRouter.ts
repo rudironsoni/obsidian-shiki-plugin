@@ -16,7 +16,7 @@ export class MonacoGestureRouter {
 	private readonly scrollState: MonacoScrollState;
 	private readonly getNoteScroller: () => HTMLElement;
 	private gestureState: GestureState = 'idle';
-	private touchState: { startX: number; startY: number; noteScrollTop: number; scrollLeft: number; longPressTimer: number | undefined } | undefined;
+	private touchState: { startX: number; startY: number; scrollLeft: number; longPressTimer: number | undefined } | undefined;
 
 	constructor(options: {
 		host: HTMLElement;
@@ -32,20 +32,20 @@ export class MonacoGestureRouter {
 		this.getNoteScroller = options.getNoteScroller;
 		this.host.addEventListener('wheel', this.onWheel, { passive: false, capture: true });
 		this.host.addEventListener('click', this.onClick);
-		this.host.addEventListener('touchstart', this.onTouchStart, { passive: true });
-		this.host.addEventListener('touchmove', this.onTouchMove, { passive: false });
-		this.host.addEventListener('touchend', this.onTouchEnd, { passive: true });
-		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: true });
+		this.host.addEventListener('touchstart', this.onTouchStart, { passive: true, capture: true });
+		this.host.addEventListener('touchmove', this.onTouchMove, { passive: false, capture: true });
+		this.host.addEventListener('touchend', this.onTouchEnd, { passive: true, capture: true });
+		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: true, capture: true });
 	}
 
 	dispose(): void {
 		this.clearLongPressTimer();
 		this.host.removeEventListener('wheel', this.onWheel, true);
 		this.host.removeEventListener('click', this.onClick);
-		this.host.removeEventListener('touchstart', this.onTouchStart);
-		this.host.removeEventListener('touchmove', this.onTouchMove);
-		this.host.removeEventListener('touchend', this.onTouchEnd);
-		this.host.removeEventListener('touchcancel', this.onTouchCancel);
+		this.host.removeEventListener('touchstart', this.onTouchStart, true);
+		this.host.removeEventListener('touchmove', this.onTouchMove, true);
+		this.host.removeEventListener('touchend', this.onTouchEnd, true);
+		this.host.removeEventListener('touchcancel', this.onTouchCancel, true);
 	}
 
 	private readonly onClick = (event: MouseEvent): void => {
@@ -79,7 +79,6 @@ export class MonacoGestureRouter {
 		this.touchState = {
 			startX: touch.clientX,
 			startY: touch.clientY,
-			noteScrollTop: this.getNoteScroller().scrollTop,
 			scrollLeft: this.editor.getScrollLeft(),
 			longPressTimer: window.setTimeout(() => {
 				this.gestureState = 'selection';
@@ -112,7 +111,7 @@ export class MonacoGestureRouter {
 			return;
 		}
 		if (this.gestureState === 'vertical-scroll') {
-			this.getNoteScroller().scrollTop = Math.max(0, this.touchState.noteScrollTop - dy);
+			return;
 		}
 	};
 

@@ -93,6 +93,9 @@ span.shiki-ul {
 	position: relative;
 	background-color: var(--code-background);
 	border-radius: var(--code-radius);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size, var(--font-text-size));
+	line-height: var(--line-height-normal);
 }
 
 .shiki-monaco-editor {
@@ -226,9 +229,24 @@ span.shiki-ul {
 	background-color: var(--code-background) !important;
 }
 
+.shiki-monaco-readonly .shiki-monaco-selection-toolbar,
+.shiki-monaco-readonly .shiki-monaco-selection-handle,
+.shiki-monaco-readonly .monaco-hover,
+.shiki-monaco-readonly .suggest-widget,
+.shiki-monaco-readonly .parameter-hints-widget,
+.shiki-monaco-readonly .current-line,
+.shiki-monaco-readonly .current-line-margin,
+.shiki-monaco-readonly .line-numbers.active-line-number,
+.shiki-monaco-readonly .selected-text {
+	display: none !important;
+	background: transparent !important;
+	border: 0 !important;
+	box-shadow: none !important;
+}
+
 /* Mobile: allow vertical page scroll to pass through Monaco (prevent scroll trapping). */
 .shiki-monaco-editor {
-	touch-action: pan-y;
+	touch-action: pan-x pan-y;
 }
 
 /* Prevent Monaco from creating internal vertical scroll - let Obsidian handle it */

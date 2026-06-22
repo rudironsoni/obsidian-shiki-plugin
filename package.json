@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite build --mode=development --watch",
 		"clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-		"build": "bun run clean:dist && SHIKI_BUILD_ENTRY=modern-monaco vite build --mode=production && node scripts/inline-modern-monaco.mjs && bun run typecheck && SHIKI_BUILD_ENTRY=main vite build --mode=production",
+		"build": "bun run clean:dist && SHIKI_BUILD_ENTRY=modern-monaco vite build --mode=production && node scripts/inline-modern-monaco.mjs && bun run typecheck && SHIKI_BUILD_ENTRY=main vite build --mode=production && node scripts/embed-modern-monaco-fallback.mjs",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "bun test",
 		"test:log": "LOG_TESTS=true bun test",
