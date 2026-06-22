@@ -8,12 +8,14 @@ import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 export class SourceModeAdapter {
 	decorations: DecorationSet = Decoration.none;
 	private readonly plugin: ShikiPlugin;
+	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
 	private readonly view: EditorView;
 	private tokenizationRequest = 0;
 
-	constructor(plugin: ShikiPlugin, view: EditorView) {
+	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		this.plugin = plugin;
+		this.requestDecorationRefresh = requestDecorationRefresh;
 		this.view = view;
 	}
 
@@ -84,7 +86,7 @@ export class SourceModeAdapter {
 			return;
 		}
 		this.decorations = builder.finish();
-		this.view.dispatch(this.view.state.update({}));
+		this.requestDecorationRefresh();
 	}
 
 	destroy(): void {

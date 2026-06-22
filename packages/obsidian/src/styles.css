@@ -91,6 +91,12 @@ span.shiki-ul {
 /* Monaco read-only blocks in reading mode */
 .shiki-monaco-block {
 	position: relative;
+	box-sizing: border-box;
+	contain: layout paint style;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
 	background-color: var(--code-background);
 	border-radius: var(--code-radius);
 	font-family: var(--font-monospace);
@@ -100,6 +106,9 @@ span.shiki-ul {
 
 .shiki-monaco-editor {
 	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
 	position: relative;
 	background-color: var(--code-background);
 }
@@ -108,8 +117,9 @@ span.shiki-ul {
    Monaco over the code content column only. */
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence {
+	max-width: 100%;
 	position: relative;
-	overflow: visible;
+	overflow: hidden;
 	white-space: pre !important;
 }
 
@@ -125,6 +135,10 @@ span.shiki-ul {
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
+	box-sizing: border-box;
+	contain: layout paint style;
+	max-width: 100%;
+	min-width: 0;
 	background-color: var(--code-background);
 	border-radius: var(--code-radius);
 	overflow: hidden;
@@ -149,7 +163,14 @@ span.shiki-ul {
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines {
+	max-width: 100% !important;
 	background-color: var(--code-background) !important;
+}
+
+.markdown-rendered .shiki-monaco-block .monaco-editor,
+.markdown-rendered .shiki-monaco-block .overflow-guard,
+.markdown-rendered .shiki-monaco-block .view-lines {
+	max-width: 100% !important;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element {

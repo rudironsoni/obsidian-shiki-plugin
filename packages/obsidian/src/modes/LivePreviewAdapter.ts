@@ -8,6 +8,7 @@ import type { MonacoEditSync } from 'packages/obsidian/src/monaco/MonacoInputCon
 export class LivePreviewAdapter {
 	decorations: DecorationSet = Decoration.none;
 	private readonly plugin: ShikiPlugin;
+	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
 	private readonly overlayRoot: HTMLDivElement;
 	private readonly view: EditorView;
@@ -17,8 +18,9 @@ export class LivePreviewAdapter {
 	private activeBlockId: string | undefined;
 	private readonly hiddenBlockIds = new Set<string>();
 
-	constructor(plugin: ShikiPlugin, view: EditorView) {
+	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		this.plugin = plugin;
+		this.requestDecorationRefresh = requestDecorationRefresh;
 		this.view = view;
 		this.overlayRoot = document.createElement('div');
 		this.overlayRoot.className = 'shiki-monaco-overlay-root';
@@ -205,7 +207,7 @@ export class LivePreviewAdapter {
 		}
 		this.visibilityRefreshTimer = window.setTimeout(() => {
 			this.visibilityRefreshTimer = undefined;
-			this.view.dispatch(this.view.state.update({}));
+			this.requestDecorationRefresh();
 		}, 0);
 	}
 

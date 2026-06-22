@@ -45,4 +45,15 @@ describe('startup module boundary', () => {
 		expect(source).toContain('source: await loadBundledModernMonacoSource(plugin, requireFn)');
 		expect(source).not.toContain('??\n\t\trequire');
 	});
+
+	test('async CM6 decoration producers do not dispatch directly', () => {
+		const cm6Plugin = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
+		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
+		const sourceMode = read('packages/obsidian/src/modes/SourceModeAdapter.ts');
+
+		expect(cm6Plugin).toContain('scheduleDecorationRefresh');
+		expect(cm6Plugin).toContain('Calls to EditorView.update are not allowed while an update is in progress');
+		expect(livePreview).not.toContain('view.dispatch(this.view.state.update({}))');
+		expect(sourceMode).not.toContain('view.dispatch(this.view.state.update({}))');
+	});
 });

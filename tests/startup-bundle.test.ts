@@ -37,6 +37,15 @@ describe('startup bundle', () => {
 		expect(styles).toContain('.markdown-preview-section');
 	});
 
+	test('Monaco code block CSS contains horizontal overflow inside the block', () => {
+		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
+
+		expect(styles).toContain('max-width:100%');
+		expect(styles).toContain('min-width:0');
+		expect(styles).toContain('overflow:hidden');
+		expect(styles).toContain('.shiki-monaco-block .overflow-guard');
+	});
+
 	test('release workflow uploads every generated JavaScript sidecar', () => {
 		const workflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
 

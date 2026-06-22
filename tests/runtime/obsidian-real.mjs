@@ -622,6 +622,7 @@ async function readTargetMonacoScrollState(wsUrl) {
 			});
 			const editor = block?._monacoEditor;
 			if (!block || !editor) return null;
+			const noteScroller = block.closest('.markdown-source-view, .markdown-preview-view')?.querySelector('.cm-scroller, .markdown-preview-sizer') ?? null;
 			const line = block.querySelector('.view-line');
 			return {
 				scrollLeft: editor.getScrollLeft?.() ?? 0,
@@ -629,6 +630,8 @@ async function readTargetMonacoScrollState(wsUrl) {
 				contentLeft: line?.getBoundingClientRect?.().left ?? null,
 				width: block.clientWidth,
 				scrollWidth: editor.getScrollWidth?.() ?? block.scrollWidth,
+				noteClientWidth: noteScroller?.clientWidth ?? null,
+				noteScrollWidth: noteScroller?.scrollWidth ?? null,
 			};
 		})()`,
 	);
@@ -1503,6 +1506,11 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		assert(
 			result.monacoHorizontal.after?.scrollLeft > result.monacoHorizontal.before?.scrollLeft,
 			`${label}: Monaco horizontal touch drag did not scroll code horizontally`,
+			result.monacoHorizontal,
+		);
+		assert(
+			result.monacoHorizontal.before?.noteScrollWidth === null || result.monacoHorizontal.before?.noteScrollWidth <= result.monacoHorizontal.before?.noteClientWidth + 1,
+			`${label}: Monaco block expanded the note horizontal scroll width`,
 			result.monacoHorizontal,
 		);
 		assert(result.editableVertical !== null, `${label}: editable fenced code block vertical touch scroll was not measured`, result);

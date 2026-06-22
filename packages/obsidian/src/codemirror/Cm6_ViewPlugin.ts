@@ -18,12 +18,14 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			private view: EditorView;
 			private readonly livePreviewAdapter: LivePreviewAdapter;
 			private readonly sourceModeAdapter: SourceModeAdapter;
+			private decorationRefreshTimer: number | undefined;
+			private destroyed = false;
 			private lastIsLivePreview: boolean;
 
 			constructor(view: EditorView) {
 				this.view = view;
-				this.livePreviewAdapter = new LivePreviewAdapter(plugin, view);
-				this.sourceModeAdapter = new SourceModeAdapter(plugin, view);
+				this.livePreviewAdapter = new LivePreviewAdapter(plugin, view, this.scheduleDecorationRefresh);
+				this.sourceModeAdapter = new SourceModeAdapter(plugin, view, this.scheduleDecorationRefresh);
 				this.lastIsLivePreview = this.isLivePreview(view.state);
 				void this.updateInlineDecorations();
 				if (this.lastIsLivePreview) {
@@ -55,6 +57,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			}
 
 			destroy(): void {
+				this.destroyed = true;
+				if (this.decorationRefreshTimer !== undefined) {
+					window.clearTimeout(this.decorationRefreshTimer);
+				}
 				this.livePreviewAdapter.destroy();
 				this.sourceModeAdapter.destroy();
 			}
@@ -72,6 +78,28 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				}
 				this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
 			}
+
+			private readonly scheduleDecorationRefresh = (): void => {
+				if (this.destroyed || this.decorationRefreshTimer !== undefined) {
+					return;
+				}
+				this.decorationRefreshTimer = window.setTimeout(() => {
+					this.decorationRefreshTimer = undefined;
+					if (this.destroyed) {
+						return;
+					}
+					this.refreshDecorations();
+					try {
+						this.view.dispatch(this.view.state.update({}));
+					} catch (error) {
+						if (String(error).includes('Calls to EditorView.update are not allowed while an update is in progress')) {
+							this.scheduleDecorationRefresh();
+							return;
+						}
+						throw error;
+					}
+				}, 16);
+			};
 
 			private async updateInlineDecorations(): Promise<void> {
 				const inlineRequests: Array<{ from: number; to: number; language: string; content: string }> = [];
@@ -100,8 +128,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					built.push(...decorations);
 				}
 				this.inlineDecorations = built.length ? Decoration.set(built, true) : Decoration.none;
-				this.refreshDecorations();
-				this.view.dispatch(this.view.state.update({}));
+				this.scheduleDecorationRefresh();
 			}
 
 			private async buildInlineTokenDecorations(from: number, to: number, language: string, content: string): Promise<Range<Decoration>[]> {
