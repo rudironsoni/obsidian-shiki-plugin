@@ -64,10 +64,11 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('setNativeMobileInteraction');
 		expect(livePreview).toContain('editor.setCursor(editorPosition)');
 		expect(livePreview).toContain('editor.focus()');
-		expect(livePreview).toContain('if (this.isMobile())');
-		expect(gestures).toContain('placeNativeCursor');
-		expect(gestures).toContain('selectNativeWord');
-		expect(gestures).toContain('this.selectionController.placeCursor(clientX, clientY, false)');
+		expect(livePreview).toContain('focusNativeEditor');
+		expect(gestures).toContain('nativeInteraction?.placeCursor');
+		expect(gestures).toContain('blurMonacoFocusTarget');
+		expect(gestures).toContain('selectionController.selectWordAt');
+		expect(gestures).toContain('this.selectionController.placeCursor(touch.clientX, touch.clientY)');
 	});
 
 	test('live preview adapter owns a single Monaco overlay root per editor view', () => {
@@ -79,6 +80,8 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('LIVE_PREVIEW_ADAPTER_OWNER');
 		expect(livePreview).toContain('destroyed || !this.plugin.isCurrentInstance()');
 		expect(livePreview).toContain('removeDuplicateBlockSurfaces');
+		expect(livePreview).toContain('missingLineRetryCount');
+		expect(livePreview).toContain('this.requestDecorationRefresh();');
 		expect(livePreview).toContain("closest('.markdown-source-view.mod-cm6')");
 		expect(livePreview).toContain("activeLeafView && 'contentEl' in activeLeafView");
 		expect(livePreview).toContain("querySelectorAll('.shiki-monaco-overlay-root')");
@@ -91,6 +94,46 @@ describe('startup module boundary', () => {
 		expect(sourceMode).not.toContain('highlight.tokens.flat(1)');
 		expect(sourceMode).toContain('let lineOffset = 0');
 		expect(sourceMode).toContain('block.codeFrom + lineOffset + token.offset');
+		expect(sourceMode).toContain('this.plugin.highlighter.getTokenStyle(token)');
 		expect(sourceMode).toContain('lineOffset += this.lineLength(block.code, lineOffset) + 1');
+	});
+
+	test('language listing is static and startup-safe', () => {
+		const lazyRuntime = read('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
+		const main = read('packages/obsidian/src/main.ts');
+		const metadata = read('packages/obsidian/src/runtime/LanguageMetadata.ts');
+
+		expect(lazyRuntime).toContain('getObsidianSafeLanguageNames');
+		expect(main).toContain('getObsidianSafeLanguageNames()');
+		expect(main).not.toContain('highlighter.obsidianSafeLanguageNames');
+		expect(lazyRuntime).toContain('resolveLanguageAliasFromMetadata');
+		expect(lazyRuntime).not.toContain('loadModernMonacoGrammars');
+		expect(metadata).toContain('LANGUAGE_METADATA');
+		expect(metadata).not.toContain('modern-monaco/shiki');
+	});
+
+	test('surface registry creates stable surfaces without loading Monaco runtime', () => {
+		const registry = read('packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts');
+		const surface = read('packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts');
+
+		expect(registry).toContain('getOrCreate(block: CodeBlockModel): MonacoCodeBlockSurface');
+		expect(registry).toContain('new MonacoCodeBlockSurface(this.plugin, block)');
+		expect(registry).not.toContain('monacoRuntime.load()');
+		expect(surface).toContain('const runtime = await this.plugin.monacoRuntime.load()');
+	});
+
+	test('Monaco editor creation is isolated to MonacoCodeBlockSurface', () => {
+		const files = [
+			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
+			'packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts',
+			'packages/obsidian/src/modes/ReadingViewAdapter.ts',
+			'packages/obsidian/src/modes/LivePreviewAdapter.ts',
+			'packages/obsidian/src/modes/SourceModeAdapter.ts',
+			'packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts',
+			'packages/obsidian/src/LazyHighlighter.ts',
+		];
+		const createOwners = files.filter(file => read(file).includes('monaco.editor.create'));
+
+		expect(createOwners).toEqual(['packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts']);
 	});
 });

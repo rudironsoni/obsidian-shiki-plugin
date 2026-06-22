@@ -103,16 +103,19 @@ export class MonacoSelectionController {
 		});
 	}
 
-	placeCursor(clientX: number, clientY: number, focus: boolean): void {
+	placeCursor(clientX: number, clientY: number, focus = false): { lineNumber: number; column: number } | null {
 		const editor = this.editor;
-		const position = editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
-		if (!editor || !position) {
-			return;
-		}
+		if (!editor) return null;
+		const fallbackPosition = this.positionFromClientPoint(clientX, clientY);
+		const hitPosition = editor.getTargetAtClientPoint?.(clientX, clientY)?.position ?? null;
+		const position = fallbackPosition ?? hitPosition;
+		if (!position) return null;
 		editor.setPosition(position);
 		if (focus) {
 			editor.focus();
 		}
+		this.clearVisualSelection();
+		return position;
 	}
 
 	isHandleTarget(target: EventTarget | null): boolean {
@@ -134,7 +137,7 @@ export class MonacoSelectionController {
 	updateHandleDrag(clientX: number, clientY: number): void {
 		const editor = this.editor;
 		const selection = editor?.getSelection();
-		const position = editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		const position = this.positionFromClientPoint(clientX, clientY) ?? editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
 		if (!editor || !selection || !position || !this.draggingHandle) {
 			return;
 		}
@@ -162,6 +165,35 @@ export class MonacoSelectionController {
 			event.stopPropagation();
 			this.draggingHandle = kind;
 		});
+	}
+
+	private positionFromClientPoint(clientX: number, clientY: number): { lineNumber: number; column: number } | undefined {
+		const lines = [...this.host.querySelectorAll<HTMLElement>('.view-line')];
+		if (lines.length === 0) {
+			return undefined;
+		}
+		let bestIndex = 0;
+		let bestDistance = Number.POSITIVE_INFINITY;
+		for (let index = 0; index < lines.length; index++) {
+			const rect = lines[index]!.getBoundingClientRect();
+			const centerY = rect.top + rect.height / 2;
+			const distance = Math.abs(centerY - clientY);
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				bestIndex = index;
+			}
+		}
+		const line = lines[bestIndex];
+		if (!line) {
+			return undefined;
+		}
+		const rect = line.getBoundingClientRect();
+		const textLength = line.textContent?.length ?? 0;
+		const progress = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
+		return {
+			lineNumber: bestIndex + 1,
+			column: Math.max(1, Math.min(textLength + 1, Math.round(progress * textLength) + 1)),
+		};
 	}
 
 	private clearVisualSelection(): void {

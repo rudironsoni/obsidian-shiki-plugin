@@ -1565,6 +1565,12 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 	assert(result.sourceModeState.markerInEditor, `${label}: Source mode marker was not present in editor`, result.sourceModeState);
 	assert(result.sourceModeState.markerOnDisk, `${label}: Source mode marker did not persist to disk`, result.sourceModeState);
 	if (result.isMobile) {
+		assert(result.livePreviewCodeBlocks.length > 0, `${label}: mobile Live Preview did not render Monaco before touch`, result);
+		assert(
+			result.livePreviewCodeBlocks.some(block => block.hasMonacoEditor && block.hasEditorHook && block.viewLines > 0),
+			`${label}: mobile Live Preview Monaco did not hydrate before touch`,
+			result.livePreviewCodeBlocks,
+		);
 		assert(result.mobileNativeTap !== null, `${label}: mobile native tap was not measured`, result);
 		assert(result.mobileNativeTap.editorHasFocus, `${label}: mobile tap inside Monaco did not keep Obsidian editor focused`, result.mobileNativeTap);
 		assert(!result.mobileNativeTap.activeElementInMonaco, `${label}: mobile tap focused Monaco instead of Obsidian editor`, result.mobileNativeTap);

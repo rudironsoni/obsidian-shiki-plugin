@@ -31,6 +31,8 @@ interface MonacoEditorInstance {
 	onDidFocusEditorWidget(callback: () => void): { dispose(): void };
 	onDidScrollChange(callback: () => void): { dispose(): void };
 	setScrollLeft(value: number): void;
+	setPosition(position: { lineNumber: number; column: number }): void;
+	getPosition(): { lineNumber: number; column: number } | null;
 	updateOptions(options: Record<string, unknown>): void;
 }
 
@@ -76,6 +78,10 @@ export interface MonacoRuntime {
 }
 
 let runtimePromise: Promise<MonacoRuntime> | undefined;
+
+export function resetModernMonacoRuntime(): void {
+	runtimePromise = undefined;
+}
 
 // Build alias -> canonical name map from bundled grammars
 const aliasToName = new Map<string, string>();
@@ -145,7 +151,6 @@ export async function createMonacoRuntime(options?: {
 					await highlighter.loadGrammarFromCDN(canonical);
 					loadedGrammars.add(canonical);
 					registerShikiMonacoTokenizer(monaco, highlighter, canonical);
-					console.log(`[Shiki] Grammar loaded for ${canonical} (attempt ${attempt})`);
 					return;
 				} catch (error) {
 					console.warn(`[Shiki] Grammar load attempt ${attempt}/3 failed for ${canonical}:`, error);

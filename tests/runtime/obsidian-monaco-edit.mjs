@@ -244,11 +244,14 @@ async function getEditableCodeLine(client) {
 			if (!model) return null;
 			const text = model.getValue();
 			const match = text.includes('runtimeEditableCodeBlockMarker');
-			const rect = container.getBoundingClientRect();
+			const targetLine = [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('very_long_runtime_scroll_line'))
+				?? [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('runtimeEditableCodeBlockMarker'))
+				?? container;
+			const rect = targetLine.getBoundingClientRect();
 			return match ? {
 				text,
 				className: container.className,
-				x: Math.floor(rect.left + Math.min(24, Math.max(4, rect.width / 4))),
+				x: Math.floor(rect.left + Math.min(Math.max(24, rect.width * 0.25), Math.max(24, rect.width - 8))),
 				y: Math.floor(rect.top + rect.height / 2),
 				clientWidth: container.clientWidth,
 				scrollWidth: container.clientWidth,
@@ -306,6 +309,38 @@ async function dispatchTouchTap(client, x, y) {
 	await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+async function dispatchVerticalWheelAtPoint(client, x, y, deltaY) {
+	await client.send('Input.dispatchMouseEvent', {
+		type: 'mouseWheel',
+		x,
+		y,
+		deltaX: 0,
+		deltaY,
+		pointerType: 'mouse',
+	});
+}
+
+async function readOutsideNoteWheelPoint(client) {
+	return evaluate(
+		client,
+		`(() => {
+			const root = document.querySelector('.markdown-source-view.mod-cm6') ?? document;
+			const scroller = root.querySelector('.cm-scroller') ?? document.scrollingElement;
+			const outsideLine = [...root.querySelectorAll('.cm-line')].find(line => {
+				const text = line.textContent ?? '';
+				const rect = line.getBoundingClientRect();
+				return rect.width > 0 && rect.height > 0 && !line.classList.contains('shiki-editing-codeblock-line') && text.includes('PyCharm Django Console fixes');
+			});
+			const rect = outsideLine?.getBoundingClientRect?.();
+			return {
+				x: rect ? Math.floor(rect.left + Math.min(120, rect.width / 2)) : 160,
+				y: rect ? Math.floor(rect.top + rect.height / 2) : 160,
+				noteScrollTop: scroller?.scrollTop ?? 0,
+			};
+		})()`,
+	);
+}
+
 async function dispatchHorizontalWheel(client, x, y, deltaX) {
 	await client.send('Input.dispatchMouseEvent', {
 		type: 'mouseWheel',
@@ -317,14 +352,14 @@ async function dispatchHorizontalWheel(client, x, y, deltaX) {
 	});
 }
 
-async function dispatchWheelOnMonacoHost(client, deltaX) {
+async function dispatchWheelOnMonacoHost(client, deltaX, deltaY = 0) {
 	return evaluate(
 		client,
 		`(() => {
 			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
 				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
 			if (!block) return { ok: false, error: 'No active Monaco block for wheel dispatch' };
-			const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: ${deltaX}, deltaY: 0 });
+			const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaX: ${deltaX}, deltaY: ${deltaY} });
 			block.dispatchEvent(event);
 			return { ok: true, defaultPrevented: event.defaultPrevented };
 		})()`,
@@ -345,6 +380,23 @@ async function dispatchTouchDragOnMonacoHost(client, fromX, fromY, toX, toY) {
 			block.dispatchEvent(new TouchEvent('touchmove', { bubbles: true, cancelable: true, touches: [moveTouch], targetTouches: [moveTouch], changedTouches: [moveTouch] }));
 			block.dispatchEvent(new TouchEvent('touchend', { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [moveTouch] }));
 			return { ok: true };
+		})()`,
+	);
+}
+
+async function readNoteAndMonacoScrollState(client) {
+	return evaluate(
+		client,
+		`(() => {
+			const root = document.querySelector('.markdown-source-view.mod-cm6') ?? document;
+			const scroller = root.querySelector('.cm-scroller') ?? document.scrollingElement;
+			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
+				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
+			const editor = block?._monacoEditor;
+			return {
+				noteScrollTop: scroller?.scrollTop ?? 0,
+				monacoScrollLeft: editor?.getScrollLeft?.() ?? 0,
+			};
 		})()`,
 	);
 }
@@ -508,6 +560,15 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
 
+	const outsideBefore = await readOutsideNoteWheelPoint(client);
+	await dispatchVerticalWheelAtPoint(client, outsideBefore.x, outsideBefore.y, 220);
+	await delay(100);
+	const outsideAfter = await readOutsideNoteWheelPoint(client);
+	assert(outsideAfter.noteScrollTop > outsideBefore.noteScrollTop, `${modeName}: vertical wheel outside Monaco did not scroll the Obsidian note`, {
+		outsideBefore,
+		outsideAfter,
+	});
+
 	const isMobileMode = modeName.includes('mobile');
 	await clickLine(client, line);
 	const monaco = await waitForMonaco(client, modeName, !isMobileMode);
@@ -517,9 +578,22 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(!monaco.fallbackVisible, `${modeName}: Monaco fallback is still visible over the editor`, monaco);
 	assert(monaco.fallbackBoxHeight === 0 && monaco.fallbackBoxWidth === 0, `${modeName}: Monaco fallback still occupies layout`, monaco);
 	assert(!monaco.fenceTextVisible, `${modeName}: raw fenced code block is still visible outside Monaco`, monaco);
+	if (!isMobileMode) {
+		const cursorPlacement = await evaluate(
+			client,
+			`(() => {
+				const block = document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active');
+				const editor = block?._monacoEditor;
+				return { position: editor?.getPosition?.() ?? null, selection: editor?.getSelection?.() ?? null };
+			})()`,
+		);
+		assert(cursorPlacement.position?.lineNumber > 1, `${modeName}: activation click did not place Monaco cursor in clicked code region`, cursorPlacement);
+	}
+
 	if (isMobileMode) {
 		assert(!monaco.className.includes('shiki-monaco-active'), `${modeName}: mobile tap activated editable Monaco`, monaco);
 		await dispatchTouchTap(client, line.x, line.y);
+		await delay(120);
 		const nativeTap = await evaluate(
 			client,
 			`(() => {
@@ -565,12 +639,33 @@ async function verifyMode(client, modeName, livePreview, marker) {
 
 	const beforeScroll = await readMonacoScrollState(client);
 	assert(beforeScroll?.hasOverflow, `${modeName}: Monaco block does not expose horizontal overflow`, beforeScroll);
-	const wheelDispatch = await dispatchWheelOnMonacoHost(client, 180);
-	assert(wheelDispatch?.ok, `${modeName}: wheel dispatch failed`, wheelDispatch);
+	const beforeVerticalWheel = await readNoteAndMonacoScrollState(client);
+	const verticalWheelDispatch = await dispatchWheelOnMonacoHost(client, 0, 220);
+	assert(verticalWheelDispatch?.ok, `${modeName}: vertical wheel dispatch failed`, verticalWheelDispatch);
+	assert(!verticalWheelDispatch.defaultPrevented, `${modeName}: vertical wheel was prevented inside Monaco`, verticalWheelDispatch);
 	await delay(100);
-	const afterWheelScroll = await readMonacoScrollState(client);
-	assert(afterWheelScroll.scrollLeft > beforeScroll.scrollLeft, `${modeName}: horizontal wheel did not scroll Monaco`, {
-		beforeScroll,
+	const afterVerticalWheel = await readNoteAndMonacoScrollState(client);
+	assert(afterVerticalWheel.noteScrollTop > beforeVerticalWheel.noteScrollTop, `${modeName}: vertical wheel inside Monaco did not scroll the Obsidian note`, {
+		beforeVerticalWheel,
+		afterVerticalWheel,
+	});
+	assert(afterVerticalWheel.monacoScrollLeft === beforeVerticalWheel.monacoScrollLeft, `${modeName}: vertical wheel changed Monaco horizontal scroll`, {
+		beforeVerticalWheel,
+		afterVerticalWheel,
+	});
+
+	const beforeHorizontalWheel = await readNoteAndMonacoScrollState(client);
+	const wheelDispatch = await dispatchWheelOnMonacoHost(client, 180, 0);
+	assert(wheelDispatch?.ok, `${modeName}: horizontal wheel dispatch failed`, wheelDispatch);
+	assert(wheelDispatch.defaultPrevented, `${modeName}: horizontal wheel was not prevented inside Monaco`, wheelDispatch);
+	await delay(100);
+	const afterWheelScroll = await readNoteAndMonacoScrollState(client);
+	assert(afterWheelScroll.monacoScrollLeft > beforeHorizontalWheel.monacoScrollLeft, `${modeName}: horizontal wheel did not scroll Monaco`, {
+		beforeHorizontalWheel,
+		afterWheelScroll,
+	});
+	assert(afterWheelScroll.noteScrollTop === beforeHorizontalWheel.noteScrollTop, `${modeName}: horizontal wheel scrolled the Obsidian note`, {
+		beforeHorizontalWheel,
 		afterWheelScroll,
 	});
 
@@ -655,6 +750,9 @@ async function main() {
 				client,
 				`(async () => {
 					window.app?.emulateMobile?.(true);
+					window.dispatchEvent(new Event('resize'));
+					document.body.classList.toggle('shiki-mobile-transition-probe');
+					document.body.classList.toggle('shiki-mobile-transition-probe');
 					await new Promise(resolve => setTimeout(resolve, 1200));
 					return Boolean(document.body.classList.contains('is-phone') || app.isMobile);
 				})()`,

@@ -3,6 +3,13 @@ import type ShikiPlugin from 'packages/obsidian/src/main';
 import { loadBundledModernMonacoSource } from 'packages/obsidian/src/modern-monaco-inline';
 
 let runtimePromise: Promise<{ runtime: MonacoRuntime; grammars: unknown[] }> | undefined;
+let resetLoadedModernMonaco: (() => void) | undefined;
+
+export function resetModernMonacoModule(): void {
+	resetLoadedModernMonaco?.();
+	resetLoadedModernMonaco = undefined;
+	runtimePromise = undefined;
+}
 
 export async function loadModernMonacoRuntime(plugin: ShikiPlugin): Promise<MonacoRuntime> {
 	const { runtime } = await loadModernMonacoModule(plugin);
@@ -20,7 +27,7 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 			await plugin.ensureSettingsLoaded();
 			const { source: modernMonacoSource, requireFn } = await loadModernMonacoSource(plugin);
 
-			const module = { exports: {} as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; grammars?: unknown[] } };
+			const module = { exports: {} as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; resetModernMonacoRuntime?: () => void; grammars?: unknown[] } };
 			// eslint-disable-next-line @typescript-eslint/no-implied-eval
 			const runtimeFactory = new Function('exports', 'module', 'require', modernMonacoSource) as (
 				exports: unknown,
@@ -28,12 +35,12 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 				require: (id: string) => unknown,
 			) => void;
 			runtimeFactory(module.exports, module, requireFn);
-			console.log('[Shiki] modern-monaco module loaded');
 
 			const entry = module.exports;
 			if (!entry.createMonacoRuntime) {
 				throw new Error('modern-monaco.js does not export createMonacoRuntime');
 			}
+			resetLoadedModernMonaco = entry.resetModernMonacoRuntime;
 
 			const { getActiveTheme } = await import('packages/obsidian/src/runtime/ThemeBridge');
 			const themes = new Set<string>();
@@ -46,12 +53,10 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 			if (darkResolved) themes.add(darkResolved);
 			if (lightResolved) themes.add(lightResolved);
 
-			console.log('[Shiki] Creating Monaco runtime...');
 			const runtime = await entry.createMonacoRuntime({
 				defaultTheme: getActiveTheme(plugin),
 				themes: Array.from(themes),
 			});
-			console.log('[Shiki] Monaco runtime created');
 
 			return { runtime, grammars: entry.grammars ?? [] };
 		} catch (error) {
@@ -78,7 +83,6 @@ async function loadModernMonacoSource(plugin: ShikiPlugin): Promise<{ source: st
 		if (!nativeRequire) {
 			throw new Error('native require is unavailable');
 		}
-		console.log('[Shiki] Loading modern-monaco sidecar...');
 		const fs = nativeRequire('fs') as { readFileSync(path: string, encoding: 'utf8'): string };
 		const path = nativeRequire('path') as { isAbsolute(path: string): boolean; join(...parts: string[]): string };
 		const appPlugins = (plugin.app as ShikiPlugin['app'] & { plugins?: { manifests?: Record<string, { dir?: string }> } }).plugins;

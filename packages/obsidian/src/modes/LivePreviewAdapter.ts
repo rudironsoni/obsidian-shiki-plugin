@@ -20,11 +20,17 @@ export class LivePreviewAdapter {
 	private retrySyncTimer: number | undefined;
 	private visibilityRefreshTimer: number | undefined;
 	private activeBlockId: string | undefined;
+	private lastMobileMode: boolean | undefined;
+	private mobileClassObserver: MutationObserver | undefined;
 	private ownerRoot: LivePreviewOwnerElement | undefined;
 	private destroyed = false;
+	private missingLineRetryCount = 0;
 	private readonly hiddenBlockIds = new Set<string>();
 
 	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
+		window.addEventListener('resize', this.handleViewportModeChange);
+		this.mobileClassObserver = new MutationObserver(this.handleViewportModeChange);
+		this.mobileClassObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		this.plugin = plugin;
 		this.requestDecorationRefresh = requestDecorationRefresh;
 		this.view = view;
@@ -49,13 +55,20 @@ export class LivePreviewAdapter {
 			void this.detachAll();
 			return;
 		}
+
+		this.updateViewportMode();
+
 		if (!isLivePreview) {
 			this.decorations = Decoration.none;
 			void this.detachAll();
 			return;
 		}
-		if (update.docChanged || update.viewportChanged || update.selectionSet) {
+		if (update.docChanged) {
 			this.rebuildBlocks();
+			this.scheduleSync();
+			return;
+		}
+		if (update.viewportChanged || update.selectionSet) {
 			this.scheduleSync();
 		}
 	}
@@ -65,7 +78,8 @@ export class LivePreviewAdapter {
 			return;
 		}
 		this.rebuildBlocks();
-		await this.syncVisibleBlocks();
+		this.requestDecorationRefresh();
+		this.scheduleSync(50);
 	}
 
 	destroy(): void {
@@ -142,7 +156,7 @@ export class LivePreviewAdapter {
 		return lines;
 	}
 
-	private scheduleSync(): void {
+	private scheduleSync(delayMs = 16): void {
 		if (this.destroyed) {
 			return;
 		}
@@ -152,7 +166,7 @@ export class LivePreviewAdapter {
 		this.retrySyncTimer = window.setTimeout(() => {
 			this.retrySyncTimer = undefined;
 			void this.syncVisibleBlocks();
-		}, 16);
+		}, delayMs);
 	}
 
 	private async syncVisibleBlocks(): Promise<void> {
@@ -161,6 +175,7 @@ export class LivePreviewAdapter {
 			return;
 		}
 		const visibleIds = new Set<string>();
+		let missingVisibleLines = false;
 		for (const block of this.blocks) {
 			if (block.codeTo === undefined || block.codeFrom === undefined) {
 				continue;
@@ -172,8 +187,10 @@ export class LivePreviewAdapter {
 				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
 			] as HTMLElement[];
 			if (lineElements.length === 0) {
+				missingVisibleLines = true;
 				continue;
 			}
+			this.missingLineRetryCount = 0;
 			const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
 			if (this.destroyed || !this.plugin.isCurrentInstance()) {
 				return;
@@ -186,18 +203,17 @@ export class LivePreviewAdapter {
 			const lastRect = last.getBoundingClientRect();
 			surface.attach(this.overlayRoot);
 			this.removeDuplicateBlockSurfaces(block.id, surface.hostEl);
-			surface.setNativeMobileInteraction(this.isMobile() ? this.createNativeMobileInteraction(block) : undefined);
+			const mobileMode = this.isMobile();
+			if (mobileMode && this.activeBlockId !== block.id) {
+				surface.deactivateToReadonly();
+			}
+			surface.setNativeMobileInteraction(mobileMode ? this.createNativeMobileInteraction(block) : undefined);
 			surface.hostEl.classList.add('shiki-monaco-codeblock');
 			surface.hostEl.dataset.shikiBlockId = block.id;
-			const activate = (): void => {
-				if (this.isMobile()) {
-					return;
-				}
-				void this.activateBlock(block.id);
-			};
-			surface.hostEl.onclick = activate;
-			surface.hostEl.onmousedown = activate;
-			surface.hostEl.ontouchend = activate;
+			surface.setActivationHandler(point => void this.activateBlock(block.id, point));
+			surface.hostEl.onclick = null;
+			surface.hostEl.onmousedown = null;
+			surface.hostEl.ontouchend = null;
 			surface.hostEl.style.position = 'absolute';
 			surface.hostEl.style.left = `${firstRect.left - rootRect.left}px`;
 			surface.hostEl.style.top = `${firstRect.top - rootRect.top}px`;
@@ -221,6 +237,12 @@ export class LivePreviewAdapter {
 				surface?.hostEl.remove();
 				this.setBlockHidden(block.id, false);
 			}
+		}
+
+		if (missingVisibleLines && this.missingLineRetryCount < 20) {
+			this.missingLineRetryCount++;
+			this.requestDecorationRefresh();
+			this.scheduleSync(50);
 		}
 	}
 
@@ -306,7 +328,7 @@ export class LivePreviewAdapter {
 				}
 				editor.setCursor(editorPosition);
 				editor.scrollIntoView({ from: editorPosition, to: editorPosition }, false);
-				editor.focus();
+				this.focusNativeEditor(editor);
 			},
 			selectWord: (position): void => {
 				const editorPosition = this.monacoPositionToEditorPosition(block, position);
@@ -320,9 +342,26 @@ export class LivePreviewAdapter {
 				} else {
 					editor.setCursor(editorPosition);
 				}
-				editor.focus();
+				this.focusNativeEditor(editor);
 			},
 		};
+	}
+
+	private focusNativeEditor(editor: { focus(): void }): void {
+		editor.focus();
+		this.view.focus();
+		this.view.contentDOM.tabIndex = this.view.contentDOM.tabIndex < 0 ? -1 : this.view.contentDOM.tabIndex;
+		this.view.contentDOM.focus({ preventScroll: true });
+		const view = this.plugin.app.workspace.activeLeaf?.view as
+			| { contentEl?: HTMLElement; editor?: { cm?: { focus?: () => void }; cmEditor?: { focus?: () => void } } }
+			| undefined;
+		view?.editor?.cm?.focus?.();
+		view?.editor?.cmEditor?.focus?.();
+		const content = view?.contentEl?.querySelector<HTMLElement>('.cm-content[contenteditable="true"], .cm-content');
+		if (content) {
+			content.tabIndex = content.tabIndex < 0 ? -1 : content.tabIndex;
+			content.focus({ preventScroll: true });
+		}
 	}
 
 	private monacoPositionToEditorPosition(block: CodeBlockModel, position: { lineNumber: number; column: number }): { line: number; ch: number } | undefined {
@@ -354,11 +393,43 @@ export class LivePreviewAdapter {
 		return view && 'editor' in view ? (view.editor as ReturnType<LivePreviewAdapter['getObsidianEditor']>) : undefined;
 	}
 
+
+	private readonly handleViewportModeChange = (): void => {
+		if (this.destroyed || !this.plugin.isCurrentInstance()) {
+			return;
+		}
+		this.updateViewportMode();
+	};
+
+	private updateViewportMode(): void {
+		const mobileMode = this.isMobile();
+		if (mobileMode && this.lastMobileMode !== true) {
+			if (this.activeBlockId) {
+				this.deactivateBlock(this.activeBlockId);
+			}
+			for (const block of this.blocks) {
+				this.plugin.surfaceRegistry.get(block.id)?.deactivateToReadonly();
+			}
+		}
+		this.lastMobileMode = mobileMode;
+	}
 	private isMobile(): boolean {
-		return document.body.classList.contains('is-mobile') || Boolean((this.plugin.app as unknown as { isMobile?: boolean }).isMobile);
+		const app = this.plugin.app as typeof this.plugin.app & { isMobile?: boolean };
+		if (typeof app.isMobile === 'boolean') {
+			return app.isMobile;
+		}
+		return (
+			document.body.classList.contains('is-mobile') ||
+			document.body.classList.contains('is-phone') ||
+			document.body.classList.contains('is-tablet') ||
+			window.matchMedia?.('(pointer: coarse)').matches ||
+			navigator.maxTouchPoints > 0 ||
+			(window.visualViewport?.width ?? window.innerWidth) <= 820
+		);
 	}
 
-	async activateBlock(blockId: string): Promise<void> {
+
+	async activateBlock(blockId: string, point?: { clientX: number; clientY: number }): Promise<void> {
 		if (this.activeBlockId && this.activeBlockId !== blockId) {
 			this.deactivateBlock(this.activeBlockId);
 		}
@@ -368,7 +439,7 @@ export class LivePreviewAdapter {
 		}
 		const surface = await this.plugin.surfaceRegistry.getOrCreate(block);
 		this.activeBlockId = blockId;
-		await surface.activateEditable(this.createEditSync(block));
+		await surface.activateEditable(this.createEditSync(block), point);
 	}
 
 	deactivateBlock(blockId: string): void {
@@ -377,4 +448,5 @@ export class LivePreviewAdapter {
 		}
 		this.plugin.surfaceRegistry.get(blockId)?.deactivateToReadonly();
 	}
+
 }

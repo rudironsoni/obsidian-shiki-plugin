@@ -8,6 +8,7 @@ import { LazyMonacoRuntime } from 'packages/obsidian/src/monaco/LazyMonacoRuntim
 import { MonacoSurfaceRegistry } from 'packages/obsidian/src/monaco/MonacoSurfaceRegistry';
 import { HydrationQueue } from 'packages/obsidian/src/monaco/HydrationQueue';
 import { SourceModeTokenizationCache } from 'packages/obsidian/src/runtime/SourceModeTokenizationCache';
+import { getObsidianSafeLanguageNames } from 'packages/obsidian/src/runtime/LanguageMetadata';
 import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 import type { ReadingViewAdapter } from 'packages/obsidian/src/modes/ReadingViewAdapter';
 
@@ -144,7 +145,6 @@ export default class ShikiPlugin extends Plugin {
 			return;
 		}
 
-		console.log('[Shiki] Registering reading mode code block processor...');
 		if (!this.readingViewAdapter) {
 			const { ReadingViewAdapter } = await import('packages/obsidian/src/modes/ReadingViewAdapter');
 			this.readingViewAdapter = new ReadingViewAdapter(this);
@@ -152,12 +152,11 @@ export default class ShikiPlugin extends Plugin {
 		const { CodeBlock } = await import('packages/obsidian/src/CodeBlock');
 		let languages: Set<string>;
 		try {
-			languages = new Set(await this.highlighter.obsidianSafeLanguageNames());
+			languages = new Set(getObsidianSafeLanguageNames());
 		} catch (error) {
 			console.error('[Shiki] Failed to load language names, code blocks will not be highlighted:', error);
 			return;
 		}
-		console.log('[Shiki] Registering reading mode code block processor');
 
 		if (this.unloaded || this.codeBlockProcessorsRegistered) {
 			return;
@@ -193,7 +192,6 @@ export default class ShikiPlugin extends Plugin {
 
 		this.codeBlockProcessorsRegistered = true;
 		this.app.workspace.updateOptions();
-		console.log('[Shiki] Reading mode code block processor registered');
 	}
 
 	registerInlineCodeProcessor(): void {

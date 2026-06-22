@@ -19,7 +19,7 @@ interface NativeMobileInteraction {
 export class MonacoCodeBlockSurface {
 	readonly hostEl: HTMLDivElement;
 	private readonly plugin: ShikiPlugin;
-	private readonly runtime: MonacoRuntime;
+	private runtime: MonacoRuntime | undefined;
 	private readonly blockSizer = new MonacoBlockSizer();
 	private readonly scrollState = new MonacoScrollState();
 	private readonly modeController = new MonacoModeController();
@@ -31,13 +31,18 @@ export class MonacoCodeBlockSurface {
 	private resizeObserver: ResizeObserver | undefined;
 	private gestureRouter: MonacoGestureRouter | undefined;
 	private nativeMobileInteraction: NativeMobileInteraction | undefined;
+	private mobileModeObserver: MutationObserver | undefined;
+	private mobileModePollTimer: number | undefined;
+	private activationHandler: ((point: { clientX: number; clientY: number }) => void) | undefined;
 	private attachedParent: HTMLElement | undefined;
 	private hydrated = false;
 	private disposed = false;
 
-	constructor(plugin: ShikiPlugin, runtime: MonacoRuntime, block: CodeBlockModel) {
+	constructor(plugin: ShikiPlugin, block: CodeBlockModel) {
+		this.mobileModeObserver = new MutationObserver(this.handleDocumentModeChange);
+		this.mobileModeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+		window.addEventListener('resize', this.handleDocumentModeChange);
 		this.plugin = plugin;
-		this.runtime = runtime;
 		this.block = block;
 		this.hostEl = document.createElement('div');
 		this.hostEl.className = 'shiki-monaco-block';
@@ -92,24 +97,51 @@ export class MonacoCodeBlockSurface {
 		}
 	}
 
+	setActivationHandler(activationHandler: ((point: { clientX: number; clientY: number }) => void) | undefined): void {
+		this.activationHandler = activationHandler;
+		if (this.editor) {
+			this.installGestureRouter();
+		}
+	}
+
 	async hydrateReadonly(): Promise<void> {
 		if (this.hydrated || this.disposed) {
 			return;
 		}
-		await this.runtime.registerLanguage(this.block.language).catch(() => undefined);
+		const runtime = await this.plugin.monacoRuntime.load();
+		if (this.disposed) {
+			return;
+		}
+		this.runtime = runtime;
+		await runtime.registerLanguage(this.block.language).catch(() => undefined);
 		this.createEditor('readonly');
 	}
 
-	async activateEditable(sync: MonacoEditSync): Promise<void> {
+	async activateEditable(sync: MonacoEditSync, cursorPoint?: { clientX: number; clientY: number }): Promise<void> {
 		await this.hydrateReadonly();
 		this.inputController.setSync(sync);
 		this.modeController.setMode('editable');
 		this.editor?.updateOptions({ readOnly: false, domReadOnly: false, contextmenu: true, renderLineHighlight: 'line' });
 		this.updateModeClass();
-		this.editor?.focus();
+		this.startMobileModePoll(true);
+		if (this.isDocumentMobileMode() && !cursorPoint) {
+			this.deactivateToReadonly();
+			return;
+		}
+		if (cursorPoint) {
+			await this.waitForEditorFrame();
+			this.placeCursorFromPoint(cursorPoint.clientX, cursorPoint.clientY);
+		} else {
+			this.editor?.focus();
+		}
+	}
+
+	placeCursorAt(clientX: number, clientY: number, focus = true): void {
+		this.selectionController.placeCursor(clientX, clientY, focus);
 	}
 
 	deactivateToReadonly(): void {
+		this.stopMobileModePoll();
 		this.inputController.setSync(undefined);
 		this.modeController.setMode('readonly');
 		this.editor?.updateOptions({ readOnly: true, domReadOnly: true, contextmenu: false, renderLineHighlight: 'none' });
@@ -117,7 +149,7 @@ export class MonacoCodeBlockSurface {
 	}
 
 	updateTheme(): void {
-		this.runtime.monaco.editor.setTheme(getActiveTheme(this.plugin));
+		this.runtime?.monaco.editor.setTheme(getActiveTheme(this.plugin));
 		this.layout();
 	}
 
@@ -139,6 +171,10 @@ export class MonacoCodeBlockSurface {
 	}
 
 	dispose(): void {
+		this.mobileModeObserver?.disconnect();
+		this.mobileModeObserver = undefined;
+		window.removeEventListener('resize', this.handleDocumentModeChange);
+		this.stopMobileModePoll();
 		this.disposed = true;
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = undefined;
@@ -153,7 +189,7 @@ export class MonacoCodeBlockSurface {
 	}
 
 	private createEditor(mode: 'readonly' | 'editable'): void {
-		if (this.editor || this.disposed) {
+		if (this.editor || this.disposed || !this.runtime) {
 			return;
 		}
 		const editorEl = document.createElement('div');
@@ -196,6 +232,93 @@ export class MonacoCodeBlockSurface {
 		this.layout();
 	}
 
+
+
+	private startMobileModePoll(enabled: boolean): void {
+		this.stopMobileModePoll();
+		if (!enabled) {
+			return;
+		}
+		this.mobileModePollTimer = window.setInterval(() => {
+			if (this.disposed || !this.modeController.isEditable()) {
+				this.stopMobileModePoll();
+				return;
+			}
+			if (this.isDocumentMobileMode()) {
+				this.deactivateToReadonly();
+			}
+		}, 100);
+	}
+
+	private stopMobileModePoll(): void {
+		if (this.mobileModePollTimer === undefined) {
+			return;
+		}
+		window.clearInterval(this.mobileModePollTimer);
+		this.mobileModePollTimer = undefined;
+	}
+
+	private readonly handleDocumentModeChange = (): void => {
+		if (!this.isDocumentMobileMode()) {
+			return;
+		}
+		this.deactivateToReadonly();
+	};
+
+	private isDocumentMobileMode(): boolean {
+		return (
+			document.body.classList.contains('emulate-mobile') ||
+			document.body.classList.contains('is-mobile') ||
+			document.body.classList.contains('is-phone') ||
+			document.body.classList.contains('is-tablet')
+		);
+	}
+
+	private placeCursorFromPoint(clientX: number, clientY: number): void {
+		this.selectionController.placeCursor(clientX, clientY, true);
+		const approximate = this.approximatePositionFromPoint(clientX, clientY);
+		if (approximate) {
+			this.editor?.setPosition(approximate);
+			this.editor?.focus();
+		}
+	}
+
+	private approximatePositionFromPoint(clientX: number, clientY: number): { lineNumber: number; column: number } | undefined {
+		const lines = this.block.code.split('\n');
+		if (lines.length === 0) {
+			return undefined;
+		}
+		const viewLines = [...this.hostEl.querySelectorAll<HTMLElement>('.view-line')];
+		if (viewLines.length > 0) {
+			let bestIndex = 0;
+			let bestDistance = Number.POSITIVE_INFINITY;
+			for (let index = 0; index < viewLines.length; index++) {
+				const rect = viewLines[index]!.getBoundingClientRect();
+				const distance = Math.abs(rect.top + rect.height / 2 - clientY);
+				if (distance < bestDistance) {
+					bestDistance = distance;
+					bestIndex = index;
+				}
+			}
+			const rect = viewLines[bestIndex]!.getBoundingClientRect();
+			const textLength = lines[bestIndex]?.length ?? viewLines[bestIndex]!.textContent?.length ?? 0;
+			const progress = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
+			return { lineNumber: bestIndex + 1, column: Math.max(1, Math.min(textLength + 1, Math.round(progress * textLength) + 1)) };
+		}
+
+		const metrics = this.blockSizer.measure(this.block, this.hostEl);
+		const hostRect = this.hostEl.getBoundingClientRect();
+		const lineIndex = Math.max(0, Math.min(lines.length - 1, Math.floor((clientY - hostRect.top - metrics.paddingTop) / metrics.lineHeight)));
+		const line = lines[lineIndex] ?? '';
+		const progress = hostRect.width > 0 ? Math.max(0, Math.min(1, (clientX - hostRect.left) / hostRect.width)) : 0;
+		return { lineNumber: lineIndex + 1, column: Math.max(1, Math.min(line.length + 1, Math.round(progress * line.length) + 1)) };
+	}
+
+	private async waitForEditorFrame(): Promise<void> {
+		await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+		await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
+	}
+
 	private updateModeClass(): void {
 		const editable = this.modeController.isEditable();
 		this.hostEl.classList.toggle('shiki-monaco-editable', editable);
@@ -220,6 +343,7 @@ export class MonacoCodeBlockSurface {
 				this.attachedParent ??
 				this.hostEl,
 			nativeInteraction: this.nativeMobileInteraction,
+			onActivate: this.activationHandler,
 		});
 	}
 }
