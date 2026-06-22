@@ -3,12 +3,10 @@ import { builtinModules } from 'node:module';
 import { defineConfig, type UserConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import banner from 'vite-plugin-banner';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { getBuildBanner } from '@lemons_dev/lemons-obsidian-plugin-automation';
 import manifest from './manifest.json' with { type: 'json' };
 
-const polyfilledNodeBuiltins = new Set(['fs', 'path', 'url']);
-const externalNodeBuiltins = builtinModules.filter(moduleName => !polyfilledNodeBuiltins.has(moduleName.replace(/^node:/, '')));
+const externalNodeBuiltins = builtinModules;
 
 const entryFile = 'packages/obsidian/src/main.ts';
 const modernMonacoEntryFile = 'packages/obsidian/src/modern-monaco-entry.ts';
@@ -42,10 +40,6 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		plugins: [
-			nodePolyfills({
-				include: ['fs', 'path', 'url'],
-				protocolImports: true,
-			}),
 			banner({
 				outDir,
 				content: getBuildBanner(prod ? 'Release Build' : 'Dev Build', version => version),
@@ -53,7 +47,7 @@ export default defineConfig(({ mode }) => {
 			...(buildEntry === 'main'
 				? [
 						viteStaticCopy({
-							targets: [{ src: 'manifest.json', dest: outDir }],
+							targets: [{ src: 'manifest.json', dest: '' }],
 						}),
 					]
 				: []),
@@ -76,13 +70,17 @@ export default defineConfig(({ mode }) => {
 			sourcemap: prod ? false : 'inline',
 			cssCodeSplit: false,
 			emptyOutDir: false,
-			outDir: '',
+			outDir,
 			rolldownOptions: {
+				checks: {
+					pluginTimings: false,
+				},
 				output: {
 					dir: outDir,
 					entryFileNames: `${buildEntry}.js`,
 					assetFileNames: 'styles.css',
 					codeSplitting: false,
+					exports: 'named',
 				},
 				external,
 			},

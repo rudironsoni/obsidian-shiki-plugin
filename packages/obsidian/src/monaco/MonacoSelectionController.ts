@@ -1,4 +1,4 @@
-type MonacoEditorLike = {
+interface MonacoEditorLike {
 	getSelection(): { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number; isEmpty(): boolean } | null;
 	getModel(): {
 		getWordAtPosition(position: { lineNumber: number; column: number }): { startColumn: number; endColumn: number } | null;
@@ -14,7 +14,7 @@ type MonacoEditorLike = {
 	onDidLayoutChange(callback: () => void): { dispose(): void };
 	onDidContentSizeChange(callback: () => void): { dispose(): void };
 	onDidChangeModelContent(callback: () => void): { dispose(): void };
-};
+}
 
 export class MonacoSelectionController {
 	private readonly host: HTMLElement;
@@ -22,7 +22,7 @@ export class MonacoSelectionController {
 	private readonly startHandle: HTMLDivElement;
 	private readonly endHandle: HTMLDivElement;
 	private editor: MonacoEditorLike | undefined;
-	private disposables: Array<{ dispose(): void }> = [];
+	private disposables: { dispose(): void }[] = [];
 	private draggingHandle: 'start' | 'end' | undefined;
 
 	constructor(host: HTMLElement) {
@@ -38,9 +38,9 @@ export class MonacoSelectionController {
 		this.endHandle.hidden = true;
 
 		for (const [label, handler] of [
-			['Copy', () => this.copySelection()],
-			['Select All', () => this.selectAll()],
-			['Clear', () => this.clearSelection()],
+			['Copy', (): void => this.copySelection()],
+			['Select All', (): void => this.selectAll()],
+			['Clear', (): void => this.clearSelection()],
 		] as const) {
 			const button = document.createElement('button');
 			button.type = 'button';

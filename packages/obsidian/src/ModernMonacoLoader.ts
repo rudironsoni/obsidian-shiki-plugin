@@ -30,7 +30,7 @@ async function loadModernMonacoModule(plugin: ShikiPlugin): Promise<{ runtime: M
 			runtimeFactory(module.exports, module, requireFn);
 			console.log('[Shiki] modern-monaco module loaded');
 
-			const entry = module.exports as { createMonacoRuntime?: (options?: unknown) => Promise<MonacoRuntime>; grammars?: unknown[] };
+			const entry = module.exports;
 			if (!entry.createMonacoRuntime) {
 				throw new Error('modern-monaco.js does not export createMonacoRuntime');
 			}
@@ -79,8 +79,8 @@ async function loadModernMonacoSource(plugin: ShikiPlugin): Promise<{ source: st
 			throw new Error('native require is unavailable');
 		}
 		console.log('[Shiki] Loading modern-monaco sidecar...');
-		const fs = nativeRequire('fs') as typeof import('node:fs');
-		const path = nativeRequire('path') as typeof import('node:path');
+		const fs = nativeRequire('fs') as { readFileSync(path: string, encoding: 'utf8'): string };
+		const path = nativeRequire('path') as { isAbsolute(path: string): boolean; join(...parts: string[]): string };
 		const appPlugins = (plugin.app as ShikiPlugin['app'] & { plugins?: { manifests?: Record<string, { dir?: string }> } }).plugins;
 		const vaultBasePath = (plugin.app.vault.adapter as { basePath?: string }).basePath ?? '';
 		const pluginDir = (plugin.manifest as { dir?: string }).dir ?? appPlugins?.manifests?.[plugin.manifest.id]?.dir ?? __dirname;

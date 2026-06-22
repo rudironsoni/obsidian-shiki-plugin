@@ -42,7 +42,7 @@ export class CodeBlock extends MarkdownRenderChild {
 		return meta.rawMeta.trim();
 	}
 
-	private async render(metaString: string): Promise<void> {
+	private async render(): Promise<void> {
 		try {
 			this.blockId = await this.plugin.readingViewAdapter.renderBlock(this.containerEl, this.source, this.language, this.ctx);
 		} catch (error) {
@@ -60,12 +60,12 @@ export class CodeBlock extends MarkdownRenderChild {
 		const newMetaString = this.getMetaString();
 		if (newMetaString !== this.cachedMetaString) {
 			this.cachedMetaString = newMetaString;
-			await this.render(newMetaString);
+			await this.render();
 		}
 	}
 
 	public async forceRerender(): Promise<void> {
-		await this.render(this.cachedMetaString);
+		await this.render();
 	}
 
 	public onload(): void {
@@ -74,7 +74,7 @@ export class CodeBlock extends MarkdownRenderChild {
 		this.plugin.addActiveCodeBlock(this);
 
 		this.cachedMetaString = this.getMetaString();
-		void this.render(this.cachedMetaString);
+		void this.render();
 	}
 
 	public onunload(): void {

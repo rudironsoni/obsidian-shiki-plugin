@@ -1,12 +1,12 @@
-import { MonacoScrollState } from 'packages/obsidian/src/monaco/MonacoScrollState';
-import { MonacoSelectionController } from 'packages/obsidian/src/monaco/MonacoSelectionController';
+import type { MonacoScrollState } from 'packages/obsidian/src/monaco/MonacoScrollState';
+import type { MonacoSelectionController } from 'packages/obsidian/src/monaco/MonacoSelectionController';
 
-type MonacoEditorLike = {
+interface MonacoEditorLike {
 	getScrollLeft(): number;
 	setScrollLeft(value: number): void;
 	focus(): void;
 	getTargetAtClientPoint?(clientX: number, clientY: number): { position?: { lineNumber: number; column: number } | null } | null;
-};
+}
 
 type GestureState = 'idle' | 'pending' | 'horizontal-scroll' | 'vertical-scroll' | 'selection';
 

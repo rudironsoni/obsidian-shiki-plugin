@@ -1,4 +1,4 @@
-import { Decoration, type DecorationSet, EditorView, type ViewUpdate } from '@codemirror/view';
+import { Decoration, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
@@ -44,8 +44,8 @@ export class SourceModeAdapter {
 		const parsed = this.parser.parseLivePreviewBlocks(lines);
 		const visibleBlocks = parsed
 			.map(block => this.toSourceBlock(block))
-			.filter(block => block.codeFrom !== undefined && block.codeTo !== undefined)
-			.filter(block => (block.codeTo as number) >= this.view.viewport.from && (block.codeFrom as number) <= this.view.viewport.to)
+			.filter((block): block is CodeBlockModel & { codeFrom: number; codeTo: number } => block.codeFrom !== undefined && block.codeTo !== undefined)
+			.filter(block => block.codeTo >= this.view.viewport.from && block.codeFrom <= this.view.viewport.to)
 			.filter(block => block.language && !this.plugin.loadedSettings.disabledLanguages.includes(block.language));
 
 		const builder = new RangeSetBuilder<Decoration>();

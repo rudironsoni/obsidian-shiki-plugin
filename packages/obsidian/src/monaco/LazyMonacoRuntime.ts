@@ -17,7 +17,7 @@ export class LazyMonacoRuntime {
 			return this.runtime;
 		}
 
-		this.loading ??= (async () => {
+		this.loading ??= (async (): Promise<MonacoRuntime> => {
 			await this.plugin.ensureSettingsLoaded();
 			const { loadModernMonacoRuntime } = await import('packages/obsidian/src/ModernMonacoLoader');
 			const runtime = await loadModernMonacoRuntime(this.plugin);
@@ -46,7 +46,7 @@ export class LazyMonacoRuntime {
 		const grammars = await loadModernMonacoGrammars(this.plugin);
 		const allNames = new Set<string>();
 		this.aliasMap ??= new Map<string, string>();
-		for (const grammar of grammars as Array<{ injectTo?: unknown; name: string; aliases?: string[] }>) {
+		for (const grammar of grammars as { injectTo?: unknown; name: string; aliases?: string[] }[]) {
 			if (grammar.injectTo) {
 				continue;
 			}

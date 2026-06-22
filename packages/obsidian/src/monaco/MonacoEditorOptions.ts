@@ -1,9 +1,11 @@
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import type { MonacoBlockMetrics } from 'packages/obsidian/src/monaco/MonacoBlockSizer';
 
-type MonacoEditor = typeof import('modern-monaco/editor-core').editor;
+import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
 
-export function buildReadonlyEditorOptions(plugin: ShikiPlugin, metrics: MonacoBlockMetrics, theme: string): Parameters<MonacoEditor['create']>[1] {
+type MonacoEditorOptions = Parameters<MonacoRuntime['monaco']['editor']['create']>[1];
+
+export function buildReadonlyEditorOptions(plugin: ShikiPlugin, metrics: MonacoBlockMetrics, theme: string): MonacoEditorOptions {
 	const showLineNumbers = plugin.loadedSettings.ecDefaultShowLineNumbers;
 	if (showLineNumbers) {
 		(globalThis as Record<string, unknown>).__monaco_maxDigitWidth = 10;
@@ -41,12 +43,12 @@ export function buildReadonlyEditorOptions(plugin: ShikiPlugin, metrics: MonacoB
 		occurrencesHighlight: 'off',
 		links: false,
 		colorDecorators: false,
-		lightbulb: { enabled: 'off' as any },
+		lightbulb: { enabled: 'off' },
 		padding: { top: metrics.paddingTop, bottom: metrics.paddingBottom },
 	};
 }
 
-export function buildEditableEditorOptions(plugin: ShikiPlugin, metrics: MonacoBlockMetrics, theme: string): Parameters<MonacoEditor['create']>[1] {
+export function buildEditableEditorOptions(plugin: ShikiPlugin, metrics: MonacoBlockMetrics, theme: string): MonacoEditorOptions {
 	return {
 		...buildReadonlyEditorOptions(plugin, metrics, theme),
 		readOnly: false,

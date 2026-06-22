@@ -1,4 +1,4 @@
-import { MonacoCodeBlockSurface } from 'packages/obsidian/src/monaco/MonacoCodeBlockSurface';
+import type { MonacoCodeBlockSurface } from 'packages/obsidian/src/monaco/MonacoCodeBlockSurface';
 
 export class HydrationQueue {
 	private readonly pending: MonacoCodeBlockSurface[] = [];

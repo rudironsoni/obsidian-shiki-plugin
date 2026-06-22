@@ -1,4 +1,4 @@
-import type { ThemedToken, TokensResult } from 'shiki';
+import type { CodeToTokensOptions, ThemedToken, TokensResult } from 'shiki';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 
 export class LazyHighlighter {
@@ -38,7 +38,7 @@ export class LazyHighlighter {
 		try {
 			await runtime.registerLanguage(normalized);
 			const canonical = this.resolveLanguageAlias(normalized) ?? normalized;
-			return runtime.highlighter.codeToTokens(code, { lang: canonical, theme });
+			return runtime.highlighter.codeToTokens(code, { lang: canonical, theme } satisfies CodeToTokensOptions) as TokensResult;
 		} catch {
 			return undefined;
 		}

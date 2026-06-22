@@ -11,10 +11,10 @@ import type { MonacoRuntime } from 'packages/obsidian/src/modern-monaco-entry';
 import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 
 type MonacoEditorLike = ReturnType<MonacoRuntime['monaco']['editor']['create']>;
-type NativeMobileInteraction = {
+interface NativeMobileInteraction {
 	placeCursor(position: { lineNumber: number; column: number }): void;
 	selectWord(position: { lineNumber: number; column: number }): void;
-};
+}
 
 export class MonacoCodeBlockSurface {
 	readonly hostEl: HTMLDivElement;
@@ -213,7 +213,7 @@ export class MonacoCodeBlockSurface {
 			editor: this.editor,
 			selectionController: this.selectionController,
 			scrollState: this.scrollState,
-			getNoteScroller: () =>
+			getNoteScroller: (): HTMLElement =>
 				(this.hostEl
 					.closest('.markdown-source-view, .markdown-preview-view')
 					?.querySelector('.cm-scroller, .markdown-preview-sizer') as HTMLElement | null) ??

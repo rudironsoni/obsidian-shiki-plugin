@@ -1,15 +1,77 @@
-// @ts-nocheck
 // modern-monaco does not provide TypeScript declarations for subpath exports.
-import * as monaco from 'modern-monaco/editor-core';
-import { initShiki, initShikiMonacoTokenizer, registerShikiMonacoTokenizer, grammars, setDefaultWasmLoader } from 'modern-monaco/shiki';
-import { getWasmInstance } from 'shiki-wasm';
+import * as rawMonaco from 'modern-monaco/editor-core';
+import {
+	initShiki as rawInitShiki,
+	initShikiMonacoTokenizer as rawInitShikiMonacoTokenizer,
+	registerShikiMonacoTokenizer as rawRegisterShikiMonacoTokenizer,
+	grammars as rawGrammars,
+	setDefaultWasmLoader as rawSetDefaultWasmLoader,
+} from 'modern-monaco/shiki';
+import { getWasmInstance as rawGetWasmInstance } from 'shiki-wasm';
+
+interface GrammarDefinition {
+	name: string;
+	aliases?: string[];
+	injectTo?: unknown;
+}
+
+interface MonacoLanguageDefinition {
+	id: string;
+}
+
+interface MonacoEditorInstance {
+	dispose(): void;
+	focus(): void;
+	getModel(): { getValue(): string; setValue(value: string): void } | null;
+	getScrollLeft(): number;
+	getValue(): string;
+	layout(size: { width: number; height: number }): void;
+	onDidBlurEditorWidget(callback: () => void): { dispose(): void };
+	onDidChangeModelContent(callback: () => void): { dispose(): void };
+	onDidFocusEditorWidget(callback: () => void): { dispose(): void };
+	onDidScrollChange(callback: () => void): { dispose(): void };
+	setScrollLeft(value: number): void;
+	updateOptions(options: Record<string, unknown>): void;
+}
+
+type MonacoEditorOptions = Record<string, unknown>;
+
+interface MonacoModule {
+	editor: {
+		create(element: HTMLElement, options: MonacoEditorOptions): MonacoEditorInstance;
+		setTheme(theme: string): void;
+	};
+	languages: {
+		getLanguages(): MonacoLanguageDefinition[];
+		register(language: MonacoLanguageDefinition): void;
+		setMonarchTokensProvider(language: string, provider: unknown): void;
+	};
+}
+
+interface ModernMonacoHighlighter {
+	codeToTokens(code: string, options: { lang: string; theme: string }): unknown;
+	loadGrammarFromCDN(language: string): Promise<void>;
+}
+
+type InitShiki = (options: { defaultTheme?: string; themes?: (string | object)[]; langs?: (string | object)[] }) => Promise<ModernMonacoHighlighter>;
+type InitShikiMonacoTokenizer = (monaco: MonacoModule, highlighter: ModernMonacoHighlighter) => void;
+type RegisterShikiMonacoTokenizer = (monaco: MonacoModule, highlighter: ModernMonacoHighlighter, language: string) => void;
+
+export const monaco = rawMonaco as unknown as MonacoModule;
+export const grammars: GrammarDefinition[] = rawGrammars;
+
+const initShiki: InitShiki = rawInitShiki;
+const initShikiMonacoTokenizer: InitShikiMonacoTokenizer = rawInitShikiMonacoTokenizer;
+const registerShikiMonacoTokenizer: RegisterShikiMonacoTokenizer = rawRegisterShikiMonacoTokenizer;
+const setDefaultWasmLoader = rawSetDefaultWasmLoader;
+const getWasmInstance = rawGetWasmInstance;
 
 // Set the default WASM loader BEFORE initShiki creates the engine.
 setDefaultWasmLoader(getWasmInstance);
 
 export interface MonacoRuntime {
-	monaco: typeof monaco;
-	highlighter: Awaited<ReturnType<typeof initShiki>>;
+	monaco: MonacoModule;
+	highlighter: ModernMonacoHighlighter;
 	registerLanguage: (id: string) => Promise<void>;
 }
 
@@ -42,7 +104,7 @@ export async function createMonacoRuntime(options?: {
 		});
 
 		// Register all languages with Monaco and set up Shiki tokenization
-		const allLanguages = new Set(grammars.filter((g: { injectTo?: unknown }) => !g.injectTo).map((g: { name: string }) => g.name));
+		const allLanguages = new Set(grammars.filter(grammar => !grammar.injectTo).map(grammar => grammar.name));
 		for (const id of allLanguages) {
 			monaco.languages.register({ id });
 		}
@@ -78,7 +140,6 @@ export async function createMonacoRuntime(options?: {
 			}
 
 			// Load grammar from CDN with retry - mobile networks can be flaky
-			let lastError: unknown;
 			for (let attempt = 1; attempt <= 3; attempt++) {
 				try {
 					await highlighter.loadGrammarFromCDN(canonical);
@@ -87,7 +148,6 @@ export async function createMonacoRuntime(options?: {
 					console.log(`[Shiki] Grammar loaded for ${canonical} (attempt ${attempt})`);
 					return;
 				} catch (error) {
-					lastError = error;
 					console.warn(`[Shiki] Grammar load attempt ${attempt}/3 failed for ${canonical}:`, error);
 					if (attempt < 3) {
 						await new Promise(r => setTimeout(r, 500 * attempt));
@@ -122,5 +182,3 @@ export async function createMonacoRuntime(options?: {
 
 	return runtimePromise;
 }
-
-export { monaco, grammars };

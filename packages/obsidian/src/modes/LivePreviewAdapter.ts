@@ -1,4 +1,4 @@
-import { Decoration, type DecorationSet, EditorView, type ViewUpdate } from '@codemirror/view';
+import { Decoration, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
@@ -273,9 +273,9 @@ export class LivePreviewAdapter {
 
 	createEditSync(block: CodeBlockModel): MonacoEditSync {
 		return {
-			commit: (value: string) => {
+			commit: (value: string): void => {
 				const current = this.blocks.find(candidate => candidate.id === block.id);
-				if (!current || current.codeFrom === undefined || current.codeTo === undefined) {
+				if (current?.codeFrom === undefined || current.codeTo === undefined) {
 					return;
 				}
 				if (this.view.state.doc.sliceString(current.codeFrom, current.codeTo) === value) {
@@ -283,9 +283,9 @@ export class LivePreviewAdapter {
 				}
 				this.view.dispatch({ changes: { from: current.codeFrom, to: current.codeTo, insert: value } });
 			},
-			getCurrentRange: () => {
+			getCurrentRange: (): { from: number; to: number } | undefined => {
 				const current = this.blocks.find(candidate => candidate.id === block.id);
-				if (!current || current.codeFrom === undefined || current.codeTo === undefined) {
+				if (current?.codeFrom === undefined || current.codeTo === undefined) {
 					return undefined;
 				}
 				return { from: current.codeFrom, to: current.codeTo };
@@ -298,7 +298,7 @@ export class LivePreviewAdapter {
 		selectWord(position: { lineNumber: number; column: number }): void;
 	} {
 		return {
-			placeCursor: position => {
+			placeCursor: (position): void => {
 				const editorPosition = this.monacoPositionToEditorPosition(block, position);
 				const editor = this.getObsidianEditor();
 				if (!editor || !editorPosition) {
@@ -308,7 +308,7 @@ export class LivePreviewAdapter {
 				editor.scrollIntoView({ from: editorPosition, to: editorPosition }, false);
 				editor.focus();
 			},
-			selectWord: position => {
+			selectWord: (position): void => {
 				const editorPosition = this.monacoPositionToEditorPosition(block, position);
 				const editor = this.getObsidianEditor();
 				if (!editor || !editorPosition) {
@@ -350,9 +350,8 @@ export class LivePreviewAdapter {
 				focus(): void;
 		  }
 		| undefined {
-		return this.plugin.app.workspace.activeLeaf?.view && 'editor' in this.plugin.app.workspace.activeLeaf.view
-			? (this.plugin.app.workspace.activeLeaf.view.editor as ReturnType<LivePreviewAdapter['getObsidianEditor']>)
-			: undefined;
+		const view = this.plugin.app.workspace.activeLeaf?.view;
+		return view && 'editor' in view ? (view.editor as ReturnType<LivePreviewAdapter['getObsidianEditor']>) : undefined;
 	}
 
 	private isMobile(): boolean {

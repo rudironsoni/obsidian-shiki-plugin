@@ -1,5 +1,5 @@
 import { Prec, type Range } from '@codemirror/state';
-import { Decoration, EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { Decoration, ViewPlugin, type EditorView, type ViewUpdate } from '@codemirror/view';
 import { editorLivePreviewField } from 'obsidian';
 import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
 import type ShikiPlugin from 'packages/obsidian/src/main';
@@ -102,7 +102,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			};
 
 			private async updateInlineDecorations(): Promise<void> {
-				const inlineRequests: Array<{ from: number; to: number; language: string; content: string }> = [];
+				const inlineRequests: { from: number; to: number; language: string; content: string }[] = [];
 				const captured = this.view.state.doc;
 				syntaxTree(this.view.state).iterate({
 					enter: nodeRef => {

@@ -3,7 +3,7 @@ import { makeParsedCodeBlockIdentity } from 'packages/obsidian/src/codeblocks/Co
 import type { CodeBlockLineInfo, ParsedCodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
 
 export class CodeBlockParser {
-	parseLivePreviewBlocks(lines: ReadonlyArray<CodeBlockLineInfo>): ParsedCodeBlockModel[] {
+	parseLivePreviewBlocks(lines: readonly CodeBlockLineInfo[]): ParsedCodeBlockModel[] {
 		const blocks: ParsedCodeBlockModel[] = [];
 		let current: { closingFence: string; openingLine: number; language: string; from: number } | undefined;
 		const getLine = (lineNumber: number): CodeBlockLineInfo | undefined => lines[lineNumber - 1];
