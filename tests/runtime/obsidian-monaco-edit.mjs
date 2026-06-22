@@ -324,20 +324,26 @@ async function readOutsideNoteWheelPoint(client) {
 	return evaluate(
 		client,
 		`(() => {
-			const root = document.querySelector('.markdown-source-view.mod-cm6') ?? document;
-			const scroller = root.querySelector('.cm-scroller') ?? document.scrollingElement;
-			const outsideLine = [...root.querySelectorAll('.cm-line')].find(line => {
-				const text = line.textContent ?? '';
-				const rect = line.getBoundingClientRect();
-				return rect.width > 0 && rect.height > 0 && !line.classList.contains('shiki-editing-codeblock-line') && text.includes('PyCharm Django Console fixes');
-			});
-			const rect = outsideLine?.getBoundingClientRect?.();
-			return {
-				x: rect ? Math.floor(rect.left + Math.min(120, rect.width / 2)) : 160,
-				y: rect ? Math.floor(rect.top + rect.height / 2) : 160,
-				noteScrollTop: scroller?.scrollTop ?? 0,
-			};
-		})()`,
+		const scroller = document.querySelector('.markdown-source-view.mod-cm6 .cm-scroller')
+			?? document.querySelector('.workspace-leaf-content[data-type="markdown"] .view-content')
+			?? document.scrollingElement;
+		const scrollerRect = scroller?.getBoundingClientRect?.();
+		const outsideLine = [...document.querySelectorAll('.markdown-source-view.mod-cm6 .cm-line')].find(line => {
+			if (line.closest('.shiki-monaco-codeblock')) return false;
+			const rect = line.getBoundingClientRect();
+			if (rect.width <= 0 || rect.height <= 0) return false;
+			if (!scrollerRect) return true;
+			return rect.top >= scrollerRect.top + 8 && rect.bottom <= scrollerRect.bottom - 8;
+		});
+		const rect = outsideLine?.getBoundingClientRect?.() ?? scrollerRect;
+		return {
+			x: rect ? rect.left + Math.min(Math.max(rect.width / 2, 24), Math.max(rect.width - 8, 24)) : 32,
+			y: rect ? rect.top + Math.min(Math.max(rect.height / 2, 8), Math.max(rect.height - 4, 8)) : 32,
+			noteScrollTop: scroller?.scrollTop ?? 0,
+			scrollHeight: scroller?.scrollHeight ?? 0,
+			clientHeight: scroller?.clientHeight ?? 0,
+		};
+	})()`,
 	);
 }
 
@@ -405,19 +411,105 @@ async function readMonacoScrollState(client) {
 	return evaluate(
 		client,
 		`(() => {
-			const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
-				?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock');
-			const editor = block?._monacoEditor;
-			if (!block || !editor) return null;
-			const line = block.querySelector('.view-line');
-			return {
-				scrollLeft: editor.getScrollLeft?.() ?? 0,
-				hasOverflow: (editor.getScrollWidth?.() ?? block.scrollWidth) > block.clientWidth,
-				contentLeft: line?.getBoundingClientRect?.().left ?? null,
-				width: block.clientWidth,
-				scrollWidth: editor.getScrollWidth?.() ?? block.scrollWidth,
-			};
+		const block = document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active')
+			?? document.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock')
+			?? document.querySelector('.shiki-monaco-codeblock.shiki-monaco-active')
+			?? document.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
+		const editor = block?._monacoEditor;
+		const line = block?.querySelector?.('.view-line');
+		const scrollLeft = editor?.getScrollLeft?.() ?? 0;
+		const scrollWidth = editor?.getScrollWidth?.() ?? block?.scrollWidth ?? 0;
+		const clientWidth = block?.clientWidth ?? 0;
+		const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+		return {
+			scrollLeft,
+			maxScrollLeft,
+			hasOverflow: maxScrollLeft > 0,
+			lineLeft: line?.getBoundingClientRect?.().left ?? null,
+			blockWidth: clientWidth,
+			scrollWidth,
+		};
+	})()`,
+	);
+}
+
+async function assertEditableCursorPlacement(client, modeName) {
+	const summary = await evaluate(
+		client,
+		`(() => {
+		const host = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getModel?.());
+		const editor = host?._monacoEditor;
+		const model = editor?.getModel?.();
+		if (!host || !editor || !model) {
+			return { ok: false, reason: 'missing-editable-monaco' };
+		}
+		return {
+			ok: true,
+			lineNumber: Math.min(3, Math.max(1, model.getLineCount())),
+			maxScrollLeft: editor.getScrollWidth?.() && editor.getLayoutInfo?.() ? Math.max(0, editor.getScrollWidth() - editor.getLayoutInfo().width) : 0,
+		};
+	})()`,
+	);
+	assert(summary.ok, `${modeName}: editable cursor placement setup failed`, summary);
+
+	for (const scrollFraction of [0, 0.5, 1]) {
+		const target = await evaluate(
+			client,
+			`(() => {
+			const lineNumber = ${summary.lineNumber};
+			const scrollFraction = ${scrollFraction};
+			const host = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getModel?.());
+			const editor = host?._monacoEditor;
+			if (!host || !editor) {
+				return { ok: false, reason: 'missing-editable-monaco' };
+			}
+			const layout = editor.getLayoutInfo?.();
+			const maxScrollLeft = editor.getScrollWidth?.() && layout ? Math.max(0, editor.getScrollWidth() - layout.width) : 0;
+			editor.setScrollLeft?.(maxScrollLeft * scrollFraction);
+			editor.revealLineInCenterIfOutsideViewport?.(lineNumber);
+			editor.layout?.();
+			const editorRect = host.querySelector('.monaco-editor')?.getBoundingClientRect?.() ?? host.getBoundingClientRect();
+			const visible = editor.getScrolledVisiblePosition?.({ lineNumber, column: 1 });
+			const baseY = editorRect.top + (visible?.top ?? 0) + (visible?.height ?? 18) / 2;
+			const xRatios = scrollFraction === 0 ? [0.25, 0.5, 0.75] : scrollFraction === 1 ? [0.75, 0.5, 0.25] : [0.5, 0.25, 0.75];
+			const yOffsets = [-48, -32, -16, -8, 0, 8, 16, 32, 48];
+			for (const xRatio of xRatios) {
+				for (const yOffset of yOffsets) {
+					const x = editorRect.left + editorRect.width * xRatio;
+					const y = baseY + yOffset;
+					const position = editor.getTargetAtClientPoint?.(x, y)?.position;
+					if (position?.lineNumber === lineNumber) {
+						return { ok: true, x, y, expected: position, scrollFraction, scrollLeft: editor.getScrollLeft?.() ?? 0 };
+					}
+				}
+			}
+			return { ok: false, reason: 'no-visible-hit-target', lineNumber, scrollFraction, scrollLeft: editor.getScrollLeft?.() ?? 0, baseY };
 		})()`,
+		);
+		assert(target.ok, `${modeName}: editable cursor placement target was unavailable`, target);
+		await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: target.x, y: target.y, button: 'left', clickCount: 1 });
+		await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target.x, y: target.y, button: 'left', clickCount: 1 });
+		await delay(100);
+		const position = await evaluate(
+			client,
+			`(() => {
+			const editor = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getPosition?.())?._monacoEditor;
+			return editor?.getPosition?.() ?? null;
+		})()`,
+		);
+		assert(position?.lineNumber === target.expected.lineNumber, `${modeName}: editable Monaco click placed cursor on wrong line`, { target, position });
+		assert(Math.abs(position.column - target.expected.column) <= 1, `${modeName}: editable Monaco click placed cursor on wrong column`, {
+			target,
+			position,
+		});
+	}
+	await evaluate(
+		client,
+		`(() => {
+		const editor = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.setScrollLeft)?._monacoEditor;
+		editor?.setScrollLeft?.(0);
+		editor?.setPosition?.({ lineNumber: 1, column: 1 });
+	})()`,
 	);
 }
 
@@ -691,6 +783,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 			if (container && container._monacoEditor) container._monacoEditor.focus();
 		})()`,
 		);
+		await assertEditableCursorPlacement(client, modeName);
 		await typeText(client, marker);
 		const content = await assertFileContains(client, marker);
 		assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
