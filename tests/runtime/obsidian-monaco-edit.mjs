@@ -421,6 +421,64 @@ async function readMonacoScrollState(client) {
 	);
 }
 
+async function assertMonacoCopySelection(client, modeName) {
+	const setup = await evaluate(
+		client,
+		`(() => {
+		const hosts = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')];
+		const host = hosts.find(candidate => candidate._monacoEditor?.getModel?.());
+		const editor = host?._monacoEditor;
+		if (!editor) {
+			return { ok: false, reason: 'missing-monaco-editor', hostCount: hosts.length };
+		}
+		const model = editor.getModel?.();
+		if (!model) {
+			return { ok: false, reason: 'missing-monaco-model' };
+		}
+		const lineNumber = Math.min(2, Math.max(1, model.getLineCount()));
+		const line = model.getLineContent(lineNumber);
+		const match = line.match(/[A-Za-z_$][\\w$]*/);
+		if (!match) {
+			return { ok: false, reason: 'missing-copyable-word', line };
+		}
+		const startColumn = match.index + 1;
+		const endColumn = startColumn + match[0].length;
+		editor.setSelection({ startLineNumber: lineNumber, startColumn, endLineNumber: lineNumber, endColumn });
+		editor.revealPositionInCenterIfOutsideViewport?.({ lineNumber, column: startColumn });
+		editor.focus();
+		globalThis.__shikiCopyCapture = null;
+		const listener = event => {
+			globalThis.__shikiCopyCapture = event.clipboardData?.getData('text/plain') ?? '';
+		};
+		document.addEventListener('copy', listener, { once: true });
+		return { ok: true, expected: match[0], selected: model.getValueInRange(editor.getSelection()) };
+	})()`,
+	);
+	assert(setup.ok, `${modeName}: Monaco copy setup failed`, setup);
+	assert(setup.selected === setup.expected, `${modeName}: Monaco selection did not match expected copy text`, setup);
+
+	await client.send('Input.dispatchKeyEvent', {
+		type: 'keyDown',
+		key: 'c',
+		code: 'KeyC',
+		windowsVirtualKeyCode: 67,
+		nativeVirtualKeyCode: 8,
+		modifiers: 4,
+	});
+	await client.send('Input.dispatchKeyEvent', {
+		type: 'keyUp',
+		key: 'c',
+		code: 'KeyC',
+		windowsVirtualKeyCode: 67,
+		nativeVirtualKeyCode: 8,
+		modifiers: 4,
+	});
+	await delay(100);
+
+	const copied = await evaluate(client, `globalThis.__shikiCopyCapture ?? ''`);
+	assert(copied === setup.expected, `${modeName}: Monaco copy did not expose selected text`, { expected: setup.expected, copied });
+}
+
 async function typeText(client, text) {
 	await evaluate(
 		client,
@@ -572,6 +630,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	const isMobileMode = modeName.includes('mobile');
 	await clickLine(client, line);
 	const monaco = await waitForMonaco(client, modeName, !isMobileMode);
+	await assertMonacoCopySelection(client, modeName);
 	assert(monaco.width > 0 && monaco.height > 0, `${modeName}: Monaco mounted without visible dimensions`, monaco);
 	assert(monaco.viewLines > 0, `${modeName}: Monaco mounted but rendered no visible editor lines`, monaco);
 	assert(monaco.hasEditorHook, `${modeName}: Monaco mounted without editor instance hook`, monaco);
