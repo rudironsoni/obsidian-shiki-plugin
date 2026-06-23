@@ -136,4 +136,26 @@ describe('startup module boundary', () => {
 
 		expect(createOwners).toEqual(['packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts']);
 	});
+
+	test('production source avoids console spam and unguarded debug globals', () => {
+		const sourceFiles = [
+			'packages/obsidian/src/main.ts',
+			'packages/obsidian/src/LazyHighlighter.ts',
+			'packages/obsidian/src/ModernMonacoLoader.ts',
+			'packages/obsidian/src/modes/ReadingViewAdapter.ts',
+			'packages/obsidian/src/modes/LivePreviewAdapter.ts',
+			'packages/obsidian/src/modes/SourceModeAdapter.ts',
+			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
+			'packages/obsidian/src/monaco/MonacoGestureRouter.ts',
+			'packages/obsidian/src/monaco/MonacoSelectionController.ts',
+			'packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts',
+			'packages/obsidian/src/monaco/LazyMonacoRuntime.ts',
+		];
+		const violations = sourceFiles.flatMap(file => {
+			const source = read(file);
+			const matches = [...source.matchAll(/console\.(?:log|debug)\s*\(|globalThis\.__shiki[A-Za-z0-9_]*|window\.__shiki[A-Za-z0-9_]*/g)];
+			return matches.map(match => `${file}:${match[0]}`);
+		});
+		expect(violations).toEqual([]);
+	});
 });
