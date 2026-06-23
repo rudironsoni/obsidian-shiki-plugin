@@ -205,3 +205,25 @@ describe('startup module boundary', () => {
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });
+
+test('settings language listing uses static metadata without loading modern Monaco', () => {
+	const settingsTab = read('packages/obsidian/src/settings/SettingsTab.ts');
+	const lazyRuntime = read('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
+	const languageMetadata = read('packages/obsidian/src/runtime/LanguageMetadata.ts');
+
+	expect(settingsTab).toContain('obsidianSafeLanguageNames');
+	expect(settingsTab).not.toContain('ModernMonacoLoader');
+	expect(settingsTab).not.toContain('loadModernMonacoRuntime');
+	expect(settingsTab).not.toContain('modern-monaco');
+
+	const methodStart = lazyRuntime.indexOf('async obsidianSafeLanguageNames()');
+	expect(methodStart).toBeGreaterThanOrEqual(0);
+	const methodEnd = lazyRuntime.indexOf('resolveLanguageAlias', methodStart);
+	const methodSource = lazyRuntime.slice(methodStart, methodEnd);
+	expect(methodSource).toContain('getObsidianSafeLanguageNames()');
+	expect(methodSource).not.toContain('import(');
+	expect(methodSource).not.toContain('ModernMonacoLoader');
+	expect(methodSource).not.toContain('loadModernMonacoRuntime');
+	expect(languageMetadata).toContain('getObsidianSafeLanguageNames');
+	expect(languageMetadata).toContain('LANGUAGE_METADATA');
+});
