@@ -373,3 +373,36 @@ body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeb
 	overscroll-behavior-x: contain;
 	touch-action: pan-y;
 }
+
+/* Keep Live Preview raw fenced Markdown hidden without hiding Monaco internals. */
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden *,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden,
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden * {
+	color: transparent !important;
+	-webkit-text-fill-color: transparent !important;
+	text-shadow: none !important;
+	caret-color: transparent !important;
+	border-color: transparent !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock *,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor * {
+	-webkit-text-fill-color: initial;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-line span,
+.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor .view-line span {
+	-webkit-text-fill-color: currentColor;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence[data-shiki-editing-block-id],
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence[data-shiki-editing-block-id] * {
+	color: transparent !important;
+	-webkit-text-fill-color: transparent !important;
+	text-shadow: none !important;
+	caret-color: transparent !important;
+	border-color: transparent !important;
+}

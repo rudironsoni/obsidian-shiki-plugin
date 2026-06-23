@@ -78,6 +78,10 @@ export class MonacoCodeBlockSurface {
 			return;
 		}
 		const model = this.editor.getModel();
+		if (this.modeController.isEditable()) {
+			this.layout();
+			return;
+		}
 		if (model && model.getValue() !== block.code) {
 			this.inputController.withSuppressedCommit(() => {
 				model.setValue(block.code);
@@ -154,7 +158,12 @@ export class MonacoCodeBlockSurface {
 		if (!this.editor || this.disposed) {
 			return;
 		}
-		const metrics = this.blockSizer.measure(this.block, this.hostEl);
+		const metrics = this.blockSizer.measure(
+			this.modeController.isEditable()
+				? { ...this.block, code: this.editor.getValue() }
+				: this.block,
+			this.hostEl,
+		);
 		this.hostEl.style.height = `${metrics.height}px`;
 		this.editorEl!.style.height = `${metrics.height}px`;
 		this.editor.updateOptions({
