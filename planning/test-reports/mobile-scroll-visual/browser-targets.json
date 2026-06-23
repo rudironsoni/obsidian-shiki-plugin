@@ -1,7 +1,7 @@
 {
 	"targetInfos": [
 		{
-			"targetId": "733E7F4468F2DFFC65AEF94A70F2F940",
+			"targetId": "1A386883F0B76A5D031CDE7205C0B29A",
 			"type": "worker",
 			"title": "",
 			"url": "",
@@ -10,7 +10,7 @@
 			"browserContextId": "C22767EE133A856830C1BF93E71CE44A"
 		},
 		{
-			"targetId": "AD44146FF491A9AA60E7D07634EA2559",
+			"targetId": "4C37AFECE5FF33391E0F1C94F26591DB",
 			"type": "worker",
 			"title": "",
 			"url": "",
@@ -21,7 +21,7 @@
 		{
 			"targetId": "B687961E99A573ADA78C670631C55BF6",
 			"type": "page",
-			"title": "codex-live-preview-interactions - obsidian-shiki-real-verify-vault - Obsidian 1.12.7",
+			"title": "feature-test - obsidian-shiki-real-verify-vault - Obsidian 1.12.7",
 			"url": "app://obsidian.md/index.html",
 			"attached": false,
 			"canAccessOpener": false,

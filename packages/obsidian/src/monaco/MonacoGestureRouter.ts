@@ -181,6 +181,19 @@ export class MonacoGestureRouter {
 		}
 		if (!touch || state?.axis !== 'pending') return;
 		const nativePosition = this.editor.getTargetAtClientPoint?.(touch.clientX, touch.clientY)?.position ?? null;
+		if (nativePosition && this.isEditable()) {
+			event.preventDefault();
+			event.stopPropagation();
+			this.editor.setPosition(nativePosition);
+			this.editor.focus?.();
+			window.setTimeout(() => {
+				this.editor.setPosition(nativePosition);
+				this.editor.focus?.();
+			}, 0);
+			this.lastTouchTime = Date.now();
+			return;
+		}
+
 		if (nativePosition && this.nativeInteraction) {
 			event.preventDefault();
 			event.stopPropagation();
