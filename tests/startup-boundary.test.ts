@@ -240,3 +240,16 @@ test('Monaco edit verifier uses Obsidian editor scroller API for outside note sc
 	expect(source).not.toContain('vertical wheel outside Monaco did not scroll the Obsidian note');
 });
 
+test('real Obsidian verifier bounds CDP evaluation waits', () => {
+	const source = read('tests/runtime/obsidian-real.mjs');
+
+	expect(source).toContain('Timed out opening CDP socket');
+	expect(source).toContain('Timed out evaluating CDP expression after 15000ms');
+	expect(source).toContain('verify:obsidian-real failed:');
+	const evaluateStart = source.indexOf('async function evaluate');
+	const evaluateEnd = source.indexOf('async function dispatchMouseClick', evaluateStart);
+	const evaluateSource = source.slice(evaluateStart, evaluateEnd);
+
+	expect(evaluateSource).not.toContain('const pending = new Map');
+	expect(evaluateSource).not.toContain('pending.set(id');
+});

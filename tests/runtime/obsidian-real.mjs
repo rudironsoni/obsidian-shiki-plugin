@@ -318,49 +318,61 @@ async function closeTarget(target) {
 
 async function evaluate(wsUrl, expression) {
 	const socket = new WebSocket(wsUrl);
-	let nextId = 0;
-	const pending = new Map();
-
-	await new Promise((resolve, reject) => {
-		socket.addEventListener('open', resolve, { once: true });
-		socket.addEventListener('error', reject, { once: true });
-	});
-
-	socket.addEventListener('message', event => {
-		const message = JSON.parse(event.data);
-		if (message.id && pending.has(message.id)) {
-			const callbacks = pending.get(message.id);
-			pending.delete(message.id);
-			if (message.error) callbacks.reject(message.error);
-			else callbacks.resolve(message.result);
-		}
-	});
-
-	function send(method, params = {}) {
-		const id = ++nextId;
-		socket.send(JSON.stringify({ id, method, params }));
-		return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
-	}
+	const expressionLabel = String(expression).replace(/\s+/g, ' ').slice(0, 160);
+	let timeout;
 
 	try {
-		await send('Runtime.enable');
-		const result = await send('Runtime.evaluate', {
-			expression,
-			awaitPromise: true,
-			returnByValue: true,
+		await new Promise((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error('Timed out opening CDP socket for `' + expressionLabel + '`')), 10000);
+			socket.addEventListener('open', () => {
+				clearTimeout(timer);
+				resolve();
+			}, { once: true });
+			socket.addEventListener('error', (event) => {
+				clearTimeout(timer);
+				reject(event.error ?? new Error('CDP socket error'));
+			}, { once: true });
 		});
-		if (result.exceptionDetails) {
-			console.error('Renderer exception details:', result.exceptionDetails);
-			if (result.exceptionDetails.stackTrace) {
-				console.error('Renderer exception stack:', result.exceptionDetails.stackTrace);
-			}
-			const description = result.exceptionDetails.exception?.description;
-			const value = result.exceptionDetails.exception?.value;
-			const message = result.exceptionDetails.text ?? description ?? value ?? 'Uncaught';
-			throw new Error(`Renderer exception: ${message}`);
-		}
-		return result.result.value;
+
+		return await new Promise((resolve, reject) => {
+			const id = 1;
+			timeout = setTimeout(() => {
+				reject(new Error('Timed out evaluating CDP expression after 15000ms: `' + expressionLabel + '`'));
+			}, 15000);
+			const cleanup = () => {
+				if (timeout !== undefined) {
+					clearTimeout(timeout);
+					timeout = undefined;
+				}
+			};
+			socket.addEventListener('message', (event) => {
+				const message = JSON.parse(event.data);
+				if (message.id !== id) return;
+				cleanup();
+				if (message.error) {
+					reject(new Error(JSON.stringify(message.error)));
+					return;
+				}
+				const result = message.result;
+				if (result?.exceptionDetails) {
+					const exception = result.exceptionDetails.exception;
+					reject(new Error(exception?.description ?? exception?.value ?? result.exceptionDetails.text ?? 'Runtime.evaluate failed'));
+					return;
+				}
+				resolve(result?.result?.value);
+			});
+			socket.send(JSON.stringify({
+				id,
+				method: 'Runtime.evaluate',
+				params: {
+					expression,
+					awaitPromise: true,
+					returnByValue: true,
+				},
+			}));
+		});
 	} finally {
+		if (timeout !== undefined) clearTimeout(timeout);
 		socket.close();
 	}
 }
@@ -1765,6 +1777,7 @@ async function main() {
 }
 
 main().catch(error => {
+	console.error(`verify:obsidian-real failed: ${error?.message ?? error}`);
 	console.error(error);
 	process.exit(1);
 });
