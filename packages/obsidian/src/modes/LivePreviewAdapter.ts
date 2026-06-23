@@ -193,6 +193,7 @@ export class LivePreviewAdapter {
 			this.detachAll();
 			return;
 		}
+		this.ensureSingleOverlayRoot();
 		const visibleIds = new Set<string>();
 		let missingVisibleLines = false;
 		for (const block of this.blocks) {
@@ -221,9 +222,9 @@ export class LivePreviewAdapter {
 			const rootRect = this.view.dom.getBoundingClientRect();
 			const firstRect = first.getBoundingClientRect();
 			const lastRect = last.getBoundingClientRect();
-			this.removeDuplicateSurfaceHosts(block.id, surface.hostEl);
+			this.prepareSurfaceHost(block, surface.hostEl);
 			surface.attach(this.overlayRoot);
-			this.removeDuplicateSurfaceHosts(block.id, surface.hostEl);
+			this.removeDuplicateSurfaceHosts(block, surface.hostEl);
 			this.removeDuplicateBlockSurfaces(block.id, surface.hostEl);
 			const mobileMode = this.isMobile();
 			if (mobileMode && this.activeBlockId !== block.id) {
@@ -266,6 +267,8 @@ export class LivePreviewAdapter {
 			}
 		}
 
+		this.removeStaleOverlayChildren(visibleIds);
+		this.ensureSingleOverlayRoot();
 		if (missingVisibleLines && this.missingLineRetryCount < 20) {
 			this.missingLineRetryCount++;
 			this.requestDecorationRefresh();
@@ -310,17 +313,55 @@ export class LivePreviewAdapter {
 		this.scheduleVisibilityRefresh();
 	}
 
-	private removeDuplicateSurfaceHosts(blockId: string, ownedHost: HTMLElement): void {
-		const selector = `.shiki-monaco-block[data-shiki-block-id="${blockId}"], .shiki-monaco-codeblock[data-shiki-block-id="${blockId}"]`;
-		for (const element of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
-			if (element !== ownedHost) {
-				element.remove();
+	private prepareSurfaceHost(block: CodeBlockModel, host: HTMLElement): void {
+		host.setAttribute('data-shiki-live-anchor', this.getLiveBlockAnchor(block));
+	}
+
+	private getLiveBlockAnchor(block: CodeBlockModel): string {
+		return [block.sourcePath, block.hostMode, block.openingFenceLine, block.codeFrom, block.language].join('::');
+	}
+
+	private ensureSingleOverlayRoot(): void {
+		for (const root of Array.from(this.getCleanupRoot().querySelectorAll<HTMLElement>('.shiki-monaco-overlay-root'))) {
+			if (root !== this.overlayRoot) {
+				root.remove();
 			}
 		}
+		for (const root of Array.from(document.querySelectorAll<HTMLElement>('.shiki-monaco-overlay-root'))) {
+			if (root !== this.overlayRoot && root.querySelector('.shiki-monaco-block, .shiki-monaco-codeblock') === null) {
+				root.remove();
+			}
+		}
+		if (this.overlayRoot.parentElement !== this.view.dom) {
+			this.view.dom.appendChild(this.overlayRoot);
+		}
+	}
+
+	private removeDuplicateSurfaceHosts(block: CodeBlockModel, ownedHost: HTMLElement): void {
+		const ownedAnchor = this.getLiveBlockAnchor(block);
+		const currentIds = new Set(this.blocks.map(candidate => candidate.id));
+		const liveSurfaceSelector = '.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-block, .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock';
+		for (const element of Array.from(document.querySelectorAll<HTMLElement>(liveSurfaceSelector))) {
+			if (element === ownedHost) {
+				continue;
+			}
+			const id = element.getAttribute('data-shiki-block-id');
+			const anchor = element.getAttribute('data-shiki-live-anchor');
+			if (anchor === ownedAnchor || (id !== null && !currentIds.has(id))) {
+				element.remove();
+				if (id !== null && id !== block.id) {
+					this.plugin.surfaceRegistry.release(id);
+				}
+			}
+		}
+	}
+
+	private removeStaleOverlayChildren(visibleIds: Set<string>): void {
 		for (const element of Array.from(this.overlayRoot.querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
 			const id = element.getAttribute('data-shiki-block-id');
-			if (id && !this.blocks.some(block => block.id === id)) {
+			if (id !== null && !visibleIds.has(id)) {
 				element.remove();
+				this.plugin.surfaceRegistry.release(id);
 			}
 		}
 	}

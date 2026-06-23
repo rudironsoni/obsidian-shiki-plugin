@@ -1,0 +1,33 @@
+setup {"plugin":true,"leaves":6}
+before {
+  "overlayRoots": 0,
+  "hostCount": 0,
+  "editorCount": 0,
+  "hosts": [],
+  "uniqueAnchors": 0,
+  "cmScrollerTop": 0,
+  "bodyClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header is-mobile monaco-enable-motion underline-links"
+}
+after {
+  "overlayRoots": 1,
+  "hostCount": 1,
+  "editorCount": 1,
+  "hosts": [
+    {
+      "id": "codex-duplicate-monaco.md::live-preview::3::19::3::csharp::290cae5f",
+      "anchor": "codex-duplicate-monaco.md::live-preview::3::29::csharp",
+      "cls": "shiki-monaco-block shiki-monaco-codeblock shiki-monaco-readonly",
+      "text": "CopySelect AllClearusing System;using System.Collections.Generic;publi",
+      "rect": {
+        "x": 84,
+        "y": 280.0625,
+        "w": 330,
+        "h": 310
+      },
+      "scrollLeft": 0
+    }
+  ],
+  "uniqueAnchors": 1,
+  "cmScrollerTop": 0,
+  "bodyClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header is-mobile monaco-enable-motion"
+}
