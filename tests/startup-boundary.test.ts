@@ -244,7 +244,8 @@ test('real Obsidian verifier bounds CDP evaluation waits', () => {
 	const source = read('tests/runtime/obsidian-real.mjs');
 
 	expect(source).toContain('Timed out opening CDP socket');
-	expect(source).toContain('Timed out evaluating CDP expression after 15000ms');
+	expect(source).toContain('CDP_EVALUATE_TIMEOUT_MS');
+	expect(source).toContain('Timed out evaluating CDP expression #');
 	expect(source).toContain('verify:obsidian-real failed:');
 	const evaluateStart = source.indexOf('async function evaluate');
 	const evaluateEnd = source.indexOf('async function dispatchMouseClick', evaluateStart);

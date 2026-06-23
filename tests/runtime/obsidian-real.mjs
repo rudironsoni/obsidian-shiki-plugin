@@ -16,7 +16,13 @@ const BRAT_INSTALL = process.env.OBSIDIAN_VERIFY_BRAT_INSTALL === 'true';
 const ENFORCE_PLUGIN_LOAD_MS = OBSIDIAN_LAUNCH_MODE === 'fresh' || process.env.OBSIDIAN_VERIFY_ENFORCE_STARTUP === 'true';
 const VERIFY_READING_MODE = OBSIDIAN_LAUNCH_MODE === 'fresh' || process.env.OBSIDIAN_VERIFY_READING === 'true';
 const VERIFY_TARGET = process.env.OBSIDIAN_VERIFY_TARGET ?? 'both';
+const CDP_EVALUATE_TIMEOUT_MS = Number(process.env.OBSIDIAN_VERIFY_CDP_EVALUATE_TIMEOUT_MS ?? 45000);
+let evaluateCallCounter = 0;
 const SOURCE_MODE_EDIT_MARKER = '__shiki_source_mode_persistence_marker__';
+
+function sleep(ms) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function assert(condition, message, detail) {
 	if (!condition) {
@@ -158,7 +164,7 @@ async function getTargetVaultPath(target) {
 			target.webSocketDebuggerUrl,
 			`(() => ({
 				hasApp: typeof window.app !== 'undefined',
-				vaultPath: typeof window.app !== 'undefined' ? window.app.vault?.adapter?.basePath ?? null : null,
+				vaultPath: typeof window.app !== 'undefined' ? window.app?.vault?.adapter?.basePath ?? null : null,
 			}))()`,
 		);
 		return current.hasApp ? current.vaultPath : null;
@@ -264,7 +270,7 @@ async function relaunchExistingTarget() {
 		page.webSocketDebuggerUrl,
 		`(() => ({
 			hasApp: typeof window.app !== 'undefined',
-			vaultPath: typeof window.app !== 'undefined' ? window.app.vault?.adapter?.basePath ?? null : null,
+			vaultPath: typeof window.app !== 'undefined' ? window.app?.vault?.adapter?.basePath ?? null : null,
 		}))()`,
 	);
 	if (current.hasApp && current.vaultPath === VAULT) {
@@ -318,6 +324,7 @@ async function closeTarget(target) {
 
 async function evaluate(wsUrl, expression) {
 	const socket = new WebSocket(wsUrl);
+	const callId = ++evaluateCallCounter;
 	const expressionLabel = String(expression).replace(/\s+/g, ' ').slice(0, 160);
 	let timeout;
 
@@ -337,8 +344,12 @@ async function evaluate(wsUrl, expression) {
 		return await new Promise((resolve, reject) => {
 			const id = 1;
 			timeout = setTimeout(() => {
-				reject(new Error('Timed out evaluating CDP expression after 15000ms: `' + expressionLabel + '`'));
-			}, 15000);
+				const message = 'Timed out evaluating CDP expression #' + callId + ' after ' + CDP_EVALUATE_TIMEOUT_MS + 'ms: `' + expressionLabel + '`';
+				try {
+					writeFileSync('/tmp/obsidian-real-evaluate-timeout.json', JSON.stringify({ callId, expressionLabel, expression }, null, 2));
+				} catch {}
+				reject(new Error(message));
+			}, CDP_EVALUATE_TIMEOUT_MS);
 			const cleanup = () => {
 				if (timeout !== undefined) {
 					clearTimeout(timeout);
@@ -350,12 +361,18 @@ async function evaluate(wsUrl, expression) {
 				if (message.id !== id) return;
 				cleanup();
 				if (message.error) {
+					try {
+						writeFileSync('/tmp/obsidian-real-evaluate-error.json', JSON.stringify({ callId, expressionLabel, expression, protocolError: message.error }, null, 2));
+					} catch {}
 					reject(new Error(JSON.stringify(message.error)));
 					return;
 				}
 				const result = message.result;
 				if (result?.exceptionDetails) {
 					const exception = result.exceptionDetails.exception;
+					try {
+						writeFileSync('/tmp/obsidian-real-evaluate-error.json', JSON.stringify({ callId, expressionLabel, expression, exceptionDetails: result.exceptionDetails }, null, 2));
+					} catch {}
 					reject(new Error(exception?.description ?? exception?.value ?? result.exceptionDetails.text ?? 'Runtime.evaluate failed'));
 					return;
 				}
@@ -375,6 +392,46 @@ async function evaluate(wsUrl, expression) {
 		if (timeout !== undefined) clearTimeout(timeout);
 		socket.close();
 	}
+}
+
+async function waitForAppPlugins(wsUrl) {
+	let currentWsUrl = wsUrl;
+	for (let i = 0; i < 300; i++) {
+		try {
+			const state = await evaluate(
+				currentWsUrl,
+				`(() => ({
+					hasApp: typeof window.app !== 'undefined',
+					hasPlugins: !!window.app?.plugins?.manifests && !!window.app?.plugins?.plugins,
+					vaultPath: window.app?.vault?.adapter?.basePath ?? null,
+				}))()`,
+			);
+			if (state.hasPlugins) return { ...state, wsUrl: currentWsUrl };
+		} catch (error) {
+			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed')) throw error;
+			currentWsUrl = (await waitForAppTarget()).webSocketDebuggerUrl;
+		}
+		await sleep(100);
+	}
+	throw new Error('Timed out waiting for Obsidian app.plugins');
+}
+
+async function waitForVaultPath(wsUrl) {
+	let currentWsUrl = wsUrl;
+	for (let i = 0; i < 100; i++) {
+		try {
+			const state = await evaluate(
+				currentWsUrl,
+				`(() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()`,
+			);
+			if (state.vaultPath === VAULT) return { ...state, wsUrl: currentWsUrl };
+		} catch (error) {
+			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed')) throw error;
+			currentWsUrl = (await waitForAppTarget()).webSocketDebuggerUrl;
+		}
+		await sleep(100);
+	}
+	throw new Error(`Timed out waiting for Obsidian vault path ${VAULT}`);
 }
 
 async function dispatchMouseClick(wsUrl, x, y) {
@@ -660,7 +717,8 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 		wsUrl,
 		`(async () => {
 			const app = window.app;
-			const plugin = app.plugins.plugins['shiki-highlighter'];
+			if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready');
+			const plugin = app.plugins?.plugins['shiki-highlighter'];
 			const activeView = app.workspace.activeLeaf?.view;
 			const editor = activeView?.editor;
 			const csharpLineIndex = editor?.getValue?.().split('\\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
@@ -669,7 +727,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 				editor.setCursor({ line: csharpLineIndex, ch: 12 });
 				editor.focus();
 			}
-			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+			if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			await new Promise(resolve => setTimeout(resolve, 750));
 			const editorRoot = activeView?.contentEl ?? document;
 			const csharpLine = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-codeblock-line')].find(el =>
@@ -711,6 +769,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 		wsUrl,
 		`(() => {
 			const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const state = globalThis[${JSON.stringify(stateName)}];
 			if (!state?.blockId) return null;
 			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -727,6 +786,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 		wsUrl,
 		`(() => {
 			const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const state = globalThis[${JSON.stringify(stateName)}];
 			if (!state?.blockId) return null;
 			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -750,6 +810,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 			wsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const state = globalThis[${JSON.stringify(stateName)}];
 				if (!state?.vertical) return null;
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -764,6 +825,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 		wsUrl,
 		`(() => {
 			const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const state = globalThis[${JSON.stringify(stateName)}];
 			if (!state?.blockId) return null;
 			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -789,6 +851,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 			wsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const state = globalThis[${JSON.stringify(stateName)}];
 				if (!state?.wheel) return null;
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -803,6 +866,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 		wsUrl,
 		`(() => {
 			const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const state = globalThis[${JSON.stringify(stateName)}];
 			if (!state?.blockId) return null;
 			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -830,6 +894,7 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 			wsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const state = globalThis[${JSON.stringify(stateName)}];
 				if (!state?.drag) return null;
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -842,17 +907,25 @@ async function measureEditableGestureSet(wsUrl, stateName, label) {
 }
 
 async function trustVault(wsUrl) {
-	return evaluate(
-		wsUrl,
+	await new Promise(resolve => setTimeout(resolve, 1000));
+	let result;
+	try {
+		result = await evaluate(
+			wsUrl,
 		`(async () => {
 			const app = window.app;
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const trust = [...document.querySelectorAll('button')].find(button => button.innerText.includes('Trust author'));
 			if (trust) trust.click();
-			await new Promise(resolve => setTimeout(resolve, 2000));
-			return { clickedTrust: !!trust, hasApp: typeof app, enabled: app ? [...app.plugins.enabledPlugins] : [] };
+			return { clickedTrust: !!trust, hasApp: typeof app, enabled: app ? [...app.plugins?.enabledPlugins] : [] };
 		})()`,
-	);
+		);
+	} catch (error) {
+		if (!String(error?.message ?? error).includes('Execution context was destroyed')) throw error;
+		result = { clickedTrust: true, contextDestroyed: true };
+	}
+	await new Promise(resolve => setTimeout(resolve, result?.clickedTrust ? 2000 : 250));
+	return result;
 }
 
 async function setMobileEmulation(wsUrl, enabled) {
@@ -880,6 +953,8 @@ async function setMobileEmulation(wsUrl, enabled) {
 
 async function verifyFeatureSet(wsUrl, mobile) {
 	let activeWsUrl = wsUrl;
+	activeWsUrl = (await waitForAppPlugins(activeWsUrl)).wsUrl;
+	activeWsUrl = (await waitForVaultPath(activeWsUrl)).wsUrl;
 	if (mobile) {
 		activeWsUrl = await setMobileEmulation(activeWsUrl, true);
 	}
@@ -887,39 +962,35 @@ async function verifyFeatureSet(wsUrl, mobile) {
 	await evaluate(
 		activeWsUrl,
 		`(async () => {
-			for (let i = 0; i < 300 && !window.app?.plugins; i++) await new Promise(resolve => setTimeout(resolve, 100));
-			if (!window.app?.plugins) throw new Error('Obsidian app was not ready');
 			const app = window.app;
-			for (let i = 0; i < 100 && app.vault?.adapter?.basePath !== ${JSON.stringify(VAULT)}; i++) {
-				await new Promise(resolve => setTimeout(resolve, 100));
+			if (app?.vault?.adapter?.basePath !== ${JSON.stringify(VAULT)}) {
+				throw new Error('Verifier vault did not open: ' + JSON.stringify({ vaultPath: app?.vault?.adapter?.basePath ?? null, expected: ${JSON.stringify(VAULT)} }));
 			}
-			if (app.vault?.adapter?.basePath !== ${JSON.stringify(VAULT)}) {
-				throw new Error('Verifier vault did not open: ' + JSON.stringify({ vaultPath: app.vault?.adapter?.basePath ?? null, expected: ${JSON.stringify(VAULT)} }));
-			}
-			for (let i = 0; i < 100 && !app.plugins.manifests?.['${PLUGIN_ID}']; i++) {
-				if (app.plugins.loadManifests) await app.plugins.loadManifests();
+			for (let i = 0; i < 100 && !app.plugins?.manifests?.['${PLUGIN_ID}']; i++) {
+				if (app.plugins?.loadManifests) await Promise.race([app.plugins.loadManifests(), new Promise(resolve => setTimeout(resolve, 5000))]);
 				await new Promise(resolve => setTimeout(resolve, 100));
 			}
 				const measurements = {};
 				let loadError = null;
 				try {
-					if (app.plugins.plugins['${PLUGIN_ID}']) await app.plugins.unloadPlugin('${PLUGIN_ID}');
-					if (app.plugins.loadManifests) await app.plugins.loadManifests();
+					if (app.plugins?.plugins['${PLUGIN_ID}'] && app.plugins?.unloadPlugin) await Promise.race([app.plugins.unloadPlugin('${PLUGIN_ID}'), new Promise(resolve => setTimeout(resolve, 5000))]);
+					if (app.plugins?.loadManifests) await Promise.race([app.plugins.loadManifests(), new Promise(resolve => setTimeout(resolve, 5000))]);
 					const loadStart = performance.now();
-					await app.plugins.loadPlugin('${PLUGIN_ID}');
+					if (!app.plugins?.loadPlugin) throw new Error('Obsidian plugin loader was not ready');
+			await Promise.race([app.plugins.loadPlugin('${PLUGIN_ID}'), new Promise(resolve => setTimeout(resolve, 5000))]);
 					measurements.pluginLoadMs = performance.now() - loadStart;
 				} catch (e) {
 					loadError = { name: e.name, message: e.message, stack: e.stack };
 				}
-				const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+				const plugin = app.plugins?.plugins['${PLUGIN_ID}'];
 				if (!plugin) {
 					throw new Error(
 						'Plugin did not load: ' +
 							JSON.stringify({
 								loadError,
-								enabledPlugins: [...app.plugins.enabledPlugins],
-								hasManifest: !!app.plugins.manifests?.['${PLUGIN_ID}'],
-								loadedPlugins: Object.keys(app.plugins.plugins),
+								enabledPlugins: [...app.plugins?.enabledPlugins],
+								hasManifest: !!app.plugins?.manifests?.['${PLUGIN_ID}'],
+								loadedPlugins: Object.keys(app.plugins?.plugins),
 							}),
 					);
 				}
@@ -998,7 +1069,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			for (let i = 0; i < 100 && !document.querySelector('.cm-content'); i++) {
 				await new Promise(resolve => setTimeout(resolve, 100));
 			}
-			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+			if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			await new Promise(resolve => setTimeout(resolve, 500));
 			const livePreviewRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].map(el => ({
@@ -1026,7 +1097,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				editorActivation.afterCursor = editor.getCursor?.() ?? null;
 				editorActivation.activeElement = document.activeElement?.className ?? document.activeElement?.tagName ?? null;
 			}
-			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+			if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			await new Promise(resolve => setTimeout(resolve, 500));
 			const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			editorActivation.cmContent = !!editorRoot.querySelector('.cm-content');
@@ -1064,6 +1135,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			activeWsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 				const renderedCodeBlock = [...editorRoot.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(el => {
 					const modelText = el._monacoEditor?.getModel?.()?.getValue?.() ?? '';
@@ -1084,6 +1156,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(() => {
 					const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 					const activeView = app.workspace.activeLeaf?.view;
 					const editor = activeView?.editor;
 					const cursor = editor?.getCursor?.() ?? null;
@@ -1107,7 +1180,8 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(async () => {
 					const app = window.app;
-					const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+					if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready');
+					const plugin = app.plugins?.plugins['${PLUGIN_ID}'];
 					const activeView = app.workspace.activeLeaf?.view;
 					const editor = activeView?.editor;
 					const csharpLine = editor?.getValue?.().split('\\n').findIndex(line => line.includes('List<int[]> intervals')) ?? -1;
@@ -1115,7 +1189,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 						editor.setCursor({ line: csharpLine, ch: 12 });
 						editor.focus();
 					}
-					if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+					if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 					await new Promise(resolve => setTimeout(resolve, 1000));
 					return {
 						csharpLine,
@@ -1172,6 +1246,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			activeWsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 				const csharpLine = [...editorRoot.querySelectorAll('.cm-content .shiki-editing-codeblock-line')].find(el =>
 					el.textContent?.includes('List<int[]> intervals')
@@ -1209,6 +1284,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(() => {
 					const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 					const state = globalThis.__shikiVerifyEditableSwipe;
 					if (!state?.blockId) return null;
 					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1224,6 +1300,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(() => {
 					const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 					const swipeState = globalThis.__shikiVerifyEditableSwipe;
 					if (!swipeState?.blockId) return null;
 					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1250,6 +1327,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 					activeWsUrl,
 					`(() => {
 						const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 						const state = globalThis.__shikiVerifyEditableVertical;
 						if (!state) return null;
 						const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1263,6 +1341,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(() => {
 					const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 					const swipeState = globalThis.__shikiVerifyEditableSwipe;
 					if (!swipeState?.blockId) return null;
 					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1291,6 +1370,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 					activeWsUrl,
 					`(() => {
 						const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 						const state = globalThis.__shikiVerifyEditableWheel;
 						if (!state?.blockId) return null;
 						const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1308,6 +1388,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			activeWsUrl,
 			`(() => {
 				const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const swipeState = globalThis.__shikiVerifyEditableSwipe;
 				if (!swipeState?.blockId) return null;
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1335,6 +1416,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeWsUrl,
 				`(() => {
 					const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 					const state = globalThis.__shikiVerifyEditableDrag;
 					if (!state?.blockId) return null;
 					const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1351,14 +1433,15 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			activeWsUrl,
 			`(async () => {
 				const app = window.app;
-				const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+				if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready');
+				const plugin = app.plugins?.plugins['${PLUGIN_ID}'];
 				const file = app.vault.getAbstractFileByPath('feature-test.md');
 				const leaf = app.workspace.getLeaf(false);
 				await leaf.openFile(file, { state: { mode: 'source', source: true } });
 				const view = leaf.view;
 				if (view?.setState) await view.setState({ file: file.path, mode: 'source', source: true }, { history: false });
 				await new Promise(resolve => setTimeout(resolve, 750));
-				if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+				if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 				await new Promise(resolve => setTimeout(resolve, 750));
 				return {
 					isSourceMode: view?.getMode?.() === 'source',
@@ -1374,14 +1457,15 @@ async function verifyFeatureSet(wsUrl, mobile) {
 		activeWsUrl,
 		`(async () => {
 			const app = window.app;
-			const plugin = app.plugins.plugins['shiki-highlighter'];
+			if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready');
+			const plugin = app.plugins?.plugins['shiki-highlighter'];
 			const file = app.vault.getAbstractFileByPath('feature-test.md');
 			const leaf = app.workspace.getLeaf(false);
 			await leaf.openFile(file, { state: { mode: 'source', source: true } });
 			const view = leaf.view;
 			if (view?.setState) await view.setState({ file: file.path, mode: 'source', source: true }, { history: false });
 			await new Promise(resolve => setTimeout(resolve, 750));
-			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+			if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			await new Promise(resolve => setTimeout(resolve, 750));
 			if (!file || !view?.editor) {
 				return {
@@ -1421,9 +1505,8 @@ async function verifyFeatureSet(wsUrl, mobile) {
 	const finalResult = await evaluate(
 		activeWsUrl,
 		`(async () => {
-			for (let i = 0; i < 300 && !window.app?.plugins; i++) await new Promise(resolve => setTimeout(resolve, 100));
-			if (!window.app?.plugins) throw new Error('Obsidian app was not ready');
 			const app = window.app;
+			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const state = globalThis.__shikiVerifyState;
 			const editableSwipe = globalThis.__shikiVerifyEditableSwipe ?? null;
 			const editableVertical = globalThis.__shikiVerifyEditableVertical ?? null;
@@ -1432,9 +1515,9 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			const editableSource = globalThis.__shikiVerifyEditableSource ?? null;
 			const monacoHorizontal = globalThis.__shikiVerifyMonacoHorizontal ?? null;
 			const mobileNativeTap = globalThis.__shikiVerifyMobileNativeTap ?? null;
-			const plugin = app.plugins.plugins['${PLUGIN_ID}'];
+			const plugin = app.plugins?.plugins['${PLUGIN_ID}'];
 			await new Promise(resolve => setTimeout(resolve, 1000));
-			if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+			if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			await new Promise(resolve => setTimeout(resolve, 500));
 			let editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			const collectEditorTokens = () => [...editorRoot.querySelectorAll('.cm-content [class*="shiki"], .cm-content [style*="color"]')].map(el => ({
@@ -1450,7 +1533,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				activeEditor.setCursor(sortPosition);
 				activeEditor.scrollIntoView?.({ from: sortPosition, to: sortPosition }, true);
 				await new Promise(resolve => setTimeout(resolve, 500));
-				if (plugin?.updateCm6Plugin) await plugin.updateCm6Plugin();
+				if (plugin?.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 				await new Promise(resolve => setTimeout(resolve, 500));
 				editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
 			}
@@ -1511,7 +1594,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 	const sourceThemeReloadState = await evaluate(
 		wsUrl,
 		`(async () => {
-			const plugin = app.plugins.getPlugin?.(${JSON.stringify(PLUGIN_ID)}) ?? app.plugins.plugins?.[${JSON.stringify(PLUGIN_ID)}];
+			const plugin = app.plugins.getPlugin?.(${JSON.stringify(PLUGIN_ID)}) ?? app.plugins?.plugins?.[${JSON.stringify(PLUGIN_ID)}];
 			const readSourceTokenSignature = () => {
 				const tokens = [...document.querySelectorAll('.cm-content .shiki-editing-token, .cm-content [style*="color"]')];
 				const sample = tokens.slice(0, 80).map(el => ({
@@ -1537,7 +1620,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			plugin.settings.lightTheme = nextTheme;
 			try {
 				await plugin.reloadHighlighter?.();
-				if (plugin.updateCm6Plugin) await plugin.updateCm6Plugin();
+				if (plugin.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 				let after = readSourceTokenSignature();
 				for (let attempt = 0; attempt < 20 && before.signature === after.signature; attempt++) {
 					await new Promise(resolve => setTimeout(resolve, 100));
@@ -1556,7 +1639,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 				document.body.classList.toggle('theme-light', previous.bodyLight);
 				document.body.classList.toggle('theme-dark', previous.bodyDark);
 				await plugin.reloadHighlighter?.();
-				if (plugin.updateCm6Plugin) await plugin.updateCm6Plugin();
+				if (plugin.updateCm6Plugin) await Promise.race([plugin.updateCm6Plugin(), new Promise(resolve => setTimeout(resolve, 5000))]);
 			}
 		})()`,
 	);
