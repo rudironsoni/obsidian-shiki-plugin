@@ -144,6 +144,16 @@ async function openProbeNote(client) {
 	);
 }
 
+async function normalizeDesktopViewport(client) {
+	await client.send('Emulation.setDeviceMetricsOverride', {
+		width: 1200,
+		height: 900,
+		deviceScaleFactor: 1,
+		mobile: false,
+	});
+	await delay(500);
+}
+
 async function getInteractionState(client) {
 	return evaluate(
 		client,
@@ -295,6 +305,45 @@ async function clickSelectionToolbarButton(client, label) {
 	await delay(300);
 }
 
+
+async function waitForUsableInteractionState(client) {
+	for (let attempt = 0; attempt < 20; attempt++) {
+		const state = await getInteractionState(client);
+		if (state.hasBlock && state.hasEditor && state.rect && state.rect.width > 80 && state.rect.height > 40) {
+			return state;
+		}
+		await delay(250);
+	}
+	return getInteractionState(client);
+}
+
+async function assertStableLivePreviewSurfaceAfterRerenders(client) {
+	const before = await getInteractionState(client);
+	assert(before.monacoBlocks === 1 && before.monacoEditors === 1, 'Live Preview stability setup has duplicate Monaco surfaces', before);
+	const stability = await evaluate(
+		client,
+		`(async () => {
+			const block = document.querySelector('.shiki-monaco-block, .shiki-monaco-codeblock');
+			const editor = document.querySelector('.monaco-editor');
+			if (!block || !editor) return { missing: true };
+			block.dataset.stabilityProbe = 'stable-block';
+			editor.dataset.stabilityProbe = 'stable-editor';
+			for (let i = 0; i < 5; i++) {
+				window.dispatchEvent(new Event('resize'));
+				await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+			}
+			return {
+				monacoBlocks: document.querySelectorAll('.shiki-monaco-block, .shiki-monaco-codeblock').length,
+				monacoEditors: document.querySelectorAll('.monaco-editor').length,
+				stableBlock: document.querySelector('[data-stability-probe="stable-block"]') !== null,
+				stableEditor: document.querySelector('[data-stability-probe="stable-editor"]') !== null,
+			};
+		})()`,
+	);
+	assert(stability.monacoBlocks === 1 && stability.monacoEditors === 1, 'Live Preview rerenders grew duplicate Monaco surfaces', stability);
+	assert(stability.stableBlock && stability.stableEditor, 'Live Preview rerenders replaced the stable Monaco surface', stability);
+}
+
 async function main() {
 	const client = await connectToExistingObsidian(PORT);
 	try {
@@ -305,11 +354,17 @@ async function main() {
 		const setup = await openProbeNote(client);
 		assert(setup.activeFile === 'codex-live-preview-interactions.md', 'Probe note did not become active', setup);
 		assert(setup.monacoEditors === 1, 'Probe note should create exactly one Monaco editor', setup);
+
+		await normalizeDesktopViewport(client);
 		await setNoteScrollTop(client, 0);
 
-		const before = await getInteractionState(client);
+		let before = await waitForUsableInteractionState(client);
 		assert(before.hasBlock && before.hasEditor && before.rect, 'Monaco surface did not hydrate for probe note', before);
 		assert(before.monacoBlocks === 1 && before.monacoEditors === 1, 'Probe note mounted duplicate Monaco surfaces', before);
+
+		await assertStableLivePreviewSurfaceAfterRerenders(client);
+		before = await waitForUsableInteractionState(client);
+		assert(before.rect && before.rect.width > 80, 'Monaco surface did not have a usable layout rectangle after rerender stability probe', before);
 
 		const insideX = Math.round(before.rect.left + Math.min(before.rect.width - 20, 230));
 		const insideY = Math.round(before.rect.top + Math.min(before.rect.height - 8, 30));
