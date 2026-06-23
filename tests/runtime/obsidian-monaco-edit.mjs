@@ -117,13 +117,45 @@ async function hasRunningTarget() {
 	}
 }
 
+async function waitFor(client, expression, message, timeoutMs = 20_000) {
+	const deadline = Date.now() + timeoutMs;
+	let lastValue;
+	while (Date.now() < deadline) {
+		lastValue = await evaluate(client, expression, Math.min(5_000, timeoutMs));
+		if (lastValue) return lastValue;
+		await delay(250);
+	}
+	throw new Error(`${message}\nLast value:\n${JSON.stringify(lastValue, null, 2)}`);
+}
+
+
+function isObsidianRuntimeTarget(target) {
+	if (!target?.webSocketDebuggerUrl) return false;
+	if (/worker/i.test(`${target.type ?? ''}`)) return false;
+	const title = `${target.title ?? ''}`;
+	const url = `${target.url ?? ''}`;
+	return /obsidian/i.test(title) || /app:\/\/obsidian\.md/i.test(url);
+}
+
+function pickObsidianRuntimeTarget(targets) {
+	return targets.find(isObsidianRuntimeTarget) ?? targets.find(target => target?.webSocketDebuggerUrl && !/worker/i.test(`${target.type ?? ''}`));
+}
+
+function normalizeHiddenPageTimers(expression) {
+	return expression
+		.replace(/await\s+new\s+Promise\(resolve\s*=>\s*(?:window\.)?setTimeout\(resolve,\s*\d+\)\);?/g, 'await Promise.resolve();')
+		.replace(/await\s+new\s+Promise\(\(resolve\)\s*=>\s*(?:window\.)?setTimeout\(resolve,\s*\d+\)\);?/g, 'await Promise.resolve();')
+		.replace(/await\s+new\s+Promise\(resolve\s*=>\s*requestAnimationFrame\(\(\)\s*=>\s*resolve\([^)]*\)\)\);?/g, 'await Promise.resolve();');
+}
+
+
 async function waitForTarget() {
 	const deadline = Date.now() + 45_000;
 	let lastTargets = [];
 	while (Date.now() < deadline) {
 		try {
 			lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`);
-			const target = lastTargets.find(candidate => candidate.webSocketDebuggerUrl && candidate.type === 'page');
+			const target = pickObsidianRuntimeTarget(lastTargets);
 			if (target) return target;
 		} catch {
 			// Obsidian is still starting.
@@ -137,28 +169,27 @@ async function waitForAppClient() {
 	const deadline = Date.now() + 45_000;
 	let lastTargets = [];
 	while (Date.now() < deadline) {
-		try {
-			lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`);
-			for (const target of lastTargets) {
-				if (!target.webSocketDebuggerUrl || target.type !== 'page') continue;
-				const client = createCdpClient(target.webSocketDebuggerUrl);
-				try {
-					await client.ready;
-					await client.send('Runtime.enable');
-					await client.send('Page.enable');
-					const hasApp = await evaluate(client, `Boolean(window.app?.workspace)`);
-					if (hasApp) return client;
-				} catch {
-					// Keep scanning; Electron can expose transient page targets while opening.
-				}
-				client.close();
+		lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`);
+		const target = pickObsidianRuntimeTarget(lastTargets);
+		if (target?.webSocketDebuggerUrl) {
+			const client = createCdpClient(target.webSocketDebuggerUrl);
+			try {
+				await client.ready;
+				await client.send('Runtime.enable');
+				await client.send('Page.enable').catch(() => undefined);
+				const result = await client.send('Runtime.evaluate', {
+					expression: `Boolean(window.app?.workspace && window.app?.plugins)`,
+					returnByValue: true,
+				});
+				if (result.result?.value) return client;
+			} catch (_) {
+				// Try again below with a fresh socket.
 			}
-		} catch {
-			// Obsidian is still starting.
+			client.close();
 		}
 		await delay(250);
 	}
-	throw new Error(`Timed out waiting for Obsidian app target.\nLaunch output:\n${launchOutput}\nTargets:\n${JSON.stringify(lastTargets, null, 2)}`);
+	throw new Error(`Timed out waiting for Obsidian app target. Launch output:\n${launchOutput}\nTargets:\n${JSON.stringify(lastTargets, null, 2)}`);
 }
 
 function createCdpClient(wsUrl) {
@@ -197,61 +228,49 @@ function createCdpClient(wsUrl) {
 
 let evaluateCount = 0;
 
-async function evaluate(client, expression) {
-	const expressionId = ++evaluateCount;
-	console.log(`[verify-edit] evaluate #${expressionId}`);
+async function evaluate(client, expression, timeoutMs = 45_000) {
+	const current = ++evaluateCount;
+	console.log(`[verify-edit] evaluate #${current}`);
+	const normalizedExpression = normalizeHiddenPageTimers(expression);
 	const result = await Promise.race([
 		client.send('Runtime.evaluate', {
-		expression,
-		awaitPromise: true,
-		returnByValue: true,
+			expression: normalizedExpression,
+			awaitPromise: true,
+			returnByValue: true,
 		}),
-		new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out evaluating expression #${expressionId}`)), 45000)),
+		new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out evaluating expression #${current}`)), timeoutMs)),
 	]);
 	if (result.exceptionDetails) {
-		throw new Error(
-			result.exceptionDetails.exception?.description
-				?? result.exceptionDetails.exception?.value
-				?? result.exceptionDetails.text
-				?? 'Runtime.evaluate failed',
-		);
+		const message = result.exceptionDetails.exception?.description
+			?? result.exceptionDetails.exception?.value
+			?? result.exceptionDetails.text
+			?? JSON.stringify(result.exceptionDetails);
+		throw new Error(`Expression #${current} failed: ${message || JSON.stringify(result.exceptionDetails)}\n${normalizedExpression.slice(0, 600)}`);
 	}
 	return result.result.value;
 }
 
-async function waitFor(client, expression, message, timeoutMs = 20_000) {
-	const deadline = Date.now() + timeoutMs;
-	let lastValue;
-	while (Date.now() < deadline) {
-		lastValue = await evaluate(client, expression);
-		if (lastValue) return lastValue;
-		await delay(250);
-	}
-	throw new Error(`${message}\nLast value:\n${JSON.stringify(lastValue, null, 2)}`);
-}
-
-async function openNote(client, livePreview) {
+async function openNote(client, livePreview = true) {
+	const noteContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
 	await evaluate(
 		client,
 		`(async () => {
 			app.vault.setConfig('livePreview', ${livePreview ? 'true' : 'false'});
-		let file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-		for (let attempt = 0; !file && attempt < 50; attempt++) {
-			await new Promise(resolve => setTimeout(resolve, 100));
-			file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-		}
-			if (!file) throw new Error('note not found');
-			const leaf = app.workspace.getLeaf(false);
-			await leaf.openFile(file);
-			await new Promise(resolve => setTimeout(resolve, 250));
-			if (leaf.view?.setState) {
-				await leaf.view.setState({ file: file.path, mode: 'source', source: ${livePreview ? 'false' : 'true'} }, { history: false });
+			let file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+			const content = ${JSON.stringify(noteContent)};
+			if (file) {
+				await app.vault.modify(file, content);
+			} else {
+				file = await app.vault.create(${JSON.stringify(NOTE_PATH)}, content);
 			}
+			const leaf = app.workspace.getLeaf('tab');
+			await leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: ${livePreview ? 'false' : 'true'} }, active: true }, { history: false });
+			app.workspace.setActiveLeaf(leaf, { focus: true });
 			leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });
-			await new Promise(resolve => setTimeout(resolve, 800));
 			return true;
 		})()`,
 	);
+	await delay(livePreview ? 1200 : 500);
 }
 
 async function getEditableCodeLine(client) {

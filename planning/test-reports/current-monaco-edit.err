@@ -1,0 +1,10 @@
+$ node tests/runtime/obsidian-monaco-edit.mjs
+Error: Timed out waiting for visible editable code line
+Last value:
+null
+Launch output:
+
+    at waitFor (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:128:8)
+    at async verifyMode (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1048:15)
+    at async main (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1273:3)
+error: script "verify:obsidian-monaco-edit" exited with code 1

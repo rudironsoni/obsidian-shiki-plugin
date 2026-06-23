@@ -223,15 +223,11 @@ export class MonacoGestureRouter {
 		if (Math.abs(event.clientX - mouseDown.clientX) > 3 || Math.abs(event.clientY - mouseDown.clientY) > 3) {
 			return;
 		}
-		const position = this.editor.getTargetAtClientPoint?.(event.clientX, event.clientY)?.position;
-		if (!position) {
-			return;
-		}
+		this.focusEditorAtPoint(event.clientX, event.clientY);
 		window.setTimeout(() => {
 			if (!this.isEditable()) {
 				return;
 			}
-			this.editor.setPosition(position);
 			this.editor.focus?.();
 		}, 0);
 	};
@@ -240,15 +236,11 @@ export class MonacoGestureRouter {
 		if (!this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
 			return;
 		}
-		const position = this.editor.getTargetAtClientPoint?.(event.clientX, event.clientY)?.position;
-		if (!position) {
-			return;
-		}
+		this.focusEditorAtPoint(event.clientX, event.clientY);
 		window.setTimeout(() => {
 			if (!this.isEditable()) {
 				return;
 			}
-			this.editor.setPosition(position);
 			this.editor.focus?.();
 		}, 0);
 	};
@@ -278,4 +270,12 @@ export class MonacoGestureRouter {
 		clearTimeout(this.longPressTimer);
 		this.longPressTimer = null;
 	}
+	private focusEditorAtPoint(clientX: number, clientY: number): void {
+		const position = this.editor.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		if (position) {
+			this.editor.setPosition(position);
+		}
+		this.editor.focus?.();
+	}
+
 }
