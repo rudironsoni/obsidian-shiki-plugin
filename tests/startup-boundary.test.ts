@@ -166,4 +166,14 @@ describe('startup module boundary', () => {
 		expect(livePreview).not.toContain('from: block.range.openingFence');
 		expect(livePreview).not.toContain('to: block.range.closingFence');
 	});
+	test('desktop Live Preview activation routes through Monaco gesture router', () => {
+		const router = read('packages/obsidian/src/monaco/MonacoGestureRouter.ts');
+		const surface = read('packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts');
+		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
+		expect(surface).toContain('setActivationHandler');
+		expect(livePreview).toContain('surface.setActivationHandler(point => void this.activateBlock(block.id, point));');
+		expect(router).toContain('event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey');
+		expect(router).toContain('Date.now() - this.lastTouchTime < 700');
+		expect(router).toContain('this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });');
+	});
 });
