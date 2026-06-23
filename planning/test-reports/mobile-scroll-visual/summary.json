@@ -2,31 +2,31 @@
 	"before": {
 		"missing": false,
 		"scrollLeft": 0,
-		"scrollWidth": 5788,
-		"clientWidth": 282,
+		"scrollWidth": 1928,
+		"clientWidth": 250,
 		"rect": {
-			"x": 84,
-			"y": 297,
-			"width": 282,
-			"height": 63
+			"x": 100,
+			"y": 256.09375,
+			"width": 250,
+			"height": 100
 		},
 		"pre": {
 			"overflowX": "hidden",
-			"whiteSpace": "normal"
+			"whiteSpace": "pre-wrap"
 		},
 		"code": {
 			"display": "block",
 			"minWidth": "0px",
 			"flexBasis": "auto"
 		},
-		"text": "print(\"START_abcdefghijklmnopqrstuvwxyz0123456789_abcdefghijklmnopqrstuvwxyz0123456789_abcdefghijklmnopqrstuvwxyz0123456"
+		"text": "print(\"LEFT_EDGE__aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa__CENTER_MAR"
 	},
 	"afterTouch": {
-		"scrollLeft": 212,
-		"line": "\"START_abcdefghijklmnopqrstuvwxyz0123456789_abcdef"
+		"scrollLeft": 180,
+		"line": "\"LEFT_EDGE__aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	},
 	"afterWheel": {
-		"scrollLeft": 912
+		"scrollLeft": 880
 	},
 	"report": "/Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/planning/test-reports/mobile-scroll-visual"
 }

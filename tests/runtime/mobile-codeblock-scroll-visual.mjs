@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 
 const repo = '/Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin';
 const obsidian = process.env.OBSIDIAN_APP ?? '/Applications/Obsidian.app/Contents/MacOS/Obsidian';
-const port = Number(process.env.OBSIDIAN_DEBUG_PORT ?? 9479);
+const port = Number(process.env.OBSIDIAN_DEBUG_PORT ?? 9230);
 const root = '/private/tmp/obsidian-shiki-visual-scroll';
 const vault = path.join(root, 'vault');
 const userData = path.join(root, 'user-data');
@@ -204,7 +204,7 @@ writeFileSync(
 );
 writeFileSync(path.join(userData, 'visualScrollVault.json'), JSON.stringify({}, null, '\t'));
 
-const longLine = 'print("START_' + 'abcdefghijklmnopqrstuvwxyz0123456789_'.repeat(18) + '_END")';
+const longLine = 'print("LEFT_EDGE__' + 'a'.repeat(90) + '__CENTER_MARK__' + 'b'.repeat(90) + '__RIGHT_EDGE")';
 const noteContent = `# Scroll Test
 
 Below is an overflowing code block.
@@ -467,6 +467,23 @@ try {
 		writeFileSync(path.join(report, 'open-state.json'), JSON.stringify(state, null, '\t'));
 		throw new Error(`No active file opened for visual scroll test. Active file: ${activeFile}`);
 	}
+	await evaluate(
+		cdp,
+		`(async () => {
+			const view = window.app.workspace.activeLeaf?.view;
+			if (typeof view?.setMode === 'function') {
+				await view.setMode(view.previewMode ?? 'preview');
+				return true;
+			}
+			const leaf = window.app.workspace.activeLeaf;
+			const state = leaf?.getViewState?.();
+			if (leaf?.setViewState && state?.type === 'markdown') {
+				await leaf.setViewState({ ...state, state: { ...(state.state ?? {}), mode: 'source', source: false } });
+			}
+			return true;
+		})()`,
+	);
+	await sleep(1500);
 	await cdp.send('Emulation.setDeviceMetricsOverride', {
 		width: 390,
 		height: 844,
@@ -544,6 +561,9 @@ try {
 	const summary = { before, afterTouch, afterWheel, report };
 	if ((afterTouch.scrollLeft ?? 0) <= 0 && (afterWheel.scrollLeft ?? 0) <= 0) {
 		throw new Error(`Visual scroll test did not move the code block: ${JSON.stringify(summary)}`);
+	}
+	if (before.line === afterTouch.line && before.line === afterWheel.line) {
+		throw new Error(`Visual scroll test did not change the visible code text: ${JSON.stringify(summary)}`);
 	}
 	writeFileSync(path.join(report, 'summary.json'), JSON.stringify(summary, null, '\t'));
 	console.log(JSON.stringify(summary, null, '\t'));

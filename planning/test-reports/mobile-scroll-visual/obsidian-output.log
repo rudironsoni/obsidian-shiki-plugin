@@ -1,8 +1,8 @@
-2026-06-23 11:07:01 Loaded main app package /Applications/Obsidian.app/Contents/Resources/obsidian.asar
-
-DevTools listening on ws://127.0.0.1:9479/devtools/browser/e3f2ea34-ee77-4ed7-811b-33341f96c1e5
+2026-06-23 11:40:46 Loaded main app package /Applications/Obsidian.app/Contents/Resources/obsidian.asar
 Ignored: Error: Argument must be a file path or a NativeImage
-2026-06-23 11:07:02 Checking for update using Github
-2026-06-23 11:07:02 Success.
-2026-06-23 11:07:02 Latest version is 1.12.7
-2026-06-23 11:07:02 App is up to date.
+2026-06-23 11:40:47 Checking for update using Github
+2026-06-23 11:40:48 Success.
+2026-06-23 11:40:48 Latest version is 1.12.7
+2026-06-23 11:40:48 App is up to date.
+2026-06-23 13:40:51.589 Obsidian[92047:39196407] NSSpellServer dataFromCheckingString timed out, index is 1
+2026-06-23 13:40:51.689 Obsidian[92047:39196407] NSSpellServer dataFromCheckingString succeeded, index is 0
