@@ -281,3 +281,35 @@ test('Monaco gesture routing uses explicit horizontal intent and Obsidian note s
 	expect(styles).toContain('body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock');
 	expect(styles).toContain('overscroll-behavior-x: contain;');
 });
+
+
+test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
+	const cm6 = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
+	const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
+
+	expect(livePreview).toContain('refreshForModeChange(): void');
+	expect(livePreview).toContain('this.rebuildBlocks();');
+	expect(livePreview).toContain('this.scheduleSync(0);');
+	expect(livePreview).toContain('private readonly modeClassObserver: MutationObserver;');
+	expect(livePreview).toContain('new MutationObserver(() => this.refreshForModeChange())');
+	expect(livePreview).toContain('this.modeClassObserver.disconnect();');
+	expect(cm6).toContain('this.livePreviewAdapter.refreshForModeChange();');
+	expect(cm6).toContain("this.view.dom.closest('.markdown-source-view.mod-cm6.is-live-preview') !== null");
+});
+
+
+test('plugin refreshes editor integration after workspace mode/layout changes', () => {
+	const main = read('packages/obsidian/src/main.ts');
+
+	expect(main).toContain('const refreshEditorIntegration = debounce(() => {');
+	expect(main).toContain('void this.updateCm6Plugin?.();');
+	expect(main).toContain("this.registerEvent(this.app.workspace.on('layout-change', refreshEditorIntegration));");
+	expect(main).toContain("this.registerEvent(this.app.workspace.on('active-leaf-change', refreshEditorIntegration));");
+	expect(main).toContain("this.registerEvent(this.app.workspace.on('file-open', refreshEditorIntegration));");
+	expect(main).toContain('const livePreviewModeObserver = new MutationObserver(mutations => {');
+	expect(main).toContain("livePreviewModeObserver.observe(this.app.workspace.containerEl.ownerDocument.body, { attributes: true, attributeFilter: ['class'], subtree: true });");
+	expect(main).toContain('this.register(() => livePreviewModeObserver.disconnect());');
+	expect(main).toContain('const startEditorIntegrationSettle = () => {');
+	expect(main).toContain('attempts >= 12');
+	expect(main).toContain('this.registerInterval(interval);');
+});

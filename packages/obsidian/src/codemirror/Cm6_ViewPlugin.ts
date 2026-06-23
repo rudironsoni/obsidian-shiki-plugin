@@ -43,6 +43,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 				const isLivePreview = this.isLivePreview(update.view.state);
 				const modeChanged = isLivePreview !== this.lastIsLivePreview;
 				this.lastIsLivePreview = isLivePreview;
+				if (modeChanged) {
+					this.livePreviewAdapter.refreshForModeChange();
+				}
 				if (update.docChanged || update.viewportChanged || update.selectionSet) {
 					void this.updateInlineDecorations();
 				}
@@ -79,7 +82,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 			}
 
 			private isLivePreview(state: EditorView['state']): boolean {
-				return state.field(editorLivePreviewField);
+				return state.field(editorLivePreviewField) || this.view.dom.closest('.markdown-source-view.mod-cm6.is-live-preview') !== null;
 			}
 
 			private refreshDecorations(): void {

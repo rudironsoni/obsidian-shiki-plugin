@@ -14,6 +14,7 @@ export class LivePreviewAdapter {
 	private readonly plugin: ShikiPlugin;
 	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
+	private readonly modeClassObserver: MutationObserver;
 	private readonly overlayRoot: HTMLDivElement;
 	private readonly view: EditorView;
 	private blocks: CodeBlockModel[] = [];
@@ -33,8 +34,10 @@ export class LivePreviewAdapter {
 		this.mobileClassObserver = new MutationObserver(this.handleViewportModeChange);
 		this.mobileClassObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		this.plugin = plugin;
-		this.requestDecorationRefresh = requestDecorationRefresh;
 		this.view = view;
+		this.modeClassObserver = new MutationObserver(() => this.refreshForModeChange());
+		this.modeClassObserver.observe(this.getSourceViewRoot(), { attributes: true, attributeFilter: ['class'] });
+		this.requestDecorationRefresh = requestDecorationRefresh;
 		this.overlayRoot = document.createElement('div');
 		this.overlayRoot.className = 'shiki-monaco-overlay-root';
 		if (this.plugin.isCurrentInstance()) {
@@ -91,8 +94,14 @@ export class LivePreviewAdapter {
 		this.scheduleSync(50);
 	}
 
+	refreshForModeChange(): void {
+		this.rebuildBlocks();
+		this.scheduleSync(0);
+	}
+
 	destroy(): void {
 		this.destroyed = true;
+		this.modeClassObserver.disconnect();
 		if (this.retrySyncTimer !== undefined) {
 			window.clearTimeout(this.retrySyncTimer);
 		}
@@ -428,6 +437,10 @@ export class LivePreviewAdapter {
 		}
 		this.lastMobileMode = mobileMode;
 	}
+	private getSourceViewRoot(): HTMLElement {
+		return this.view.dom.closest('.markdown-source-view.mod-cm6') as HTMLElement | null ?? this.view.dom;
+	}
+
 	private isMobile(): boolean {
 		const app = this.plugin.app as typeof this.plugin.app & { isMobile?: boolean };
 		if (typeof app.isMobile === 'boolean') {

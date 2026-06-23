@@ -103,6 +103,35 @@ export default class ShikiPlugin extends Plugin {
 			}),
 		);
 
+		const refreshEditorIntegration = debounce(() => {
+			void this.updateCm6Plugin?.();
+		}, 100, true);
+		this.registerEvent(this.app.workspace.on('layout-change', refreshEditorIntegration));
+		this.registerEvent(this.app.workspace.on('active-leaf-change', refreshEditorIntegration));
+		this.registerEvent(this.app.workspace.on('file-open', refreshEditorIntegration));
+		const livePreviewModeObserver = new MutationObserver(mutations => {
+			if (mutations.some(mutation => mutation.type === 'attributes' && mutation.attributeName === 'class')) {
+				refreshEditorIntegration();
+			}
+		});
+		livePreviewModeObserver.observe(this.app.workspace.containerEl.ownerDocument.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+		this.register(() => livePreviewModeObserver.disconnect());
+		const startEditorIntegrationSettle = () => {
+			let attempts = 0;
+			const interval = window.setInterval(() => {
+				attempts += 1;
+				refreshEditorIntegration();
+				if (attempts >= 12) {
+					window.clearInterval(interval);
+				}
+			}, 250);
+			this.registerInterval(interval);
+		};
+		this.registerEvent(this.app.workspace.on('layout-change', startEditorIntegrationSettle));
+		this.registerEvent(this.app.workspace.on('active-leaf-change', startEditorIntegrationSettle));
+		this.registerEvent(this.app.workspace.on('file-open', startEditorIntegrationSettle));
+		startEditorIntegrationSettle();
+
 		this.addCommand({
 			id: 'reload-highlighter',
 			name: 'Reload highlighter',
