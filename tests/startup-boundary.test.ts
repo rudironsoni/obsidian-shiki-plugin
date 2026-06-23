@@ -158,4 +158,12 @@ describe('startup module boundary', () => {
 		});
 		expect(violations).toEqual([]);
 	});
+	test('live preview edit sync is scoped to fenced code content range', () => {
+		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
+		expect(livePreview).toContain('codeFrom: block.range.charFrom');
+		expect(livePreview).toContain('codeTo: block.range.charTo');
+		expect(livePreview).toContain('this.view.dispatch({ changes: { from: current.codeFrom, to: current.codeTo, insert: value } });');
+		expect(livePreview).not.toContain('from: block.range.openingFence');
+		expect(livePreview).not.toContain('to: block.range.closingFence');
+	});
 });
