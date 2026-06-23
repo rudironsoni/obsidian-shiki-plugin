@@ -45,3 +45,67 @@ describe('SourceModeTokenizationCache', () => {
 		expect(cache.get(input)).toBeUndefined();
 	});
 });
+
+test('plugin reload clears source mode tokenization cache before CM6 refresh', async () => {
+	const { default: ShikiHighlighterPlugin } = await import('../packages/obsidian/src/main');
+	const cacheClearCalls: string[] = [];
+	const rerenderCalls: string[] = [];
+	const updateCalls: string[] = [];
+	const surfaceThemeCalls: string[] = [];
+	const reloadCalls: string[] = [];
+	type ReloadHarness = {
+		reloadHighlighter: () => Promise<void>;
+		sourceModeTokenizationCache: { clear: () => void };
+		highlighter: { reload: () => Promise<void> };
+		activeCodeBlocks: Map<string, Array<{ forceRerender: () => Promise<void> }>>;
+		updateCm6Plugin: () => Promise<void>;
+		surfaceRegistry: { updateThemes: () => void };
+		ensureSettingsLoaded: () => Promise<void>;
+		settings: Record<string, never>;
+		loadedSettings: Record<string, never>;
+	};
+	const plugin = Object.create(ShikiHighlighterPlugin.prototype) as ReloadHarness;
+
+	plugin.settings = {};
+	plugin.loadedSettings = {};
+	plugin.ensureSettingsLoaded = async () => undefined;
+	plugin.sourceModeTokenizationCache = {
+		clear: () => {
+			cacheClearCalls.push('clear');
+		},
+	};
+	plugin.highlighter = {
+		reload: async () => {
+			reloadCalls.push('reload');
+		},
+	};
+	plugin.surfaceRegistry = {
+		updateThemes: () => {
+			surfaceThemeCalls.push('update-surfaces');
+		},
+	};
+	plugin.activeCodeBlocks = new Map([
+		[
+			'note.md',
+			[
+				{
+					forceRerender: async () => {
+						rerenderCalls.push('rerender');
+					},
+				},
+			],
+		],
+	]);
+	plugin.updateCm6Plugin = async () => {
+		updateCalls.push('update-cm6');
+	};
+
+	await plugin.reloadHighlighter();
+
+	expect(cacheClearCalls).toEqual(['clear']);
+	expect(reloadCalls).toEqual(['reload']);
+	expect(surfaceThemeCalls).toEqual(['update-surfaces']);
+	expect(rerenderCalls).toEqual(['rerender']);
+	expect(updateCalls).toEqual(['update-cm6']);
+});
+

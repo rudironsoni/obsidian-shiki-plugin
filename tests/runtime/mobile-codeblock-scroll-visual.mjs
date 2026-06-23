@@ -495,8 +495,32 @@ try {
 	const before = await evaluate(
 		cdp,
 		`(() => {
-			const pre = document.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
-			if (!pre) return { missing: true, html: document.body.innerText.slice(0, 500) };
+			const candidates = [...document.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')];
+			const pre = candidates.find((candidate) => {
+				const rect = candidate.getBoundingClientRect();
+				return rect.width > 20 && rect.height > 20 && candidate._monacoEditor;
+			}) ?? candidates.find((candidate) => {
+				const rect = candidate.getBoundingClientRect();
+				return rect.width > 20 && rect.height > 20;
+			});
+			if (!pre) {
+				return {
+					missing: true,
+					candidateCount: candidates.length,
+					candidates: candidates.map((candidate) => {
+						const rect = candidate.getBoundingClientRect();
+						return {
+							className: candidate.className,
+							rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+							hasEditor: Boolean(candidate._monacoEditor),
+							text: candidate.innerText?.slice(0, 120) ?? '',
+						};
+					}),
+					html: document.body.innerText.slice(0, 500),
+				};
+			}
+			for (const candidate of candidates) candidate.removeAttribute('data-shiki-mobile-visual-target');
+			pre.setAttribute('data-shiki-mobile-visual-target', 'true');
 			pre._monacoEditor?.setScrollLeft?.(0);
 			pre.scrollLeft = 0;
 			pre.scrollIntoView({ block: 'center', inline: 'nearest' });
@@ -536,7 +560,7 @@ try {
 	const afterTouch = await evaluate(
 		cdp,
 		`(() => {
-			const pre = document.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
+			const pre = document.querySelector('[data-shiki-mobile-visual-target="true"]');
 			const line = document.elementFromPoint(${Math.floor(before.rect.x + before.rect.width - 20)}, ${y})?.textContent?.slice(0, 120);
 			return { scrollLeft: pre?._monacoEditor?.getScrollLeft?.() ?? pre?.scrollLeft ?? null, line };
 		})()`,
@@ -553,7 +577,7 @@ try {
 	const afterWheel = await evaluate(
 		cdp,
 		`(() => {
-			const pre = document.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
+			const pre = document.querySelector('[data-shiki-mobile-visual-target="true"]');
 			return { scrollLeft: pre?._monacoEditor?.getScrollLeft?.() ?? pre?.scrollLeft ?? null };
 		})()`,
 	);
