@@ -176,4 +176,23 @@ describe('startup module boundary', () => {
 		expect(router).toContain('Date.now() - this.lastTouchTime < 700');
 		expect(router).toContain('this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });');
 	});
+
+	test('editable Monaco input remains visible while readonly surfaces may hide IME textarea', () => {
+		const css = read('packages/obsidian/src/styles.css');
+		const imeRules = [...css.matchAll(/([^{}]*\.ime-text-area[^{}]*)\{/g)].map(match => match[1]);
+		const selectors = imeRules.flatMap(rule =>
+			rule
+				.split(',')
+				.map(selector => selector.trim())
+				.filter(Boolean),
+		);
+
+		expect(selectors.length).toBeGreaterThan(0);
+		expect(selectors.every(selector => selector.includes('.shiki-monaco-readonly'))).toBe(true);
+		expect(selectors.some(selector => selector.includes('.shiki-monaco-active'))).toBe(false);
+		expect(selectors.some(selector => selector === '.ime-text-area')).toBe(false);
+		expect(
+			selectors.some(selector => selector.includes('.markdown-source-view.mod-cm6.is-live-preview') && !selector.includes('.shiki-monaco-readonly')),
+		).toBe(false);
+	});
 });
