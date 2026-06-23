@@ -1,8 +1,8 @@
-2026-06-23 10:42:27 Loaded main app package /Applications/Obsidian.app/Contents/Resources/obsidian.asar
+2026-06-23 10:51:41 Loaded main app package /Applications/Obsidian.app/Contents/Resources/obsidian.asar
 
-DevTools listening on ws://127.0.0.1:9479/devtools/browser/a7c68892-f26b-4c6b-aaee-90e7e2da283e
+DevTools listening on ws://127.0.0.1:9479/devtools/browser/99a69e21-5fa0-4453-bb55-c6b4dfad5874
 Ignored: Error: Argument must be a file path or a NativeImage
-2026-06-23 10:42:27 Checking for update using Github
-2026-06-23 10:42:28 Success.
-2026-06-23 10:42:28 Latest version is 1.12.7
-2026-06-23 10:42:28 App is up to date.
+2026-06-23 10:51:43 Checking for update using Github
+2026-06-23 10:51:43 Success.
+2026-06-23 10:51:43 Latest version is 1.12.7
+2026-06-23 10:51:43 App is up to date.
