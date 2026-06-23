@@ -1,0 +1,12 @@
+file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/planning/test-reports/source-theme-parity-probe.mjs:36
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`eval timeout: ${expression.slice(0, 120)}`)), timeout)),
+                                                       ^
+
+Error: eval timeout: (async content => {
+  const pluginId = 'shiki-highlighter';
+  await app.plugins.disablePlugin(pluginId).catch(() => {});
+    at Timeout._onTimeout (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/planning/test-reports/source-theme-parity-probe.mjs:36:56)
+    at listOnTimeout (node:internal/timers:585:17)
+    at process.processTimers (node:internal/timers:521:7)
+
+Node.js v22.22.3
