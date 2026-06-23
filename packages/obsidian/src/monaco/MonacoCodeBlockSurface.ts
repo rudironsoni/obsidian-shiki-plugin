@@ -342,6 +342,7 @@ export class MonacoCodeBlockSurface {
 				this.hostEl,
 			nativeInteraction: this.nativeMobileInteraction,
 			onActivate: this.activationHandler,
+			isEditable: () => this.modeController.isEditable(),
 		});
 	}
 }

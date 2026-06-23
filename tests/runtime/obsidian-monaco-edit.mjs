@@ -547,6 +547,73 @@ async function clickSelectionToolbarButton(client, modeName, labels) {
 	return { ...state, button };
 }
 
+async function assertEditableCursorPlacementSweep(client, modeName) {
+	const setup = await evaluate(
+		client,
+		`(() => {
+			const host = [...document.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-editable, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')].find(candidate => candidate._monacoEditor?.getModel?.());
+			const editor = host?._monacoEditor;
+			const model = editor?.getModel?.();
+			const editorElement = host?.querySelector?.('.monaco-editor') ?? host;
+			const rect = editorElement?.getBoundingClientRect?.();
+			if (!host || !editor || !model || !rect) return { ok: false, error: 'missing-editable-monaco' };
+			editor.setScrollLeft?.(0);
+			editor.focus?.();
+			const lineCount = model.getLineCount();
+			const samples = [
+				{ lineNumber: 1, columnRatio: 0.15 },
+				{ lineNumber: Math.max(1, Math.ceil(lineCount / 2)), columnRatio: 0.5 },
+				{ lineNumber: lineCount, columnRatio: 0.85 },
+			]
+				.map(sample => {
+					const maxColumn = Math.max(1, model.getLineMaxColumn(sample.lineNumber));
+					const targetColumn = Math.max(1, Math.min(maxColumn, Math.round(maxColumn * sample.columnRatio)));
+					const visible = editor.getScrolledVisiblePosition?.({ lineNumber: sample.lineNumber, column: targetColumn });
+					if (!visible) return null;
+					const clientX = rect.left + visible.left;
+					const clientY = rect.top + visible.top + Math.max(2, visible.height / 2);
+					const expected = editor.getTargetAtClientPoint?.(clientX, clientY)?.position ?? { lineNumber: sample.lineNumber, column: targetColumn };
+					return { clientX, clientY, expected, targetColumn, maxColumn };
+				})
+				.filter(Boolean);
+			return { ok: samples.length >= 2, samples, lineCount };
+		})()`,
+	);
+	assert(setup.ok, `${modeName}: editable cursor sweep setup failed`, setup);
+
+	for (const [index, sample] of setup.samples.entries()) {
+		await client.send('Input.dispatchMouseEvent', {
+			type: 'mousePressed',
+			x: sample.clientX,
+			y: sample.clientY,
+			button: 'left',
+			clickCount: 1,
+		});
+		await client.send('Input.dispatchMouseEvent', {
+			type: 'mouseReleased',
+			x: sample.clientX,
+			y: sample.clientY,
+			button: 'left',
+			clickCount: 1,
+		});
+		await delay(80);
+		const actual = await evaluate(
+			client,
+			`(() => {
+				const editor = [...document.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-editable, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')].find(candidate => candidate._monacoEditor?.getPosition?.())?._monacoEditor;
+				return { position: editor?.getPosition?.() ?? null, hasFocus: editor?.hasTextFocus?.() ?? false };
+			})()`,
+		);
+		assert(actual.position, `${modeName}: cursor sweep sample ${index} did not produce a Monaco cursor`, { sample, actual });
+		assert(actual.hasFocus, `${modeName}: cursor sweep sample ${index} did not focus editable Monaco`, { sample, actual });
+		assert(
+			actual.position.lineNumber === sample.expected.lineNumber && Math.abs(actual.position.column - sample.expected.column) <= 1,
+			`${modeName}: cursor sweep sample ${index} landed at the wrong position`,
+			{ sample, actual },
+		);
+	}
+}
+
 async function assertMobileSelectionToolbarActions(client, modeName) {
 	const initial = await evaluate(
 		client,
@@ -999,6 +1066,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		})()`,
 		);
 		await assertEditableCursorPlacement(client, modeName);
+		await assertEditableCursorPlacementSweep(client, modeName);
 		await typeText(client, marker);
 		const content = await assertFileContains(client, marker);
 		assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
@@ -1006,6 +1074,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 
 	const beforeScroll = await readMonacoScrollState(client);
 	assert(beforeScroll?.hasOverflow, `${modeName}: Monaco block does not expose horizontal overflow`, beforeScroll);
+
 	const beforeVerticalWheel = await readNoteAndMonacoScrollState(client);
 	const verticalWheelDispatch = await dispatchWheelOnMonacoHost(client, 0, 220);
 	assert(verticalWheelDispatch?.ok, `${modeName}: vertical wheel dispatch failed`, verticalWheelDispatch);

@@ -6,6 +6,8 @@ interface MonacoEditorLike {
 	setScrollLeft(value: number): void;
 	blur?(): void;
 	getTargetAtClientPoint?(clientX: number, clientY: number): { position?: { lineNumber: number; column: number } } | null;
+	setPosition(position: { lineNumber: number; column: number }): void;
+	focus?(): void;
 }
 
 interface NativeMobileInteraction {
@@ -22,6 +24,7 @@ interface MonacoGestureRouterOptions {
 	getNoteScroller: () => HTMLElement | null;
 	nativeInteraction?: NativeMobileInteraction;
 	onActivate?: (point: { clientX: number; clientY: number }) => void;
+	isEditable?: () => boolean;
 }
 
 export class MonacoGestureRouter {
@@ -30,8 +33,10 @@ export class MonacoGestureRouter {
 	private readonly selectionController: MonacoSelectionController;
 	private readonly scrollState: MonacoScrollState;
 	private readonly getNoteScroller: () => HTMLElement | null;
+	private readonly isEditable: () => boolean;
 	private nativeInteraction: NativeMobileInteraction | undefined;
 	private onActivate: ((point: { clientX: number; clientY: number }) => void) | undefined;
+	private mouseDown: { clientX: number; clientY: number; button: number } | null = null;
 	private touchState: { startX: number; startY: number; scrollLeft: number; axis: GestureAxis; handle: boolean } | null = null;
 	private lastTouchTime = 0;
 	private longPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -43,6 +48,7 @@ export class MonacoGestureRouter {
 		this.scrollState = options.scrollState;
 		this.getNoteScroller = options.getNoteScroller;
 		this.nativeInteraction = options.nativeInteraction;
+		this.isEditable = options.isEditable ?? (() => false);
 		this.onActivate = options.onActivate;
 
 		this.host.addEventListener('wheel', this.onWheel, { passive: false });
@@ -51,6 +57,8 @@ export class MonacoGestureRouter {
 		this.host.addEventListener('touchend', this.onTouchEnd, { passive: false, capture: true });
 		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: false, capture: true });
 		this.host.addEventListener('mousedown', this.onMouseDown, true);
+		this.host.addEventListener('mouseup', this.onMouseUp, true);
+		this.host.addEventListener('click', this.onClick, true);
 	}
 
 	setNativeInteraction(nativeInteraction: NativeMobileInteraction | undefined): void {
@@ -69,6 +77,8 @@ export class MonacoGestureRouter {
 		this.host.removeEventListener('touchend', this.onTouchEnd, true);
 		this.host.removeEventListener('touchcancel', this.onTouchCancel, true);
 		this.host.removeEventListener('mousedown', this.onMouseDown, true);
+		this.host.removeEventListener('mouseup', this.onMouseUp, true);
+		this.host.removeEventListener('click', this.onClick, true);
 	}
 
 	private readonly onWheel = (event: WheelEvent): void => {
@@ -87,13 +97,14 @@ export class MonacoGestureRouter {
 	};
 
 	private readonly onMouseDown = (event: MouseEvent): void => {
-		if (Date.now() - this.lastTouchTime < 700) {
+		if (Date.now() - this.lastTouchTime < 700 || event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey) {
+			this.mouseDown = null;
 			return;
 		}
-		if (event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey) {
-			return;
+		this.mouseDown = { clientX: event.clientX, clientY: event.clientY, button: event.button };
+		if (!this.isEditable()) {
+			this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });
 		}
-		this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });
 	};
 
 	private readonly onTouchStart = (event: TouchEvent): void => {
@@ -170,6 +181,45 @@ export class MonacoGestureRouter {
 			return;
 		}
 		this.selectionController.placeCursor(touch.clientX, touch.clientY);
+	};
+
+	private readonly onMouseUp = (event: MouseEvent): void => {
+		const mouseDown = this.mouseDown;
+		this.mouseDown = null;
+		if (!mouseDown || !this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+			return;
+		}
+		if (Math.abs(event.clientX - mouseDown.clientX) > 3 || Math.abs(event.clientY - mouseDown.clientY) > 3) {
+			return;
+		}
+		const position = this.editor.getTargetAtClientPoint?.(event.clientX, event.clientY)?.position;
+		if (!position) {
+			return;
+		}
+		window.setTimeout(() => {
+			if (!this.isEditable()) {
+				return;
+			}
+			this.editor.setPosition(position);
+			this.editor.focus?.();
+		}, 0);
+	};
+
+	private readonly onClick = (event: MouseEvent): void => {
+		if (!this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+			return;
+		}
+		const position = this.editor.getTargetAtClientPoint?.(event.clientX, event.clientY)?.position;
+		if (!position) {
+			return;
+		}
+		window.setTimeout(() => {
+			if (!this.isEditable()) {
+				return;
+			}
+			this.editor.setPosition(position);
+			this.editor.focus?.();
+		}, 0);
 	};
 
 	private readonly onTouchCancel = (): void => {
