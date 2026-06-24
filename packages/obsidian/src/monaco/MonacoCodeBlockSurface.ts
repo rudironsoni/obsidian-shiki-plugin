@@ -32,6 +32,7 @@ export class MonacoCodeBlockSurface {
 	private gestureRouter: MonacoGestureRouter | undefined;
 	private nativeMobileInteraction: NativeMobileInteraction | undefined;
 	private activationHandler: ((point: { clientX: number; clientY: number }) => void) | undefined;
+	private editableDeactivationGuardUntil = 0;
 	private noteScrollerProvider: (() => HTMLElement | null) | undefined;
 	private attachedParent: HTMLElement | undefined;
 	private hydrated = false;
@@ -128,6 +129,7 @@ export class MonacoCodeBlockSurface {
 		await this.hydrateReadonly();
 		this.inputController.setSync(sync);
 		this.modeController.setMode('editable');
+		this.editableDeactivationGuardUntil = Date.now() + 8000;
 		this.editor?.updateOptions({ readOnly: false, domReadOnly: false, contextmenu: true, renderLineHighlight: 'line' });
 		this.updateModeClass();
 		if (cursorPoint) {
@@ -148,6 +150,18 @@ export class MonacoCodeBlockSurface {
 	}
 
 	deactivateToReadonly(): void {
+		const deactivationGuardActive = Date.now() < this.editableDeactivationGuardUntil && this.modeController.isEditable();
+		if (deactivationGuardActive) {
+			const deactivationTrace = (window as unknown as { __shikiMonacoDeactivationTrace?: unknown }).__shikiMonacoDeactivationTrace;
+			if (Array.isArray(deactivationTrace)) {
+				deactivationTrace.push({ blockId: this.block.id, skipped: true, stack: new Error().stack });
+			}
+			return;
+		}
+		const deactivationTrace = (window as unknown as { __shikiMonacoDeactivationTrace?: unknown }).__shikiMonacoDeactivationTrace;
+		if (Array.isArray(deactivationTrace)) {
+			deactivationTrace.push({ blockId: this.block.id, stack: new Error().stack });
+		}
 		this.inputController.setSync(undefined);
 		this.modeController.setMode('readonly');
 		this.editor?.updateOptions({ readOnly: true, domReadOnly: true, contextmenu: false, renderLineHighlight: 'none' });

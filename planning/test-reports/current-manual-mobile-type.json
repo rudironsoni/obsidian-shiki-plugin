@@ -1,0 +1,33 @@
+{
+  "before": {
+    "hosts": 0,
+    "live": false,
+    "activeClass": "undefined"
+  },
+  "tap1": {
+    "ok": false,
+    "reason": "missing-host"
+  },
+  "afterTap1": {
+    "hosts": 0,
+    "live": false,
+    "activeTag": "BODY",
+    "activeClass": "theme-dark mod-macos is-frameless is-hidden-framel"
+  },
+  "tap2": {
+    "ok": false,
+    "reason": "missing-host"
+  },
+  "afterTap2": {
+    "hosts": 0,
+    "live": true,
+    "activeTag": "BODY",
+    "activeClass": "mod-macos is-frameless is-hidden-frameless obsidia"
+  },
+  "afterInsert": {
+    "hosts": 0,
+    "live": true,
+    "activeTag": "BODY",
+    "activeClass": "mod-macos is-frameless is-hidden-frameless obsidia"
+  }
+}

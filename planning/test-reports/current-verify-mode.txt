@@ -1,0 +1,317 @@
+async function verifyMode(client, modeName, livePreview, marker) {
+	await openNoteSafe(client, livePreview);
+	await delay(2000);
+	const diag = await evaluate(client, `JSON.stringify(window.__shikiDiag ?? { missing: true })`);
+	console.log(`${modeName} diag:`, diag);
+	const debugDom = await evaluate(
+		client,
+		`JSON.stringify({
+		allMonacoBlocks: (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block').length,
+		allActiveMonacoBlocks: document.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active').length,
+		allEditableLines: (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelectorAll('.shiki-editing-codeblock-line').length,
+		allCmContent: (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.cm-content')?.innerHTML?.substring(0, 200) ?? 'none',
+	})`,
+	);
+	console.log(`${modeName} debug:`, debugDom);
+	if (!livePreview) {
+		const sourceState = await waitFor(
+			client,
+			`(async () => {
+				const editorRoot = document.querySelector('.markdown-source-view.mod-cm6');
+				if (!editorRoot) return null;
+				const monacoBlocks = editorRoot.querySelectorAll('.cm-content .shiki-monaco-codeblock, .cm-content .shiki-monaco-block').length;
+				const fence = String.fromCharCode(96).repeat(3);
+				const fenceLines = [...editorRoot.querySelectorAll('.cm-line')].filter(line => {
+					const text = line.textContent ?? '';
+					return text.includes(fence + 'python showLineNumbers') || text === fence;
+				});
+				const styledTokens = [...editorRoot.querySelectorAll('.cm-line [style*="color"]')]
+					.map(el => ({ text: el.textContent ?? '', color: getComputedStyle(el).color, style: el.getAttribute('style') ?? '' }))
+					.filter(token => token.text);
+				const plugin = app.plugins.plugins['shiki-highlighter'];
+				const expectedTokens = await plugin?.highlighter?.getHighlightTokens?.('const x: number = 1;\nconsole.log(x);', 'ts');
+				const expectedConstToken = expectedTokens?.tokens?.flat?.().find(token => token.content === 'const') ?? null;
+				const expectedConstStyle = expectedConstToken ? plugin.highlighter.getTokenStyle(expectedConstToken) : null;
+				const expectedConstColor = expectedConstStyle?.style?.match(/color:\s*([^;]+)/)?.[1] ?? null;
+				let normalizedExpectedConstColor = null;
+				if (expectedConstColor) {
+					const probe = document.createElement('span');
+					probe.style.color = expectedConstColor;
+					document.body.appendChild(probe);
+					normalizedExpectedConstColor = getComputedStyle(probe).color;
+					probe.remove();
+				}
+				const sourceConstToken = styledTokens.find(token => token.text.trim() === 'const') ?? null;
+				return {
+					monacoBlocks,
+					fenceCount: fenceLines.length,
+					styledTokensCount: styledTokens.length,
+					styledTokens: styledTokens.map(token => token.text),
+					sourceConstColor: sourceConstToken?.color ?? null,
+					expectedConstColor: normalizedExpectedConstColor,
+					expectedConstStyle: expectedConstStyle?.style ?? null,
+				};
+			})()`,
+			`${modeName}: source mode did not render`,
+		);
+		assert(sourceState.monacoBlocks === 0, `${modeName}: source mode mounted Monaco`, sourceState);
+		assert(sourceState.fenceCount >= 2, `${modeName}: source mode fences are not visible`, sourceState);
+		assert(sourceState.styledTokensCount > 0, `${modeName}: source mode token styling missing`, sourceState);
+		assert(
+			sourceState.sourceConstColor && sourceState.expectedConstColor && sourceState.sourceConstColor === sourceState.expectedConstColor,
+			`${modeName}: source mode const token color does not match exact highlighter style`,
+			sourceState,
+		);
+		await captureScreenshot(client, modeName);
+		return;
+	}
+	const line = await getEditableCodeLine(client);
+	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
+	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
+
+	await evaluate(client, `(() => {
+		const activeEditor = app.workspace.activeEditor?.editor ?? app.workspace.activeLeaf?.view?.editor;
+		const cm = activeEditor?.cm ?? app.workspace.activeLeaf?.view?.editor?.cm;
+		const scroller = cm?.scrollDOM ?? app.workspace.activeLeaf?.view?.contentEl?.querySelector?.('.cm-scroller') ?? document.querySelector('.markdown-source-view .cm-scroller');
+		if (scroller) scroller.scrollTop = 0;
+	})()`);
+	await delay(100);
+	const outsideBefore = await readObsidianNoteScrollState(client);
+	const outsideScroll = await scrollObsidianNoteByApi(client, 220);
+	await delay(100);
+	const outsideAfter = await readObsidianNoteScrollState(client);
+	assert(!outsideScroll.missing && outsideAfter.noteScrollTop > outsideBefore.noteScrollTop, `${modeName}: Obsidian editor scroller API did not scroll the note`, {
+		outsideBefore,
+		outsideScroll,
+		outsideAfter,
+	});
+
+	const isMobileMode = modeName.includes('mobile');
+	await clickLine(client, line);
+	const monaco = await waitForMonaco(client, modeName, !isMobileMode);
+	await assertMonacoCopySelection(client, modeName);
+	if (isMobileMode) await assertMobileSelectionToolbarActions(client, modeName);
+	if (isMobileMode) await assertMobileSelectionHandleDrag(client, modeName);
+	assert(monaco.width > 0 && monaco.height > 0, `${modeName}: Monaco mounted without visible dimensions`, monaco);
+	assert(monaco.viewLines > 0, `${modeName}: Monaco mounted but rendered no visible editor lines`, monaco);
+	assert(monaco.hasEditorHook, `${modeName}: Monaco mounted without editor instance hook`, monaco);
+	assert(!monaco.fenceTextVisible, `${modeName}: raw fenced code block is still visible outside Monaco`, monaco);
+	if (!isMobileMode) {
+		const cursorPlacement = await evaluate(
+			client,
+			`(() => {
+				const block = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active');
+				const editor = block?._monacoEditor;
+				return { position: editor?.getPosition?.() ?? null, selection: editor?.getSelection?.() ?? null };
+			})()`,
+		);
+		assert(cursorPlacement.position?.lineNumber > 1, `${modeName}: activation click did not place Monaco cursor in clicked code region`, cursorPlacement);
+	}
+
+	if (isMobileMode) {
+		const activeMonaco = await waitFor(
+			client,
+			`(() => {
+				const host = document.querySelector('.shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-active');
+				if (!host?._monacoEditor) return null;
+				return { className: String(host.className), hasEditor: true };
+			})()`,
+			3_000,
+		);
+		assert(activeMonaco?.className?.includes('shiki-monaco-active'), `${modeName}: mobile tap did not activate editable Monaco`, { monaco, activeMonaco });
+		const mobileTapTarget = await evaluate(
+			client,
+			`(() => {
+				const root = document.querySelector('.workspace-leaf.mod-active') ?? document;
+				const host = [...root.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-editable, .shiki-monaco-block.shiki-monaco-editable, .shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getModel?.());
+				const editor = host?._monacoEditor;
+				const model = editor?.getModel?.();
+				let target = editor?.getTargetAtClientPoint?.(${line.x}, ${line.y})?.position ?? null;
+				if (!target && host && model) {
+					const lines = [...host.querySelectorAll('.view-line')];
+					const firstLineRect = lines[0]?.getBoundingClientRect?.();
+					const measuredLineHeight = firstLineRect?.height && firstLineRect.height > 0 ? firstLineRect.height : 20;
+					const hostRect = host.getBoundingClientRect();
+					const contentTop = firstLineRect?.top ?? hostRect.top;
+					const lineNumber = Math.max(1, Math.min(model.getLineCount(), Math.floor((${line.y} - contentTop) / measuredLineHeight) + 1));
+					let closestColumn = 1;
+					let closestDistance = Number.POSITIVE_INFINITY;
+					const targetLeft = ${line.x} - hostRect.left;
+					for (let column = 1; column <= model.getLineMaxColumn(lineNumber); column++) {
+						const visible = editor.getScrolledVisiblePosition?.({ lineNumber, column });
+						if (!visible) continue;
+						const distance = Math.abs(visible.left - targetLeft);
+						if (distance < closestDistance) {
+							closestDistance = distance;
+							closestColumn = column;
+						}
+					}
+					target = { lineNumber, column: closestColumn };
+				}
+				return {
+					hasEditor: Boolean(editor),
+					target,
+					className: String(host?.className ?? ''),
+				};
+			})()`,
+		);
+		assert(mobileTapTarget.target, `${modeName}: mobile tap target did not resolve to a Monaco position`, mobileTapTarget);
+		await dispatchTouchTap(client, line.x, line.y);
+		const activeLine = await evaluate(
+			client,
+			`(() => {
+				const host = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock, .shiki-monaco-block');
+				const lines = [...(host ?? document).querySelectorAll('.view-line')];
+				const expectedLine = ${mobileTapTarget.target.lineNumber};
+				const row = lines.find((lineEl) => {
+					const rect = lineEl.getBoundingClientRect();
+					const top = Number.parseFloat(lineEl.style.top || '');
+					const lineHeight = Math.max(1, rect.height || Number.parseFloat(getComputedStyle(lineEl).lineHeight) || 20);
+					return Number.isFinite(top) && Math.round(top / lineHeight) + 1 === expectedLine;
+				}) ?? lines[expectedLine - 1] ?? lines[0];
+				if (!row) return null;
+				const rect = row.getBoundingClientRect();
+				return { x: Math.min(rect.right - 4, Math.max(rect.left + 4, ${line.x})), y: rect.top + rect.height / 2 };
+			})()`
+		);
+		assert(activeLine, `${modeName}: mobile active Monaco line target was unavailable`, { line, activeLine });
+		const placementTap = await evaluate(
+			client,
+			`(() => {
+				const point = { x: ${activeLine.x}, y: ${activeLine.y} };
+				const host = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock, .shiki-monaco-block');
+				const editor = host?._monacoEditor;
+				window.__shikiMonacoGestureTrace = [];
+				const before = editor?.getPosition?.() ?? null;
+				const target = document.elementFromPoint(point.x, point.y) ?? host ?? document.body;
+				const seen = [];
+				const listener = event => seen.push({ type: event.type, pointerType: event.pointerType, isPrimary: event.isPrimary, targetClass: event.target?.className?.toString?.() ?? '', clientX: event.clientX, clientY: event.clientY });
+				document.addEventListener('pointerdown', listener, true);
+				document.addEventListener('pointerup', listener, true);
+				for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]]) {
+					target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 23, pointerType: 'touch', isPrimary: true, clientX: point.x, clientY: point.y, buttons }));
+				}
+				document.removeEventListener('pointerdown', listener, true);
+				document.removeEventListener('pointerup', listener, true);
+				return { point, targetClass: target?.className?.toString?.() ?? '', before, after: editor?.getPosition?.() ?? null, seen, gestureTrace: window.__shikiMonacoGestureTrace };
+			})()`
+		);
+		await delay(120);
+		await delay(120);
+		const nativeTap = await evaluate(
+			client,
+			`(() => {
+				const block = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active');
+				const editor = block?._monacoEditor;
+				const position = editor?.getPosition?.() ?? null;
+				const activeElement = document.activeElement;
+				return {
+					position,
+					expected: ${JSON.stringify(mobileTapTarget.target)},
+					editorHasFocus: editor?.hasTextFocus?.() ?? editor?.hasWidgetFocus?.() ?? false,
+					activeElementClass: activeElement?.className?.toString?.() ?? null,
+					activeElementInMonaco: !!activeElement?.closest?.('.monaco-editor'),
+					placementTap: ${JSON.stringify(placementTap)},
+				};
+			})()`,
+		);
+		assert(nativeTap.position?.lineNumber === mobileTapTarget.target.lineNumber, `${modeName}: mobile tap placed Monaco cursor on wrong line`, nativeTap);
+		assert(
+			Math.abs(nativeTap.position?.column - mobileTapTarget.target.column) <= 1,
+			`${modeName}: mobile tap placed Monaco cursor on wrong column`,
+			nativeTap,
+		);
+		assert(nativeTap.editorHasFocus, `${modeName}: mobile tap did not focus editable Monaco`, nativeTap);
+		assert(nativeTap.activeElementInMonaco, `${modeName}: mobile tap did not focus inside Monaco`, nativeTap);
+		await typeText(client, marker);
+		const mobileModel = await waitFor(
+			client,
+			`(() => {
+				const editor = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')?._monacoEditor;
+				const value = editor?.getModel?.()?.getValue?.() ?? '';
+				return value.includes(${JSON.stringify(marker)}) ? value : null;
+			})()`,
+			`${modeName}: timed out waiting for typed mobile text in Monaco model`,
+			5_000,
+		);
+		const mobileContent = await waitFor(
+			client,
+			`(async () => {
+				const file = app.workspace.getActiveFile?.();
+				const content = file ? await app.vault.read(file) : '';
+				return content.includes(${JSON.stringify(marker)}) ? content : null;
+			})()`,
+			`${modeName}: timed out waiting for typed mobile text in Markdown`,
+			5_000,
+		);
+		assert(mobileModel.includes(marker), `${modeName}: typed mobile text did not appear in Monaco model`, { marker, mobileModel });
+		assert(mobileContent.includes(marker), `${modeName}: typed mobile text did not sync to Markdown`, { marker, mobileContent });
+	} else {
+		await evaluate(
+			client,
+			`(() => {
+			const container = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active');
+			if (container && container._monacoEditor) container._monacoEditor.focus();
+		})()`,
+		);
+		await assertEditableCursorPlacement(client, modeName);
+		await assertEditableCursorPlacementSweep(client, modeName);
+		await typeText(client, marker);
+		const content = await assertFileContains(client, marker);
+		assert(content.includes(marker), `${modeName}: inserted text did not persist`, { marker, content });
+	}
+
+	const beforeScroll = await readMonacoScrollState(client);
+	assert(beforeScroll?.hasOverflow, `${modeName}: Monaco block does not expose horizontal overflow`, beforeScroll);
+
+	const beforeVerticalWheel = await readNoteAndMonacoScrollState(client);
+	const verticalWheelDispatch = await dispatchWheelOnMonacoHost(client, 0, 220);
+	assert(verticalWheelDispatch?.ok, `${modeName}: vertical wheel dispatch failed`, verticalWheelDispatch);
+	assert(!verticalWheelDispatch.defaultPrevented, `${modeName}: vertical wheel was prevented inside Monaco`, verticalWheelDispatch);
+	await delay(100);
+	const afterVerticalWheel = await readNoteAndMonacoScrollState(client);
+	assert(afterVerticalWheel.noteScrollTop > beforeVerticalWheel.noteScrollTop, `${modeName}: vertical wheel inside Monaco did not scroll the Obsidian note`, {
+		beforeVerticalWheel,
+		afterVerticalWheel,
+	});
+	assert(afterVerticalWheel.monacoScrollLeft === beforeVerticalWheel.monacoScrollLeft, `${modeName}: vertical wheel changed Monaco horizontal scroll`, {
+		beforeVerticalWheel,
+		afterVerticalWheel,
+	});
+
+	const beforeHorizontalWheel = await readNoteAndMonacoScrollState(client);
+	const wheelDispatch = await dispatchWheelOnMonacoHost(client, 180, 0);
+	assert(wheelDispatch?.ok, `${modeName}: horizontal wheel dispatch failed`, wheelDispatch);
+	assert(wheelDispatch.defaultPrevented, `${modeName}: horizontal wheel was not prevented inside Monaco`, wheelDispatch);
+	await delay(100);
+	const afterWheelScroll = await readNoteAndMonacoScrollState(client);
+	assert(afterWheelScroll.monacoScrollLeft > beforeHorizontalWheel.monacoScrollLeft, `${modeName}: horizontal wheel did not scroll Monaco`, {
+		beforeHorizontalWheel,
+		afterWheelScroll,
+	});
+	assert(afterWheelScroll.noteScrollTop === beforeHorizontalWheel.noteScrollTop, `${modeName}: horizontal wheel scrolled the Obsidian note`, {
+		beforeHorizontalWheel,
+		afterWheelScroll,
+	});
+
+	if (isMobileMode) {
+		await evaluate(
+			client,
+			`(() => { const block = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active') ?? document.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block'); block?._monacoEditor?.setScrollLeft?.(0); return true; })()`,
+		);
+		const resetScroll = await readMonacoScrollState(client);
+		const touchDispatch = await dispatchTouchDragOnMonacoHost(client, line.x + 140, line.y, Math.max(line.x + 20, line.x - 100), line.y);
+		assert(touchDispatch?.ok, `${modeName}: touch drag dispatch failed`, touchDispatch);
+		await delay(150);
+		const afterTouchScroll = await readMonacoScrollState(client);
+		assert(afterTouchScroll.scrollLeft > resetScroll.scrollLeft, `${modeName}: horizontal touch drag did not scroll Monaco`, {
+			resetScroll,
+			afterTouchScroll,
+		});
+	}
+
+	const afterMonaco = await waitForMonaco(client, modeName, !isMobileMode);
+	assert(afterMonaco.viewLines > 0, `${modeName}: Monaco lost rendered lines after editing`, afterMonaco);
+	assert(!afterMonaco.fenceTextVisible, `${modeName}: raw fenced code block became visible after editing`, afterMonaco);
+	await captureScreenshot(client, modeName);
+}

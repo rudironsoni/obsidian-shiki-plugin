@@ -218,6 +218,32 @@ async function waitForObsidianAppGlobal(client, timeoutMs = 20_000) {
 	throw new Error(`Obsidian app global was not available in the selected CDP target: ${lastError?.message ?? 'timed out'}`);
 }
 
+async function ensureLivePreviewMode(client) {
+	return await evaluate(
+		client,
+		`(async () => {
+			const state = () => ({
+				reading: Boolean(document.querySelector('.markdown-reading-view, .markdown-preview-view')),
+				source: Boolean(document.querySelector('.markdown-source-view')),
+				live: Boolean(document.querySelector('.markdown-source-view.is-live-preview')),
+				blocks: document.querySelectorAll('.shiki-monaco-block, .shiki-monaco-codeblock').length,
+			});
+			const steps = [state()];
+			if (steps[0].reading && !steps[0].source) {
+				app.commands.executeCommandById('markdown:toggle-preview');
+				await new Promise(resolve => setTimeout(resolve, 600));
+				steps.push(state());
+			}
+			for (let attempt = 0; attempt < 2 && !state().live; attempt++) {
+				app.commands.executeCommandById('editor:toggle-source');
+				await new Promise(resolve => setTimeout(resolve, 800));
+				steps.push(state());
+			}
+			return { ok: state().live, steps, final: state() };
+		})()`,
+	);
+}
+
 function createCdpClient(wsUrl) {
 	const socket = new WebSocket(wsUrl);
 	let nextId = 1;
@@ -372,7 +398,9 @@ async function openNoteSafe(client, livePreview = true) {
 	);
 }
 async function getEditableCodeLine(client) {
-	return waitFor(
+	return (async () => {
+		await ensureLivePreviewMode(client);
+		return waitFor(
 		client,
 		`(() => {
 			const container = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock, .markdown-source-view.mod-cm6 .shiki-monaco-block');
@@ -400,6 +428,7 @@ async function getEditableCodeLine(client) {
 		})()`,
 		'Timed out waiting for visible editable code line',
 	);
+	})();
 }
 
 async function clickLine(client, line) {
@@ -1262,6 +1291,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		);
 		assert(nativeTap.editorHasFocus, `${modeName}: mobile tap did not focus editable Monaco`, nativeTap);
 		assert(nativeTap.activeElementInMonaco, `${modeName}: mobile tap did not focus inside Monaco`, nativeTap);
+		await evaluate(client, `(() => { window.__shikiMonacoDeactivationTrace = []; return true; })()`);
 		await typeText(client, marker);
 		const mobileModel = await waitFor(
 			client,

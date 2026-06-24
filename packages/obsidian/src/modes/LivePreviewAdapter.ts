@@ -22,6 +22,7 @@ export class LivePreviewAdapter {
 	private visibilityRefreshTimer: number | undefined;
 	private activeBlockId: string | undefined;
 	private activeBlockAnchor: string | undefined;
+	private mobileEditableActivatedAt = 0;
 	private lastMobileMode: boolean | undefined;
 	private lastViewportKey = '';
 	private mobileClassObserver: MutationObserver | undefined;
@@ -229,7 +230,12 @@ export class LivePreviewAdapter {
 			this.removeDuplicateBlockSurfaces(block.id, surface.hostEl);
 			const mobileMode = this.isMobile();
 			if (mobileMode && this.activeBlockId !== block.id) {
-				surface.deactivateToReadonly();
+				if (surface.hostEl.classList.contains('shiki-monaco-active') || surface.hostEl.classList.contains('shiki-monaco-editable')) {
+					this.activeBlockId = block.id;
+					this.activeBlockAnchor = this.getLiveBlockAnchor(block);
+				} else {
+					surface.deactivateToReadonly();
+				}
 			}
 			surface.setNativeMobileInteraction(mobileMode ? this.createNativeMobileInteraction(block) : undefined);
 			surface.hostEl.classList.add('shiki-monaco-codeblock');
@@ -524,7 +530,11 @@ export class LivePreviewAdapter {
 		const mobileMode = this.isMobile();
 		if (mobileMode && this.lastMobileMode !== true) {
 			for (const block of this.blocks) {
-				this.plugin.surfaceRegistry.get(block.id)?.deactivateToReadonly();
+				const surface = this.plugin.surfaceRegistry.get(block.id);
+				if (block.id === this.activeBlockId || surface?.hostEl.classList.contains('shiki-monaco-active') || surface?.hostEl.classList.contains('shiki-monaco-editable')) {
+					continue;
+				}
+				surface?.deactivateToReadonly();
 			}
 		}
 		this.lastMobileMode = mobileMode;
@@ -562,9 +572,15 @@ export class LivePreviewAdapter {
 		}
 		this.activeBlockId = block.id;
 		this.activeBlockAnchor = this.getLiveBlockAnchor(block);
+		this.mobileEditableActivatedAt = this.isMobile() ? Date.now() : 0;
 		await surface.activateEditable(this.createEditSync(block), point);
 	}
 	deactivateBlock(blockId: string): void {
+		const mobileDeactivationGraceActive = this.isMobile() && this.activeBlockId === blockId && Date.now() - this.mobileEditableActivatedAt < 8000;
+		if (mobileDeactivationGraceActive) {
+			return;
+		}
+
 		if (this.activeBlockId === blockId) {
 			this.activeBlockId = undefined;
 			this.activeBlockAnchor = undefined;
