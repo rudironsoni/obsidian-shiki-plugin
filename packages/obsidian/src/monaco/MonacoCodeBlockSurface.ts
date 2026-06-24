@@ -133,6 +133,11 @@ export class MonacoCodeBlockSurface {
 		if (cursorPoint) {
 			await this.waitForEditorFrame();
 			this.placeCursorFromPoint(cursorPoint.clientX, cursorPoint.clientY);
+			for (const delayMs of [50, 150, 300]) {
+				window.setTimeout(() => {
+					this.placeCursorFromPoint(cursorPoint.clientX, cursorPoint.clientY);
+				}, delayMs);
+			}
 		} else {
 			this.editor?.focus();
 		}
@@ -235,7 +240,98 @@ export class MonacoCodeBlockSurface {
 	}
 
 	private placeCursorFromPoint(clientX: number, clientY: number): void {
-		this.selectionController.placeCursor(clientX, clientY, true);
+		if (!this.editor) {
+			return;
+		}
+		const model = this.editor.getModel();
+		if (!model) {
+			return;
+		}
+		const modelLines = model.getValue().split(/\r\n|\r|\n/);
+		const getLineCount = (): number => Math.max(1, modelLines.length);
+		const getLineMaxColumn = (lineNumber: number): number => (modelLines[lineNumber - 1] ?? '').length + 1;
+		type GeometryEditor = MonacoEditorLike & {
+			getTargetAtClientPoint?: (clientX: number, clientY: number) => { position?: { lineNumber: number; column: number } } | null;
+			getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number } | null;
+		};
+		const geometryEditor = this.editor as GeometryEditor;
+
+		const targetPosition = geometryEditor.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		if (targetPosition && this.hostEl.querySelectorAll('.view-line').length === 0) {
+			const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
+			this.editor.setPosition({
+				lineNumber,
+				column: Math.max(1, Math.min(getLineMaxColumn(lineNumber), targetPosition.column)),
+			});
+			this.editor.focus();
+			return;
+		}
+
+		const viewLines = Array.from(this.hostEl.querySelectorAll<HTMLElement>('.view-line'));
+		if (viewLines.length === 0) {
+			this.editor.focus();
+			return;
+		}
+
+		let bestLineElement: HTMLElement | null = null;
+		let bestLineDistance = Number.POSITIVE_INFINITY;
+		for (const lineEl of viewLines) {
+			const rect = lineEl.getBoundingClientRect();
+			if (rect.width === 0 && rect.height === 0) {
+				continue;
+			}
+			const distance = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+			if (distance < bestLineDistance) {
+				bestLineDistance = distance;
+				bestLineElement = lineEl;
+			}
+		}
+		if (!bestLineElement) {
+			this.editor.focus();
+			return;
+		}
+
+		const lineRect = bestLineElement.getBoundingClientRect();
+		const lineHeight = Math.max(1, lineRect.height || Number.parseFloat(getComputedStyle(bestLineElement).lineHeight) || 20);
+		const topMatchedLine = Number.parseFloat(bestLineElement.style.top || '');
+		const topMatchedLineNumber = Number.isFinite(topMatchedLine) ? Math.round(topMatchedLine / lineHeight) + 1 : -1;
+		const renderedText = (bestLineElement.textContent ?? '').replace(/\u00a0/g, ' ');
+		const textMatchedLine = modelLines.findIndex((line) => line === renderedText);
+		const sortedLines = viewLines
+			.map((lineEl, index) => ({ lineEl, index, top: lineEl.getBoundingClientRect().top }))
+			.sort((a, b) => a.top - b.top || a.index - b.index);
+		const visualLineIndex = sortedLines.findIndex((entry) => entry.lineEl === bestLineElement);
+		const fallbackLineNumber = Math.max(0, visualLineIndex) + 1;
+		const lineNumber = Math.max(1, Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber));
+		const maxColumn = getLineMaxColumn(lineNumber);
+		if (maxColumn <= 1) {
+			this.editor.setPosition({ lineNumber, column: 1 });
+			this.editor.focus();
+			return;
+		}
+
+		const contentLeft = lineRect.left;
+		let low = 1;
+		let high = maxColumn;
+		let bestColumn = 1;
+		while (low <= high) {
+			const mid = Math.floor((low + high) / 2);
+			const visiblePosition = geometryEditor.getScrolledVisiblePosition?.({ lineNumber, column: mid });
+			const left = visiblePosition ? visiblePosition.left : contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
+			if (left <= clientX) {
+				bestColumn = mid;
+				low = mid + 1;
+			} else {
+				high = mid - 1;
+			}
+		}
+
+		const nextColumn = Math.min(maxColumn, bestColumn + 1);
+		const bestLeft = geometryEditor.getScrolledVisiblePosition?.({ lineNumber, column: bestColumn })?.left ?? contentLeft;
+		const nextLeft = geometryEditor.getScrolledVisiblePosition?.({ lineNumber, column: nextColumn })?.left ?? lineRect.right;
+		const column = Math.abs(clientX - nextLeft) < Math.abs(clientX - bestLeft) ? nextColumn : bestColumn;
+		this.editor.setPosition({ lineNumber, column: Math.max(1, Math.min(maxColumn, column)) });
+		this.editor.focus();
 	}
 
 	private approximatePositionFromPoint(clientX: number, clientY: number): { lineNumber: number; column: number } | undefined {

@@ -41,6 +41,7 @@ export class MonacoGestureRouter {
 	private lastTouchTime = 0;
 	private longPressTimer: ReturnType<typeof setTimeout> | null = null;
 	private longPressActivated = false;
+	private pointerTouchStart: { pointerId: number; clientX: number; clientY: number } | null = null;
 
 	constructor(options: MonacoGestureRouterOptions) {
 		this.host = options.host;
@@ -57,11 +58,17 @@ export class MonacoGestureRouter {
 		this.host.addEventListener('touchmove', this.onTouchMove, { passive: false, capture: true });
 		this.host.addEventListener('touchend', this.onTouchEnd, { passive: false, capture: true });
 		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: false, capture: true });
+		this.host.addEventListener('pointerdown', this.onPointerDown, { passive: true });
+		this.host.addEventListener('pointerup', this.onPointerUp, { passive: true });
+		this.host.addEventListener('pointercancel', this.onPointerCancel, { passive: true });
 		this.host.addEventListener('mousedown', this.onMouseDown, true);
 		this.host.addEventListener('mouseup', this.onMouseUp, true);
 		this.host.addEventListener('mouseup', this.onMouseUpBubble);
 		this.host.addEventListener('click', this.onClick, true);
 		this.host.addEventListener('click', this.onClickBubble);
+		document.addEventListener('pointerdown', this.onPointerDown, true);
+		document.addEventListener('pointerup', this.onPointerUp, true);
+		document.addEventListener('pointercancel', this.onPointerCancel, true);
 		document.addEventListener('mousedown', this.onDocumentMouseDown, true);
 		document.addEventListener('mouseup', this.onDocumentMouseUp, true);
 		document.addEventListener('click', this.onDocumentClick, true);
@@ -82,11 +89,17 @@ export class MonacoGestureRouter {
 		this.host.removeEventListener('touchmove', this.onTouchMove, true);
 		this.host.removeEventListener('touchend', this.onTouchEnd, true);
 		this.host.removeEventListener('touchcancel', this.onTouchCancel, true);
+		this.host.removeEventListener('pointerdown', this.onPointerDown);
+		this.host.removeEventListener('pointerup', this.onPointerUp);
+		this.host.removeEventListener('pointercancel', this.onPointerCancel);
 		this.host.removeEventListener('mousedown', this.onMouseDown, true);
 		this.host.removeEventListener('mouseup', this.onMouseUp, true);
 		this.host.removeEventListener('mouseup', this.onMouseUpBubble);
 		this.host.removeEventListener('click', this.onClick, true);
 		this.host.removeEventListener('click', this.onClickBubble);
+		document.removeEventListener('pointerdown', this.onPointerDown, true);
+		document.removeEventListener('pointerup', this.onPointerUp, true);
+		document.removeEventListener('pointercancel', this.onPointerCancel, true);
 		document.removeEventListener('mousedown', this.onDocumentMouseDown, true);
 		document.removeEventListener('mouseup', this.onDocumentMouseUp, true);
 		document.removeEventListener('click', this.onDocumentClick, true);
@@ -117,6 +130,50 @@ export class MonacoGestureRouter {
 		if (!this.isEditable()) {
 			this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });
 		}
+	};
+
+	readonly onPointerDown = (event: PointerEvent): void => {
+		if (!event.isPrimary || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
+			return;
+		}
+		if (!this.isPointInsideHost(event.clientX, event.clientY)) {
+			return;
+		}
+		this.longPressActivated = false;
+		this.pointerTouchStart = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
+		this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });
+		this.clearLongPressTimer();
+		this.longPressTimer = setTimeout(() => {
+			this.longPressActivated = true;
+			this.selectionController.selectWordAt(event.clientX, event.clientY);
+		}, 700);
+	};
+
+	readonly onPointerUp = (event: PointerEvent): void => {
+		if (!this.pointerTouchStart || event.pointerId !== this.pointerTouchStart.pointerId) {
+			return;
+		}
+		this.clearLongPressTimer();
+		const start = this.pointerTouchStart;
+		this.pointerTouchStart = null;
+		if (this.longPressActivated) {
+			this.longPressActivated = false;
+			return;
+		}
+		if (Math.abs(event.clientX - start.clientX) > 6 || Math.abs(event.clientY - start.clientY) > 6) {
+			return;
+		}
+		this.focusEditorAtPoint(event.clientX, event.clientY);
+		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
+	};
+
+	readonly onPointerCancel = (event: PointerEvent): void => {
+		if (!this.pointerTouchStart || event.pointerId !== this.pointerTouchStart.pointerId) {
+			return;
+		}
+		this.clearLongPressTimer();
+		this.pointerTouchStart = null;
+		this.longPressActivated = false;
 	};
 
 	private readonly onTouchStart = (event: TouchEvent): void => {
@@ -322,16 +379,11 @@ export class MonacoGestureRouter {
 		this.longPressTimer = null;
 	}
 	private deferFocusEditorAtPoint(clientX: number, clientY: number): void {
-		window.setTimeout(() => {
-			if (this.isEditable()) {
+		for (const delayMs of [50, 150, 300]) {
+			window.setTimeout(() => {
 				this.focusEditorAtPoint(clientX, clientY);
-			}
-		}, 0);
-		window.setTimeout(() => {
-			if (this.isEditable()) {
-				this.focusEditorAtPoint(clientX, clientY);
-			}
-		}, 32);
+			}, delayMs);
+		}
 	}
 
 	private focusEditorAtPoint(clientX: number, clientY: number): void {
@@ -348,8 +400,91 @@ export class MonacoGestureRouter {
 		const editorWithModel = this.editor as MonacoEditorLike & { getModel?: () => { getLineCount(): number; getLineContent(lineNumber: number): string; getLineMaxColumn(lineNumber: number): number } | null; getScrollTop?: () => number };
 		const model = editorWithModel.getModel?.();
 		if (model === undefined || model === null) {
-			return hitPosition ?? undefined;
+		const editorWithModel = this.editor as MonacoEditorLike & {
+			getModel?: () => {
+				getValue?: () => string;
+				getLineCount?: () => number;
+				getLineMaxColumn?: (lineNumber: number) => number;
+			} | null;
+			getTargetAtClientPoint?: (clientX: number, clientY: number) => { position?: { lineNumber: number; column: number } } | null;
+			getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number } | null;
+		};
+		const model = editorWithModel.getModel?.();
+		const modelValue = model?.getValue?.() ?? '';
+		const modelLines = modelValue.split(/\r\n|\r|\n/);
+		const getLineCount = (): number => model?.getLineCount?.() ?? Math.max(1, modelLines.length);
+		const getLineMaxColumn = (lineNumber: number): number => model?.getLineMaxColumn?.(lineNumber) ?? ((modelLines[lineNumber - 1] ?? '').length + 1);
+
+		const targetPosition = editorWithModel.getTargetAtClientPoint?.(clientX, clientY)?.position;
+		if (targetPosition && this.host.querySelectorAll('.view-line').length === 0) {
+			const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
+			return {
+				lineNumber,
+				column: Math.max(1, Math.min(getLineMaxColumn(lineNumber), targetPosition.column)),
+			};
 		}
+
+		const viewLines = Array.from(this.host.querySelectorAll<HTMLElement>('.view-line'));
+		if (viewLines.length === 0) {
+			return undefined;
+		}
+
+		let bestLineElement: HTMLElement | null = null;
+		let bestLineDistance = Number.POSITIVE_INFINITY;
+		for (const lineEl of viewLines) {
+			const rect = lineEl.getBoundingClientRect();
+			if (rect.width === 0 && rect.height === 0) {
+				continue;
+			}
+			const distance = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+			if (distance < bestLineDistance) {
+				bestLineDistance = distance;
+				bestLineElement = lineEl;
+			}
+		}
+		if (!bestLineElement) {
+			return undefined;
+		}
+
+		const lineRect = bestLineElement.getBoundingClientRect();
+		const lineHeight = Math.max(1, lineRect.height || Number.parseFloat(getComputedStyle(bestLineElement).lineHeight) || 20);
+		const topMatchedLine = Number.parseFloat(bestLineElement.style.top || '');
+		const topMatchedLineNumber = Number.isFinite(topMatchedLine) ? Math.round(topMatchedLine / lineHeight) + 1 : -1;
+		const renderedText = (bestLineElement.textContent ?? '').replace(/\u00a0/g, ' ');
+		const textMatchedLine = modelLines.findIndex((line) => line === renderedText);
+		const sortedLines = viewLines
+			.map((lineEl, index) => ({ lineEl, index, top: lineEl.getBoundingClientRect().top }))
+			.sort((a, b) => a.top - b.top || a.index - b.index);
+		const visualLineIndex = sortedLines.findIndex((entry) => entry.lineEl === bestLineElement);
+		const fallbackLineNumber = Math.max(0, visualLineIndex) + 1;
+		const lineNumber = Math.max(1, Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber));
+		const maxColumn = getLineMaxColumn(lineNumber);
+		if (maxColumn <= 1) {
+			return { lineNumber, column: 1 };
+		}
+
+		const contentLeft = lineRect.left;
+		let low = 1;
+		let high = maxColumn;
+		let bestColumn = 1;
+		while (low <= high) {
+			const mid = Math.floor((low + high) / 2);
+			const visiblePosition = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: mid });
+			const left = visiblePosition ? visiblePosition.left : contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
+			if (left <= clientX) {
+				bestColumn = mid;
+				low = mid + 1;
+			} else {
+				high = mid - 1;
+			}
+		}
+
+		const nextColumn = Math.min(maxColumn, bestColumn + 1);
+		const bestLeft = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: bestColumn })?.left ?? contentLeft;
+		const nextLeft = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: nextColumn })?.left ?? lineRect.right;
+		const column = Math.abs(clientX - nextLeft) < Math.abs(clientX - bestLeft) ? nextColumn : bestColumn;
+		return { lineNumber, column: Math.max(1, Math.min(maxColumn, column)) };
+	}
 		const editorEl = this.host.querySelector<HTMLElement>('.monaco-editor') ?? this.host;
 		const rect = editorEl.getBoundingClientRect();
 		if (rect.width <= 0 || rect.height <= 0) {

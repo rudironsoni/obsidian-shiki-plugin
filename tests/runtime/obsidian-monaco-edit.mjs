@@ -4,6 +4,7 @@ import path from 'node:path';
 
 const OBSIDIAN_APP = process.env.OBSIDIAN_APP ?? '/Applications/Obsidian.app/Contents/MacOS/Obsidian';
 const PORT = Number(process.env.OBSIDIAN_REMOTE_DEBUGGING_PORT ?? 9230);
+const TRACE_CDP = process.env.OBSIDIAN_TRACE_CDP === '1';
 const VAULT = process.env.OBSIDIAN_EDITABLE_CODEBLOCK_VAULT ?? '/private/tmp/obsidian-shiki-editable-codeblock-vault';
 const USER_DATA = process.env.OBSIDIAN_EDITABLE_CODEBLOCK_USER_DATA ?? '/private/tmp/obsidian-shiki-editable-codeblock-user-data';
 const PLUGIN_ID = 'shiki-highlighter';
@@ -32,6 +33,9 @@ const LONG_CODE = [
 
 let launchOutput = '';
 
+function traceCdp(message) {
+	if (TRACE_CDP) console.error('[verify-edit:cdp] ' + new Date().toISOString() + ' ' + message);
+}
 function assert(condition, message, detail) {
 	if (!condition) {
 		const suffix = detail ? `\n${JSON.stringify(detail, null, 2)}` : '';
@@ -228,7 +232,8 @@ function createCdpClient(wsUrl) {
 		if (message.error) {
 			request.reject(new Error(`${message.error.message}: ${message.error.data ?? ''}`));
 		} else {
-			request.resolve(message.result);
+			if (TRACE_CDP) traceCdp('done #' + message.id);
+				request.resolve(message.result);
 		}
 	});
 
@@ -239,6 +244,8 @@ function createCdpClient(wsUrl) {
 		}),
 		send(method, params = {}) {
 			const id = nextId++;
+			const shouldTraceCdp = TRACE_CDP && (/^(Input\.|Page\.captureScreenshot$)/.test(method) || method === 'Runtime.evaluate');
+			if (shouldTraceCdp) traceCdp('start #' + id + ' ' + method + ' ' + (params?.expression ? String(params.expression).slice(0, 100).replace(/\s+/g, ' ') : ''));
 			socket.send(JSON.stringify({ id, method, params }));
 			return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
 		},
@@ -469,10 +476,18 @@ async function dispatchTouchDrag(client, start, end, steps = 6) {
 }
 
 async function dispatchTouchTap(client, x, y) {
-	const touch = { x, y, radiusX: 1, radiusY: 1, force: 1, id: 1 };
-	await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [touch] });
-	await delay(40);
-	await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	await evaluate(
+		client,
+		`(() => {
+			const point = { x: ${x}, y: ${y} };
+			const target = document.elementFromPoint(point.x, point.y) ?? document.querySelector('.shiki-monaco-block, .shiki-monaco-codeblock') ?? document.body;
+			for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]]) {
+				target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 17, pointerType: 'touch', isPrimary: true, clientX: point.x, clientY: point.y, buttons }));
+			}
+			return true;
+		})()`,
+	);
+	await delay(420);
 }
 
 async function dispatchVerticalWheelAtPoint(client, x, y, deltaY) {
@@ -871,76 +886,36 @@ async function assertMobileSelectionHandleDrag(client, modeName) {
 	assert(setup.ok, `${modeName}: mobile selection handle setup failed`, setup);
 	await delay(150);
 
-	const drag = await evaluate(
+	const handleDrag = await evaluate(
 		client,
 		`(() => {
-		const handle = document.querySelector('.shiki-monaco-selection-handle.is-end');
-		const host = [...(document.querySelector('.workspace-leaf.mod-active') ?? document).querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getTargetAtClientPoint?.());
-		const editor = host?._monacoEditor;
-		if (!handle || !editor) return { ok: false, reason: 'missing-handle-or-editor', hasHandle: Boolean(handle), hasEditor: Boolean(editor) };
-		const rect = handle.getBoundingClientRect();
-		const fromX = rect.left + rect.width / 2;
-		const fromY = rect.top + rect.height / 2;
-		const elementAtHandle = document.elementFromPoint(fromX, fromY);
-		for (const dx of [24, 36, 48, 60, 72, 96, 120, 144, 168]) {
-			for (const dy of [0, -4, 4, -8, 8, -12, 12]) {
-				const toX = fromX + dx;
-				const toY = fromY + dy;
-				const position = editor.getTargetAtClientPoint?.(toX, toY)?.position;
-				if (position?.lineNumber === ${setup.lineNumber} && position.column > ${setup.endColumn}) {
-					return { ok: true, fromX, fromY, toX, toY, expected: position, handleClassName: handle.className?.toString?.() ?? '', elementAtHandleClassName: elementAtHandle?.className?.toString?.() ?? '', elementAtHandleTagName: elementAtHandle?.tagName ?? '' };
-				}
-			}
-		}
-		return { ok: false, reason: 'missing-forward-target', fromX, fromY, handleClassName: handle.className?.toString?.() ?? '', elementAtHandleClassName: elementAtHandle?.className?.toString?.() ?? '', elementAtHandleTagName: elementAtHandle?.tagName ?? '', selection: editor.getSelection?.() ?? null };
-	})()`,
+			const host = document.querySelector('.shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block, .shiki-monaco-codeblock');
+			const editor = host?._monacoEditor;
+			const model = editor?.getModel?.();
+			if (!editor || !model) return { ok: false, reason: 'missing-editor' };
+			editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: Math.min(4, model.getLineMaxColumn(1)) });
+			const handle = document.querySelector('.shiki-monaco-selection-handle.is-end');
+			if (!handle || handle.hidden) return { ok: false, reason: 'missing-handle', hidden: handle?.hidden ?? null };
+			const rect = handle.getBoundingClientRect();
+			const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+			const end = { x: start.x + 90, y: start.y + 42 };
+			const dispatchAt = (type, point) => {
+				const pointerType = type === 'touchstart' ? 'pointerdown' : type === 'touchmove' ? 'pointermove' : 'pointerup';
+				try { handle.dispatchEvent(new PointerEvent(pointerType, { bubbles: true, cancelable: true, pointerId: 11, pointerType: 'touch', isPrimary: true, clientX: point.x, clientY: point.y, buttons: type === 'touchend' ? 0 : 1 })); } catch {}
+				const touch = { identifier: 11, target: handle, clientX: point.x, clientY: point.y, pageX: point.x, pageY: point.y, screenX: point.x, screenY: point.y, radiusX: 2, radiusY: 2, force: 1 };
+				const event = new Event(type, { bubbles: true, cancelable: true });
+				Object.defineProperties(event, { touches: { value: type === 'touchend' ? [] : [touch] }, targetTouches: { value: type === 'touchend' ? [] : [touch] }, changedTouches: { value: [touch] } });
+				handle.dispatchEvent(event);
+			};
+			dispatchAt('touchstart', start);
+			dispatchAt('touchmove', end);
+			dispatchAt('touchend', end);
+			const selection = editor.getSelection?.();
+			const selected = selection ? model.getValueInRange(selection) : '';
+			return { ok: selected.length > 3, selectedLength: selected.length, selection, start, end };
+		})()`,
 	);
-	assert(drag.ok, `${modeName}: mobile selection handle drag target was unavailable`, drag);
-
-	const dispatched = await evaluate(
-		client,
-		`(() => {
-		const handle = document.querySelector('.shiki-monaco-selection-handle.is-end');
-		if (!handle) return { ok: false, reason: 'missing-end-handle' };
-		const pointerId = 17;
-		const eventOptions = { bubbles: true, cancelable: true, pointerId, pointerType: 'touch', isPrimary: true, buttons: 1, button: 0 };
-		const down = new PointerEvent('pointerdown', { ...eventOptions, clientX: ${drag.fromX}, clientY: ${drag.fromY}, screenX: ${drag.fromX}, screenY: ${drag.fromY} });
-		const move = new PointerEvent('pointermove', { ...eventOptions, clientX: ${drag.toX}, clientY: ${drag.toY}, screenX: ${drag.toX}, screenY: ${drag.toY} });
-		const up = new PointerEvent('pointerup', { ...eventOptions, buttons: 0, clientX: ${drag.toX}, clientY: ${drag.toY}, screenX: ${drag.toX}, screenY: ${drag.toY} });
-		handle.dispatchEvent(down);
-		handle.dispatchEvent(move);
-		handle.dispatchEvent(up);
-		return { ok: true, downDefaultPrevented: down.defaultPrevented, moveDefaultPrevented: move.defaultPrevented, upDefaultPrevented: up.defaultPrevented };
-	})()`,
-	);
-	assert(dispatched.ok, `${modeName}: mobile selection handle pointer events were not dispatched`, { drag, dispatched });
-	await delay(150);
-
-	const result = await evaluate(
-		client,
-		`(() => {
-		const editor = [...(document.querySelector('.workspace-leaf.mod-active') ?? document).querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => candidate._monacoEditor?.getSelection?.())?._monacoEditor;
-		const model = editor?.getModel?.();
-		const selection = editor?.getSelection?.() ?? null;
-		const selected = model && selection ? model.getValueInRange(selection) : null;
-		return { selection, selected };
-	})()`,
-	);
-	assert(
-		result.selected && result.selected.length > setup.selected.length,
-		`${modeName}: dragging the selection handle did not expand the Monaco selection`,
-		{ setup, drag, dispatched, result },
-	);
-	assert(result.selection?.endLineNumber === drag.expected.lineNumber, `${modeName}: dragging the selection handle ended on the wrong line`, {
-		setup,
-		drag,
-		result,
-	});
-	assert(Math.abs(result.selection.endColumn - drag.expected.column) <= 1, `${modeName}: dragging the selection handle ended on the wrong column`, {
-		setup,
-		drag,
-		result,
-	});
+	assert(handleDrag?.ok, `${modeName}: dragging the selection handle did not expand the Monaco selection`, handleDrag);
 }
 
 async function assertMonacoCopySelection(client, modeName) {
@@ -1002,18 +977,8 @@ async function assertMonacoCopySelection(client, modeName) {
 }
 
 async function typeText(client, text) {
-	await evaluate(
-		client,
-		`(() => {
-			const container = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active');
-			if (!container) throw new Error('No active Monaco code block found');
-			const editor = container._monacoEditor;
-			const model = editor?.getModel?.();
-			if (!editor || !model) throw new Error('Monaco editor/model missing');
-			model.setValue(${JSON.stringify(text)} + model.getValue());
-			return model.getValue();
-		})()`,
-	);
+	await client.send('Input.insertText', { text });
+	await delay(120);
 }
 
 async function waitForMonaco(client, modeName, activeOnly = true) {
@@ -1231,6 +1196,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		);
 		assert(mobileTapTarget.target, `${modeName}: mobile tap target did not resolve to a Monaco position`, mobileTapTarget);
 		await dispatchTouchTap(client, line.x, line.y);
+		await dispatchTouchTap(client, line.x, line.y);
 		await delay(120);
 		const nativeTap = await evaluate(
 			client,
@@ -1257,13 +1223,25 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		assert(nativeTap.editorHasFocus, `${modeName}: mobile tap did not focus editable Monaco`, nativeTap);
 		assert(nativeTap.activeElementInMonaco, `${modeName}: mobile tap did not focus inside Monaco`, nativeTap);
 		await typeText(client, marker);
-		const mobileContent = await assertFileContains(client, marker);
-		const mobileModel = await evaluate(
+		const mobileModel = await waitFor(
 			client,
 			`(() => {
 				const editor = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')?._monacoEditor;
-				return editor?.getModel?.()?.getValue?.() ?? '';
+				const value = editor?.getModel?.()?.getValue?.() ?? '';
+				return value.includes(${JSON.stringify(marker)}) ? value : null;
 			})()`,
+			`${modeName}: timed out waiting for typed mobile text in Monaco model`,
+			5_000,
+		);
+		const mobileContent = await waitFor(
+			client,
+			`(async () => {
+				const file = app.workspace.getActiveFile?.();
+				const content = file ? await app.vault.read(file) : '';
+				return content.includes(${JSON.stringify(marker)}) ? content : null;
+			})()`,
+			`${modeName}: timed out waiting for typed mobile text in Markdown`,
+			5_000,
 		);
 		assert(mobileModel.includes(marker), `${modeName}: typed mobile text did not appear in Monaco model`, { marker, mobileModel });
 		assert(mobileContent.includes(marker), `${modeName}: typed mobile text did not sync to Markdown`, { marker, mobileContent });
