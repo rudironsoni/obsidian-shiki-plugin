@@ -523,9 +523,6 @@ export class LivePreviewAdapter {
 	private updateViewportMode(): void {
 		const mobileMode = this.isMobile();
 		if (mobileMode && this.lastMobileMode !== true) {
-			if (this.activeBlockId) {
-				this.deactivateBlock(this.activeBlockId);
-			}
 			for (const block of this.blocks) {
 				this.plugin.surfaceRegistry.get(block.id)?.deactivateToReadonly();
 			}

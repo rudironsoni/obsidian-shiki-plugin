@@ -1,0 +1,16 @@
+{
+  "hostCount": 1,
+  "activeCount": 0,
+  "className": "shiki-monaco-block shiki-monaco-readonly shiki-monaco-codeblock",
+  "focus": false,
+  "pos": {
+    "lineNumber": 1,
+    "column": 1
+  },
+  "activeTag": "BODY",
+  "activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links",
+  "triggerOk": true,
+  "triggerInserted": false,
+  "beforeLen": 840,
+  "afterLen": 840
+}

@@ -1,0 +1,136 @@
+{
+  "activeLine": {
+    "x": 244,
+    "y": 485.6875,
+    "text": "        'shell_plus',",
+    "styleTop": "260px",
+    "rect": {
+      "left": 24,
+      "top": 475.1875,
+      "right": 1842,
+      "height": 21
+    }
+  },
+  "seen": [
+    {
+      "type": "pointerdown",
+      "pointerType": "touch",
+      "isPrimary": true,
+      "targetClass": "view-line",
+      "x": 244,
+      "y": 485.6875
+    },
+    {
+      "type": "pointerup",
+      "pointerType": "touch",
+      "isPrimary": true,
+      "targetClass": "view-line",
+      "x": 244,
+      "y": 485.6875
+    }
+  ],
+  "pos": {
+    "lineNumber": 13,
+    "column": 22
+  },
+  "focus": true,
+  "activeElementClass": "native-edit-context",
+  "lineSamples": [
+    {
+      "i": 0,
+      "text": "import builtins, os, runpy, sys",
+      "top": "8px",
+      "rectTop": 223.1875
+    },
+    {
+      "i": 1,
+      "text": "print('Python %s on %s' % (sys.version, sys.platform))",
+      "top": "29px",
+      "rectTop": 244.1875
+    },
+    {
+      "i": 2,
+      "text": "very_long_runtime_scroll_line = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'",
+      "top": "50px",
+      "rectTop": 265.1875
+    },
+    {
+      "i": 3,
+      "text": "import django",
+      "top": "71px",
+      "rectTop": 286.1875
+    },
+    {
+      "i": 4,
+      "text": "print('Django %s' % django.get_version())",
+      "top": "92px",
+      "rectTop": 307.1875
+    },
+    {
+      "i": 5,
+      "text": "sys.path.extend(['/app/src', '/opt/.pycharm_helpers'])",
+      "top": "113px",
+      "rectTop": 328.1875
+    },
+    {
+      "i": 6,
+      "text": "os.chdir('/app/src')",
+      "top": "134px",
+      "rectTop": 349.1875
+    },
+    {
+      "i": 7,
+      "text": "if 'setup' in dir(django): django.setup()",
+      "top": "155px",
+      "rectTop": 370.1875
+    },
+    {
+      "i": 8,
+      "text": "_original_argv = sys.argv[:]",
+      "top": "176px",
+      "rectTop": 391.1875
+    },
+    {
+      "i": 9,
+      "text": "try:",
+      "top": "197px",
+      "rectTop": 412.1875
+    },
+    {
+      "i": 10,
+      "text": "    sys.argv = [",
+      "top": "218px",
+      "rectTop": 433.1875
+    },
+    {
+      "i": 11,
+      "text": "        'manage.py',",
+      "top": "239px",
+      "rectTop": 454.1875
+    },
+    {
+      "i": 12,
+      "text": "        'shell_plus',",
+      "top": "260px",
+      "rectTop": 475.1875
+    },
+    {
+      "i": 13,
+      "text": "        '--command',",
+      "top": "281px",
+      "rectTop": 496.1875
+    },
+    {
+      "i": 14,
+      "text": "        'import builtins; builtins.__dict__[\"__pycharm_marker\"] = True',",
+      "top": "302px",
+      "rectTop": 517.1875
+    },
+    {
+      "i": 15,
+      "text": "    ]",
+      "top": "323px",
+      "rectTop": 538.1875
+    }
+  ]
+}

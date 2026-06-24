@@ -1196,7 +1196,46 @@ async function verifyMode(client, modeName, livePreview, marker) {
 		);
 		assert(mobileTapTarget.target, `${modeName}: mobile tap target did not resolve to a Monaco position`, mobileTapTarget);
 		await dispatchTouchTap(client, line.x, line.y);
-		await dispatchTouchTap(client, line.x, line.y);
+		const activeLine = await evaluate(
+			client,
+			`(() => {
+				const host = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock, .shiki-monaco-block');
+				const lines = [...(host ?? document).querySelectorAll('.view-line')];
+				const expectedLine = ${mobileTapTarget.target.lineNumber};
+				const row = lines.find((lineEl) => {
+					const rect = lineEl.getBoundingClientRect();
+					const top = Number.parseFloat(lineEl.style.top || '');
+					const lineHeight = Math.max(1, rect.height || Number.parseFloat(getComputedStyle(lineEl).lineHeight) || 20);
+					return Number.isFinite(top) && Math.round(top / lineHeight) + 1 === expectedLine;
+				}) ?? lines[expectedLine - 1] ?? lines[0];
+				if (!row) return null;
+				const rect = row.getBoundingClientRect();
+				return { x: Math.min(rect.right - 4, Math.max(rect.left + 4, ${line.x})), y: rect.top + rect.height / 2 };
+			})()`
+		);
+		assert(activeLine, `${modeName}: mobile active Monaco line target was unavailable`, { line, activeLine });
+		const placementTap = await evaluate(
+			client,
+			`(() => {
+				const point = { x: ${activeLine.x}, y: ${activeLine.y} };
+				const host = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock, .shiki-monaco-block');
+				const editor = host?._monacoEditor;
+				window.__shikiMonacoGestureTrace = [];
+				const before = editor?.getPosition?.() ?? null;
+				const target = document.elementFromPoint(point.x, point.y) ?? host ?? document.body;
+				const seen = [];
+				const listener = event => seen.push({ type: event.type, pointerType: event.pointerType, isPrimary: event.isPrimary, targetClass: event.target?.className?.toString?.() ?? '', clientX: event.clientX, clientY: event.clientY });
+				document.addEventListener('pointerdown', listener, true);
+				document.addEventListener('pointerup', listener, true);
+				for (const [type, buttons] of [['pointerdown', 1], ['pointerup', 0]]) {
+					target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 23, pointerType: 'touch', isPrimary: true, clientX: point.x, clientY: point.y, buttons }));
+				}
+				document.removeEventListener('pointerdown', listener, true);
+				document.removeEventListener('pointerup', listener, true);
+				return { point, targetClass: target?.className?.toString?.() ?? '', before, after: editor?.getPosition?.() ?? null, seen, gestureTrace: window.__shikiMonacoGestureTrace };
+			})()`
+		);
+		await delay(120);
 		await delay(120);
 		const nativeTap = await evaluate(
 			client,
@@ -1211,6 +1250,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 					editorHasFocus: editor?.hasTextFocus?.() ?? editor?.hasWidgetFocus?.() ?? false,
 					activeElementClass: activeElement?.className?.toString?.() ?? null,
 					activeElementInMonaco: !!activeElement?.closest?.('.monaco-editor'),
+					placementTap: ${JSON.stringify(placementTap)},
 				};
 			})()`,
 		);

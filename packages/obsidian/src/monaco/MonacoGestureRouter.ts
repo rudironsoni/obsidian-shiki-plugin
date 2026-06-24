@@ -58,17 +58,14 @@ export class MonacoGestureRouter {
 		this.host.addEventListener('touchmove', this.onTouchMove, { passive: false, capture: true });
 		this.host.addEventListener('touchend', this.onTouchEnd, { passive: false, capture: true });
 		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: false, capture: true });
-		this.host.addEventListener('pointerdown', this.onPointerDown, { passive: true });
-		this.host.addEventListener('pointerup', this.onPointerUp, { passive: true });
-		this.host.addEventListener('pointercancel', this.onPointerCancel, { passive: true });
+		this.host.addEventListener('pointerdown', this.onPointerDown, { passive: true, capture: true });
+		this.host.addEventListener('pointerup', this.onPointerUp, { passive: true, capture: true });
+		this.host.addEventListener('pointercancel', this.onPointerCancel, { passive: true, capture: true });
 		this.host.addEventListener('mousedown', this.onMouseDown, true);
 		this.host.addEventListener('mouseup', this.onMouseUp, true);
 		this.host.addEventListener('mouseup', this.onMouseUpBubble);
 		this.host.addEventListener('click', this.onClick, true);
 		this.host.addEventListener('click', this.onClickBubble);
-		document.addEventListener('pointerdown', this.onPointerDown, true);
-		document.addEventListener('pointerup', this.onPointerUp, true);
-		document.addEventListener('pointercancel', this.onPointerCancel, true);
 		document.addEventListener('mousedown', this.onDocumentMouseDown, true);
 		document.addEventListener('mouseup', this.onDocumentMouseUp, true);
 		document.addEventListener('click', this.onDocumentClick, true);
@@ -89,17 +86,14 @@ export class MonacoGestureRouter {
 		this.host.removeEventListener('touchmove', this.onTouchMove, true);
 		this.host.removeEventListener('touchend', this.onTouchEnd, true);
 		this.host.removeEventListener('touchcancel', this.onTouchCancel, true);
-		this.host.removeEventListener('pointerdown', this.onPointerDown);
-		this.host.removeEventListener('pointerup', this.onPointerUp);
-		this.host.removeEventListener('pointercancel', this.onPointerCancel);
+		this.host.removeEventListener('pointerdown', this.onPointerDown, true);
+		this.host.removeEventListener('pointerup', this.onPointerUp, true);
+		this.host.removeEventListener('pointercancel', this.onPointerCancel, true);
 		this.host.removeEventListener('mousedown', this.onMouseDown, true);
 		this.host.removeEventListener('mouseup', this.onMouseUp, true);
 		this.host.removeEventListener('mouseup', this.onMouseUpBubble);
 		this.host.removeEventListener('click', this.onClick, true);
 		this.host.removeEventListener('click', this.onClickBubble);
-		document.removeEventListener('pointerdown', this.onPointerDown, true);
-		document.removeEventListener('pointerup', this.onPointerUp, true);
-		document.removeEventListener('pointercancel', this.onPointerCancel, true);
 		document.removeEventListener('mousedown', this.onDocumentMouseDown, true);
 		document.removeEventListener('mouseup', this.onDocumentMouseUp, true);
 		document.removeEventListener('click', this.onDocumentClick, true);
@@ -132,11 +126,24 @@ export class MonacoGestureRouter {
 		}
 	};
 
-	readonly onPointerDown = (event: PointerEvent): void => {
-		if (!event.isPrimary || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
+	private traceGesture(event: string, detail: Record<string, unknown> = {}): void {
+		const target = (window as unknown as { __shikiMonacoGestureTrace?: unknown }).__shikiMonacoGestureTrace;
+		if (!Array.isArray(target)) {
 			return;
 		}
-		if (!this.isPointInsideHost(event.clientX, event.clientY)) {
+		target.push({ event, ...detail });
+	}
+
+	readonly onPointerDown = (event: PointerEvent): void => {
+		this.traceGesture('pointerdown:start', { pointerType: event.pointerType, isPrimary: event.isPrimary, clientX: event.clientX, clientY: event.clientY });
+		if (!event.isPrimary || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) {
+			this.traceGesture('pointerdown:ignored-kind', { pointerType: event.pointerType, isPrimary: event.isPrimary });
+			return;
+		}
+		const targetNode = event.target instanceof Node ? event.target : null;
+		const eventStartedInsideHost = targetNode ? this.host.contains(targetNode) : false;
+		if (!eventStartedInsideHost && !this.isPointInsideHost(event.clientX, event.clientY)) {
+			this.traceGesture('pointerdown:outside', { clientX: event.clientX, clientY: event.clientY });
 			return;
 		}
 		this.longPressActivated = false;
@@ -150,7 +157,9 @@ export class MonacoGestureRouter {
 	};
 
 	readonly onPointerUp = (event: PointerEvent): void => {
+		this.traceGesture('pointerup:start', { pointerType: event.pointerType, isPrimary: event.isPrimary, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, hasStart: Boolean(this.pointerTouchStart), startPointerId: this.pointerTouchStart?.pointerId });
 		if (!this.pointerTouchStart || event.pointerId !== this.pointerTouchStart.pointerId) {
+			this.traceGesture('pointerup:ignored-no-start', { pointerId: event.pointerId });
 			return;
 		}
 		this.clearLongPressTimer();
@@ -161,8 +170,10 @@ export class MonacoGestureRouter {
 			return;
 		}
 		if (Math.abs(event.clientX - start.clientX) > 6 || Math.abs(event.clientY - start.clientY) > 6) {
+			this.traceGesture('pointerup:ignored-moved', { dx: event.clientX - start.clientX, dy: event.clientY - start.clientY });
 			return;
 		}
+		this.traceGesture('pointerup:focus', { clientX: event.clientX, clientY: event.clientY });
 		this.focusEditorAtPoint(event.clientX, event.clientY);
 		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
 	};
@@ -275,7 +286,7 @@ export class MonacoGestureRouter {
 			return;
 		}
 
-		if (nativePosition && this.nativeInteraction) {
+		if (nativePosition && this.nativeInteraction && !this.isEditable()) {
 			event.preventDefault();
 			event.stopPropagation();
 			this.blurMonacoFocusTarget();
@@ -416,7 +427,10 @@ export class MonacoGestureRouter {
 		const getLineMaxColumn = (lineNumber: number): number => model?.getLineMaxColumn?.(lineNumber) ?? ((modelLines[lineNumber - 1] ?? '').length + 1);
 
 		const targetPosition = editorWithModel.getTargetAtClientPoint?.(clientX, clientY)?.position;
-		if (targetPosition && this.host.querySelectorAll('.view-line').length === 0) {
+		const firstViewLineRect = this.host.querySelector<HTMLElement>('.view-line')?.getBoundingClientRect();
+		const pointInsideFirstViewLine = firstViewLineRect ? clientY >= firstViewLineRect.top && clientY <= firstViewLineRect.bottom : false;
+		const targetLooksStaleNativeMobile = document.activeElement?.classList?.contains('native-edit-context') === true && targetPosition?.lineNumber === 1 && targetPosition.column === 1 && this.host.querySelectorAll('.view-line').length > 0 && !pointInsideFirstViewLine;
+		if (targetPosition && !targetLooksStaleNativeMobile) {
 			const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
 			return {
 				lineNumber,

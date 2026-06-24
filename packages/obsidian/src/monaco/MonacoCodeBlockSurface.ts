@@ -257,7 +257,10 @@ export class MonacoCodeBlockSurface {
 		const geometryEditor = this.editor as GeometryEditor;
 
 		const targetPosition = geometryEditor.getTargetAtClientPoint?.(clientX, clientY)?.position;
-		if (targetPosition && this.hostEl.querySelectorAll('.view-line').length === 0) {
+		const firstViewLineRect = this.hostEl.querySelector<HTMLElement>('.view-line')?.getBoundingClientRect();
+		const pointInsideFirstViewLine = firstViewLineRect ? clientY >= firstViewLineRect.top && clientY <= firstViewLineRect.bottom : false;
+		const targetLooksStaleNativeMobile = document.activeElement?.classList?.contains('native-edit-context') === true && targetPosition?.lineNumber === 1 && targetPosition.column === 1 && this.hostEl.querySelectorAll('.view-line').length > 0 && !pointInsideFirstViewLine;
+		if (targetPosition && !targetLooksStaleNativeMobile) {
 			const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
 			this.editor.setPosition({
 				lineNumber,
