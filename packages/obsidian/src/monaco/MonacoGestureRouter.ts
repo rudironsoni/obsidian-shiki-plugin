@@ -58,7 +58,12 @@ export class MonacoGestureRouter {
 		this.host.addEventListener('touchcancel', this.onTouchCancel, { passive: false, capture: true });
 		this.host.addEventListener('mousedown', this.onMouseDown, true);
 		this.host.addEventListener('mouseup', this.onMouseUp, true);
+		this.host.addEventListener('mouseup', this.onMouseUpBubble);
 		this.host.addEventListener('click', this.onClick, true);
+		this.host.addEventListener('click', this.onClickBubble);
+		document.addEventListener('mousedown', this.onDocumentMouseDown, true);
+		document.addEventListener('mouseup', this.onDocumentMouseUp, true);
+		document.addEventListener('click', this.onDocumentClick, true);
 	}
 
 	setNativeInteraction(nativeInteraction: NativeMobileInteraction | undefined): void {
@@ -78,7 +83,12 @@ export class MonacoGestureRouter {
 		this.host.removeEventListener('touchcancel', this.onTouchCancel, true);
 		this.host.removeEventListener('mousedown', this.onMouseDown, true);
 		this.host.removeEventListener('mouseup', this.onMouseUp, true);
+		this.host.removeEventListener('mouseup', this.onMouseUpBubble);
 		this.host.removeEventListener('click', this.onClick, true);
+		this.host.removeEventListener('click', this.onClickBubble);
+		document.removeEventListener('mousedown', this.onDocumentMouseDown, true);
+		document.removeEventListener('mouseup', this.onDocumentMouseUp, true);
+		document.removeEventListener('click', this.onDocumentClick, true);
 	}
 
 	private readonly onWheel = (event: WheelEvent): void => {
@@ -213,7 +223,6 @@ export class MonacoGestureRouter {
 		}
 		this.selectionController.placeCursor(touch.clientX, touch.clientY);
 	};
-
 	private readonly onMouseUp = (event: MouseEvent): void => {
 		const mouseDown = this.mouseDown;
 		this.mouseDown = null;
@@ -224,26 +233,60 @@ export class MonacoGestureRouter {
 			return;
 		}
 		this.focusEditorAtPoint(event.clientX, event.clientY);
-		window.setTimeout(() => {
-			if (!this.isEditable()) {
-				return;
-			}
-			this.editor.focus?.();
-		}, 0);
+		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
 	};
 
+	private readonly onMouseUpBubble = (event: MouseEvent): void => {
+		this.onMouseUp(event);
+	};
 	private readonly onClick = (event: MouseEvent): void => {
 		if (!this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
 			return;
 		}
 		this.focusEditorAtPoint(event.clientX, event.clientY);
-		window.setTimeout(() => {
-			if (!this.isEditable()) {
-				return;
-			}
-			this.editor.focus?.();
-		}, 0);
+		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
 	};
+
+	private readonly onClickBubble = (event: MouseEvent): void => {
+		this.onClick(event);
+	};
+
+	private isPointInsideHost(clientX: number, clientY: number): boolean {
+		const rect = this.host.getBoundingClientRect();
+		return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+	}
+
+	private isPlainPrimaryMouse(event: MouseEvent): boolean {
+		return event.button === 0 && event.detail <= 1 && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey;
+	}
+
+	private readonly onDocumentMouseDown = (event: MouseEvent): void => {
+		if (!this.isEditable() || !this.isPlainPrimaryMouse(event) || !this.isPointInsideHost(event.clientX, event.clientY)) {
+			return;
+		}
+		this.mouseDown = { clientX: event.clientX, clientY: event.clientY, button: event.button };
+	};
+
+	private readonly onDocumentMouseUp = (event: MouseEvent): void => {
+		const mouseDown = this.mouseDown;
+		if (!this.isEditable() || !this.isPlainPrimaryMouse(event) || !this.isPointInsideHost(event.clientX, event.clientY)) {
+			return;
+		}
+		if (mouseDown && (Math.abs(event.clientX - mouseDown.clientX) > 3 || Math.abs(event.clientY - mouseDown.clientY) > 3)) {
+			return;
+		}
+		this.focusEditorAtPoint(event.clientX, event.clientY);
+		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
+	};
+
+	private readonly onDocumentClick = (event: MouseEvent): void => {
+		if (!this.isEditable() || !this.isPlainPrimaryMouse(event) || !this.isPointInsideHost(event.clientX, event.clientY)) {
+			return;
+		}
+		this.focusEditorAtPoint(event.clientX, event.clientY);
+		this.deferFocusEditorAtPoint(event.clientX, event.clientY);
+	};
+
 
 	private readonly onTouchCancel = (): void => {
 		this.lastTouchTime = Date.now();
@@ -270,6 +313,19 @@ export class MonacoGestureRouter {
 		clearTimeout(this.longPressTimer);
 		this.longPressTimer = null;
 	}
+	private deferFocusEditorAtPoint(clientX: number, clientY: number): void {
+		window.setTimeout(() => {
+			if (this.isEditable()) {
+				this.focusEditorAtPoint(clientX, clientY);
+			}
+		}, 0);
+		window.setTimeout(() => {
+			if (this.isEditable()) {
+				this.focusEditorAtPoint(clientX, clientY);
+			}
+		}, 32);
+	}
+
 	private focusEditorAtPoint(clientX: number, clientY: number): void {
 		const position = this.positionFromClientPoint(clientX, clientY);
 		if (position) {
@@ -297,11 +353,30 @@ export class MonacoGestureRouter {
 		const scrollLeft = this.editor.getScrollLeft?.() ?? 0;
 		const lineCount = model.getLineCount();
 		const lineNumber = Math.max(1, Math.min(lineCount, Math.floor((clientY - rect.top) / lineHeight) + 1));
-		const lineContent = model.getLineContent(lineNumber);
-		const contentLeft = rect.left + 34;
-		const measuredCharWidth = lineEl !== null && lineContent.length > 0 ? lineEl.getBoundingClientRect().width / Math.max(1, lineContent.length) : 0;
-		const charWidth = Number.isFinite(measuredCharWidth) && measuredCharWidth > 2 ? measuredCharWidth : 8;
-		const column = Math.max(1, Math.min(model.getLineMaxColumn(lineNumber), Math.round((clientX - contentLeft + scrollLeft) / charWidth) + 1));
+		const maxColumn = model.getLineMaxColumn(lineNumber);
+		const geometryEditor = this.editor as MonacoEditorLike & { getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number; top: number; height: number } | null };
+		let column = 1;
+		let closestDistance = Number.POSITIVE_INFINITY;
+		if (geometryEditor.getScrolledVisiblePosition !== undefined) {
+			const targetLeft = clientX - rect.left;
+			for (let candidate = 1; candidate <= maxColumn; candidate++) {
+				const visible = geometryEditor.getScrolledVisiblePosition({ lineNumber, column: candidate });
+				if (visible === null) {
+					continue;
+				}
+				const distance = Math.abs(visible.left - targetLeft);
+				if (distance < closestDistance) {
+					closestDistance = distance;
+					column = candidate;
+				}
+			}
+		} else {
+			const lineContent = model.getLineContent(lineNumber);
+			const contentLeft = rect.left + 34;
+			const measuredCharWidth = lineEl !== null && lineContent.length > 0 ? lineEl.getBoundingClientRect().width / Math.max(1, lineContent.length) : 0;
+			const charWidth = Number.isFinite(measuredCharWidth) && measuredCharWidth > 2 ? measuredCharWidth : 8;
+			column = Math.max(1, Math.min(maxColumn, Math.round((clientX - contentLeft + scrollLeft) / charWidth) + 1));
+		}
 		return { lineNumber, column };
 	}
 

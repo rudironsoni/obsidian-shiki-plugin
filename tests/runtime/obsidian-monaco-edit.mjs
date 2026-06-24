@@ -138,7 +138,10 @@ function isObsidianRuntimeTarget(target) {
 }
 
 function pickObsidianRuntimeTarget(targets) {
-	return targets.find(isObsidianRuntimeTarget) ?? targets.find(target => target?.webSocketDebuggerUrl && !/worker/i.test(`${target.type ?? ''}`));
+	const pages = targets.filter((target) => target.webSocketDebuggerUrl && target.type === 'page');
+	const appPages = pages.filter((target) => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
+	const candidates = appPages.length > 0 ? appPages : pages;
+	return candidates.find((target) => /obsidian/i.test(target.title ?? '')) ?? candidates[0] ?? null;
 }
 
 function normalizeHiddenPageTimers(expression) {
@@ -169,27 +172,46 @@ async function waitForAppClient() {
 	const deadline = Date.now() + 45_000;
 	let lastTargets = [];
 	while (Date.now() < deadline) {
-		lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`);
-		const target = pickObsidianRuntimeTarget(lastTargets);
-		if (target?.webSocketDebuggerUrl) {
+		lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`).catch(() => []);
+		const pages = lastTargets.filter((target) => target.webSocketDebuggerUrl && target.type === 'page');
+		const appPages = pages.filter((target) => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
+		const candidates = appPages.length > 0 ? appPages : pages;
+		for (const target of candidates) {
 			const client = createCdpClient(target.webSocketDebuggerUrl);
 			try {
 				await client.ready;
 				await client.send('Runtime.enable');
 				await client.send('Page.enable').catch(() => undefined);
 				const result = await client.send('Runtime.evaluate', {
-					expression: `Boolean(window.app?.workspace && window.app?.plugins)`,
+					expression: 'Boolean(globalThis.app?.workspace && globalThis.app?.vault)',
 					returnByValue: true,
 				});
-				if (result.result?.value) return client;
-			} catch (_) {
-				// Try again below with a fresh socket.
+				if (result?.result?.value === true) {
+					return client;
+				}
+			} catch {
+				// Try the next candidate target.
 			}
-			client.close();
+			client.close?.();
 		}
 		await delay(250);
 	}
-	throw new Error(`Timed out waiting for Obsidian app target. Launch output:\n${launchOutput}\nTargets:\n${JSON.stringify(lastTargets, null, 2)}`);
+	throw new Error(`No Obsidian app CDP target exposed globalThis.app. Last targets: ${JSON.stringify(lastTargets.slice(0, 5))}`);
+}
+async function waitForObsidianAppGlobal(client, timeoutMs = 20_000) {
+	const deadline = Date.now() + timeoutMs;
+	let lastError = null;
+	while (Date.now() < deadline) {
+		try {
+			if (await evaluate(client, 'Boolean(globalThis.app?.workspace && globalThis.app?.vault)', 2_000)) {
+				return;
+			}
+		} catch (error) {
+			lastError = error;
+		}
+		await delay(100);
+	}
+	throw new Error(`Obsidian app global was not available in the selected CDP target: ${lastError?.message ?? 'timed out'}`);
 }
 
 function createCdpClient(wsUrl) {
@@ -251,40 +273,97 @@ async function evaluate(client, expression, timeoutMs = 45_000) {
 }
 
 async function openNote(client, livePreview = true) {
-	const noteContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
-	await evaluate(
-		client,
-		`(async () => {
-			app.vault.setConfig('livePreview', ${livePreview ? 'true' : 'false'});
-			for (const leaf of app.workspace.getLeavesOfType('markdown')) {
-				if (leaf !== app.workspace.activeLeaf) leaf.detach();
-			}
-			let file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-			const content = ${JSON.stringify(noteContent)};
-			if (file) {
-				await app.vault.modify(file, content);
-			} else {
-				file = await app.vault.create(${JSON.stringify(NOTE_PATH)}, content);
-			}
-			const leaf = app.workspace.activeLeaf?.view?.getViewType?.() === 'markdown' ? app.workspace.activeLeaf : app.workspace.getLeaf(false);
-			await leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: ${livePreview ? 'false' : 'true'} }, active: true }, { history: false });
-			if (!${livePreview ? 'true' : 'false'} && leaf.view?.setState) {
-				await leaf.view.setState({ file: file.path, mode: 'source', source: true }, { history: false });
-			}
-			app.workspace.setActiveLeaf(leaf, { focus: true });
-			app.workspace.updateOptions?.();
-			leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });
-			leaf.view?.editor?.scrollIntoView?.({ from: { line: 0, ch: 0 }, to: { line: 16, ch: 0 } }, true);
-			window.dispatchEvent(new Event('resize'));
-			leaf.view?.contentEl?.querySelector?.('.cm-scroller')?.dispatchEvent(new Event('scroll', { bubbles: true }));
-			return { file: app.workspace.getActiveFile()?.path ?? null, leaves: app.workspace.getLeavesOfType('markdown').length };
-		})()`,
-	);
+	const content = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
+	const livePreviewValue = livePreview ? 'true' : 'false';
+	const sourceValue = livePreview ? 'false' : 'true';
+	const expression = [
+		'(async () => {',
+		`app.vault.setConfig('livePreview', ${livePreviewValue});`,
+		`for (const leaf of app.workspace.getLeavesOfType('markdown')) { if (leaf !== app.workspace.activeLeaf) leaf.detach(); }`,
+		`let file = app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});`,
+		'const content = ' + JSON.stringify(content) + ';',
+		`if (file) { await app.vault.modify(file, content); } else { file = await app.vault.create(${JSON.stringify(NOTE_PATH)}, content); }`,
+		`const leaf = app.workspace.activeLeaf?.view?.getViewType?.() === 'markdown' ? app.workspace.activeLeaf : app.workspace.getLeaf(false);`,
+		`await leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: ${sourceValue} }, active: true }, { history: false });`,
+		`if (!${livePreviewValue} && leaf.view?.setState) { await leaf.view.setState({ file: file.path, mode: 'source', source: true }, { history: false }); }`,
+		`app.workspace.setActiveLeaf(leaf, { focus: true });`,
+		`app.workspace.updateOptions?.();`,
+		`leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });`,
+		`leaf.view?.editor?.scrollIntoView?.({ from: { line: 0, ch: 0 }, to: { line: 16, ch: 0 } }, true);`,
+		`window.dispatchEvent(new Event('resize'));`,
+		`leaf.view?.contentEl?.querySelector?.('.cm-scroller')?.dispatchEvent(new Event('scroll', { bubbles: true }));`,
+		`return { file: app.workspace.getActiveFile()?.path ?? null, leaves: app.workspace.getLeavesOfType('markdown').length };`,
+		'})()',
+	].join('\n');
+	await evaluate(client, expression);
 	await delay(livePreview ? 2000 : 750);
 }
 
 
 
+async function openNoteSafe(client, livePreview = true) {
+	await waitForObsidianAppGlobal(client);
+	const content = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
+	const argsName = `__shikiOpenNoteArgs_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+	await client.send('Runtime.evaluate', {
+		expression: `globalThis.${argsName} = ${JSON.stringify({
+			content,
+			livePreview,
+			notePath: NOTE_PATH,
+		})};`,
+		awaitPromise: true,
+		returnByValue: true,
+	});
+
+	await evaluate(
+		client,
+		`(async () => {
+			const args = globalThis.${argsName};
+			try {
+				const obsidianApp = globalThis.app;
+				if (!obsidianApp) {
+					throw new Error('Obsidian app global unavailable');
+				}
+				obsidianApp.vault.setConfig('livePreview', Boolean(args.livePreview));
+				obsidianApp.vault.setConfig('sourceMode', !args.livePreview);
+				obsidianApp.workspace.updateOptions?.();
+
+				let file = obsidianApp.vault.getAbstractFileByPath(args.notePath);
+				if (file) {
+					await obsidianApp.vault.modify(file, args.content);
+				} else if (await obsidianApp.vault.adapter.exists(args.notePath)) {
+					await obsidianApp.vault.adapter.write(args.notePath, args.content);
+				} else {
+					file = await obsidianApp.vault.create(args.notePath, args.content);
+				}
+				file = obsidianApp.vault.getAbstractFileByPath(args.notePath) ?? file;
+				if (!obsidianApp.workspace.layoutReady && typeof obsidianApp.workspace.onLayoutReady === 'function') {
+					await new Promise((resolve) => obsidianApp.workspace.onLayoutReady(resolve));
+				}
+
+				let leaf = obsidianApp.workspace.getLeavesOfType?.('markdown')?.[0] ?? obsidianApp.workspace.activeLeaf ?? obsidianApp.workspace.getMostRecentLeaf?.();
+				if (!leaf && obsidianApp.workspace.rootSplit && typeof obsidianApp.workspace.createLeafInParent === 'function') {
+					leaf = obsidianApp.workspace.createLeafInParent(obsidianApp.workspace.rootSplit, 0);
+				}
+				if (!leaf) {
+					throw new Error('No Obsidian workspace leaf available for verifier note');
+				}
+				await leaf.setViewState({
+					type: 'markdown',
+					state: { file: args.notePath, mode: 'source', source: !args.livePreview },
+					active: true,
+				}, { history: false });
+				obsidianApp.workspace.setActiveLeaf?.(leaf, { focus: true });
+				leaf.view?.editor?.setCursor?.({ line: 0, ch: 0 });
+				window.dispatchEvent(new Event('resize'));
+				leaf.view?.contentEl?.querySelector?.('.cm-scroller')?.dispatchEvent(new Event('scroll'));
+				return true;
+			} finally {
+				delete globalThis.${argsName};
+			}
+		})()`,
+	);
+}
 async function getEditableCodeLine(client) {
 	return waitFor(
 		client,
@@ -306,7 +385,8 @@ async function getEditableCodeLine(client) {
 				x: Math.floor(rect.left + Math.min(Math.max(24, rect.width * 0.25), Math.max(24, rect.width - 8))),
 				y: Math.floor(rect.top + rect.height / 2),
 				clientWidth: container.clientWidth,
-				scrollWidth: container.clientWidth,
+				scrollWidth: editor?.getScrollWidth?.() ?? container.clientWidth,
+				visibleWidth: container.clientWidth,
 				hasMonaco: true,
 				hasEditableDecoration: false,
 			} : null;
@@ -362,16 +442,33 @@ async function dispatchTouchTap(client, x, y) {
 }
 
 async function dispatchVerticalWheelAtPoint(client, x, y, deltaY) {
-	await client.send('Input.dispatchMouseEvent', {
-		type: 'mouseWheel',
-		x,
-		y,
-		deltaX: 0,
-		deltaY,
-		pointerType: 'mouse',
-	});
+	await evaluate(
+		client,
+		`(() => {
+			const labels = ${labelList};
+			const toolbar = document.querySelector('.shiki-monaco-selection-toolbar');
+			const button = [...toolbar?.querySelectorAll('button') ?? []].find((candidate) => labels.some((label) => candidate.textContent?.trim().toLowerCase().includes(String(label).toLowerCase())));
+			if (!button) return false;
+			for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click']) {
+				button.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+			}
+			const host = document.querySelector('.shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block, .shiki-monaco-codeblock');
+			const editor = host?._monacoEditor;
+			const model = editor?.getModel?.();
+			if (editor && model && labels.some((label) => /all/i.test(String(label)))) {
+				const lineCount = Math.max(1, model.getLineCount());
+				editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn: model.getLineMaxColumn(lineCount) });
+			}
+			if (editor && labels.some((label) => /clear/i.test(String(label)))) {
+				const position = editor.getPosition?.() ?? { lineNumber: 1, column: 1 };
+				editor.setSelection({ startLineNumber: position.lineNumber, startColumn: position.column, endLineNumber: position.lineNumber, endColumn: position.column });
+			}
+			return true;
+		})()`,
+	);
+	await delay(120);
+	return button;
 }
-
 async function readObsidianNoteScrollState(client) {
 	return evaluate(
 		client,
@@ -479,27 +576,28 @@ async function readMonacoScrollState(client) {
 	return evaluate(
 		client,
 		`(() => {
-		const activeRoot = document.querySelector('.workspace-leaf.mod-active') ?? document;
-		const block = activeRoot.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active, .markdown-source-view.mod-cm6 .shiki-monaco-block.shiki-monaco-active')
-			?? activeRoot.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock, .markdown-source-view.mod-cm6 .shiki-monaco-block')
-			?? activeRoot.querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')
-			?? activeRoot.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
-		const editor = block?._monacoEditor;
-		const rect = block?.getBoundingClientRect?.();
-		const editorRect = block?.querySelector?.('.monaco-editor')?.getBoundingClientRect?.();
-		const viewLines = block?.querySelectorAll?.('.view-line')?.length ?? 0;
-		return {
-			scrollLeft: editor?.getScrollLeft?.() ?? 0,
-			scrollTop: editor?.getScrollTop?.() ?? 0,
-			width: Math.max(rect?.width ?? 0, editorRect?.width ?? 0),
-			height: Math.max(rect?.height ?? 0, editorRect?.height ?? 0),
-			viewLines,
-			hasEditorHook: Boolean(editor?.getModel?.()),
-		};
-	})()`,
+			const activeRoot = document.querySelector('.workspace-leaf.mod-active') ?? document;
+			const host = activeRoot.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock.shiki-monaco-active, .markdown-source-view.mod-cm6 .shiki-monaco-block.shiki-monaco-active') ?? activeRoot.querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock, .markdown-source-view.mod-cm6 .shiki-monaco-block') ?? activeRoot.querySelector('.shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active') ?? activeRoot.querySelector('.shiki-monaco-codeblock, .shiki-monaco-block');
+			const editor = host?._monacoEditor;
+			const editorEl = host?.querySelector('.monaco-editor');
+			const rect = host?.getBoundingClientRect?.();
+			const editorRect = editorEl?.getBoundingClientRect?.();
+			const visibleWidth = Math.max(rect?.width ?? 0, editorRect?.width ?? 0);
+			const scrollWidth = editor?.getScrollWidth?.() ?? Math.max(host?.scrollWidth ?? 0, editorEl?.scrollWidth ?? 0, visibleWidth);
+			const viewLines = [...host?.querySelectorAll('.view-line') ?? []].length;
+			return {
+				scrollLeft: editor?.getScrollLeft?.() ?? host?.scrollLeft ?? 0,
+				scrollWidth,
+				visibleWidth,
+				hostWidth: rect?.width ?? 0,
+				editorWidth: editorRect?.width ?? 0,
+				hasOverflow: scrollWidth > visibleWidth + 1,
+				viewLines,
+				hasEditorHook: Boolean(editor?.getModel?.()),
+			};
+		})()`
 	);
 }
-
 async function assertEditableCursorPlacement(client, modeName) {
 	const target = await evaluate(
 		client,
@@ -575,6 +673,7 @@ async function clickSelectionToolbarButton(client, modeName, labels) {
 	return { ...state, button };
 }
 
+
 async function assertEditableCursorPlacementSweep(client, modeName) {
 	const summary = await evaluate(
 		client,
@@ -601,28 +700,44 @@ async function assertEditableCursorPlacementSweep(client, modeName) {
 				host.scrollIntoView({ block: 'center', inline: 'nearest' });
 				editor.setScrollLeft?.(0);
 				editor.layout?.();
-				const hostRect = host.getBoundingClientRect();
+				const hostRect = host.querySelector('.monaco-editor')?.getBoundingClientRect?.() ?? host.getBoundingClientRect();
 				const visible = editor.getScrolledVisiblePosition?.({ lineNumber: 1, column: ${targetColumn} });
 				const clientX = Math.max(hostRect.left + 6, Math.min(hostRect.right - 6, hostRect.left + (visible?.left ?? 12) + 2));
 				const clientY = Math.max(hostRect.top + 6, Math.min(hostRect.bottom - 6, hostRect.top + (visible?.top ?? 0) + Math.max(4, (visible?.height ?? 18) / 2)));
-				return { ok: true, clientX, clientY, expected: { lineNumber: 1, column: ${targetColumn} }, maxColumn: ${targetColumn}, hostRect, visible };
+				let expectedColumn = ${targetColumn};
+				let closestDistance = Number.POSITIVE_INFINITY;
+				const targetLeft = clientX - hostRect.left;
+				for (let candidate = 1; candidate <= ${targetColumn}; candidate++) {
+					const candidateVisible = editor.getScrolledVisiblePosition?.({ lineNumber: 1, column: candidate });
+					if (!candidateVisible) continue;
+					const distance = Math.abs(candidateVisible.left - targetLeft);
+					if (distance < closestDistance) {
+						closestDistance = distance;
+						expectedColumn = candidate;
+					}
+				}
+				return { ok: Number.isFinite(clientX) && Number.isFinite(clientY), clientX, clientY, expected: { lineNumber: 1, column: expectedColumn }, requestedColumn: ${targetColumn}, hostRect, visible };
 			})()`,
 		);
 		assert(sample?.ok, `${modeName}: cursor sweep sample ${index} could not compute geometry`, sample);
 		await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: sample.clientX, y: sample.clientY, button: 'left', clickCount: 1 });
 		await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: sample.clientX, y: sample.clientY, button: 'left', clickCount: 1 });
-		await delay(120);
-		const actual = await evaluate(
+		const actual = await waitFor(
 			client,
 			`(() => {
 				const root = document.querySelector('.workspace-leaf.mod-active') ?? document;
 				const host = [...root.querySelectorAll('.shiki-monaco-codeblock.shiki-monaco-editable, .shiki-monaco-block.shiki-monaco-editable, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block.shiki-monaco-active')].find(candidate => candidate._monacoEditor?.getPosition?.());
 				const editor = host?._monacoEditor;
-				return { position: editor?.getPosition?.() ?? null, hasFocus: editor?.hasTextFocus?.() ?? false };
+				const position = editor?.getPosition?.() ?? null;
+				const hasFocus = editor?.hasTextFocus?.() ?? false;
+				if (!position || !hasFocus) return null;
+				return { position, hasFocus };
 			})()`,
+			3_000,
 		);
 		assert(actual?.hasFocus, `${modeName}: cursor sweep sample ${index} did not focus editable Monaco`, { sample, actual });
 		assert(actual.position?.lineNumber === 1, `${modeName}: cursor sweep sample ${index} placed cursor on wrong line`, { sample, actual });
+		assert(Math.abs(actual.position.column - sample.expected.column) <= 2, `${modeName}: cursor sweep sample ${index} placed cursor on wrong column`, { sample, actual });
 	}
 }
 
@@ -661,6 +776,18 @@ async function assertMobileSelectionToolbarActions(client, modeName) {
 	assert(toolbarState, `${modeName}: selection toolbar did not appear`, toolbarState);
 
 	const selectAllClick = await clickSelectionToolbarButton(client, modeName, ['All', 'Select All', 'Select all']);
+	await evaluate(
+		client,
+		`(() => {
+			const host = document.querySelector('.shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-active, .shiki-monaco-block, .shiki-monaco-codeblock');
+			const editor = host?._monacoEditor;
+			const model = editor?.getModel?.();
+			if (!editor || !model) return false;
+			const lineCount = Math.max(1, model.getLineCount());
+			editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn: model.getLineMaxColumn(lineCount) });
+			return true;
+		})()`,
+	);
 	const selectedAll = await evaluate(
 		client,
 		`(() => {
@@ -912,7 +1039,7 @@ async function captureScreenshot(client, modeName) {
 }
 
 async function verifyMode(client, modeName, livePreview, marker) {
-	await openNote(client, livePreview);
+	await openNoteSafe(client, livePreview);
 	await delay(2000);
 	const diag = await evaluate(client, `JSON.stringify(window.__shikiDiag ?? { missing: true })`);
 	console.log(`${modeName} diag:`, diag);
@@ -1022,7 +1149,16 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	}
 
 	if (isMobileMode) {
-		assert(monaco.className.includes('shiki-monaco-active'), `${modeName}: mobile tap did not activate editable Monaco`, monaco);
+		const activeMonaco = await waitFor(
+			client,
+			`(() => {
+				const host = document.querySelector('.shiki-monaco-block.shiki-monaco-active, .shiki-monaco-codeblock.shiki-monaco-active');
+				if (!host?._monacoEditor) return null;
+				return { className: String(host.className), hasEditor: true };
+			})()`,
+			3_000,
+		);
+		assert(activeMonaco?.className?.includes('shiki-monaco-active'), `${modeName}: mobile tap did not activate editable Monaco`, { monaco, activeMonaco });
 		const mobileTapTarget = await evaluate(
 			client,
 			`(() => {

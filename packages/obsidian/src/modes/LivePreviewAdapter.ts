@@ -421,12 +421,19 @@ export class LivePreviewAdapter {
 					return;
 				}
 				this.view.dispatch({ changes: { from: current.codeFrom, to: current.codeTo, insert: value } });
+				this.requestActiveMarkdownSave();
 				this.rebuildBlocks();
 				this.scheduleSync(0);
 			},
 		};
 	}
 
+
+	private requestActiveMarkdownSave(): void {
+		const view = this.plugin.app.workspace.activeLeaf?.view as { requestSave?: () => void; save?: () => Promise<void> | void } | undefined;
+		view?.requestSave?.();
+		void view?.save?.();
+	}
 
 	private createNativeMobileInteraction(block: CodeBlockModel): {
 		placeCursor(position: { lineNumber: number; column: number }): void;

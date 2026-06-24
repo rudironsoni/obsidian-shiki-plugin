@@ -1,31 +1,28 @@
 $ node tests/runtime/obsidian-monaco-edit.mjs
-Error: live preview: editable cursor placement landed on wrong line
+Error: mobile live preview: mobile selection handle drag target was unavailable
 {
-  "target": {
-    "ok": true,
-    "x": 380,
-    "y": 442.7734375,
-    "expectedLine": 1,
-    "expectedColumn": 5,
-    "rect": {
-      "left": 344,
-      "top": 424.2734375,
-      "right": 664,
-      "bottom": 860.2734375
-    }
-  },
-  "actual": {
-    "position": {
-      "lineNumber": 20,
-      "column": 40
-    },
-    "hasFocus": true
+  "ok": false,
+  "reason": "missing-forward-target",
+  "fromX": 0,
+  "fromY": 0,
+  "handleClassName": "shiki-monaco-selection-handle is-end",
+  "elementAtHandleClassName": "cm-scroller",
+  "elementAtHandleTagName": "DIV",
+  "selection": {
+    "startLineNumber": 1,
+    "startColumn": 1,
+    "endLineNumber": 1,
+    "endColumn": 1,
+    "selectionStartLineNumber": 1,
+    "selectionStartColumn": 1,
+    "positionLineNumber": 1,
+    "positionColumn": 1
   }
 }
 Launch output:
 
     at assert (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:38:9)
-    at assertEditableCursorPlacement (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:538:2)
-    at async verifyMode (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1086:3)
-    at async main (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1204:3)
+    at assertMobileSelectionHandleDrag (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:864:2)
+    at async verifyMode (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1134:20)
+    at async main (file:///Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/runtime/obsidian-monaco-edit.mjs:1359:3)
 error: script "verify:obsidian-monaco-edit" exited with code 1

@@ -32,6 +32,28 @@ export class MonacoSelectionController {
 		this.toolbar = document.createElement('div');
 		this.toolbar.className = 'shiki-monaco-selection-toolbar';
 		this.toolbar.hidden = true;
+		const forceToolbarSelectAll = (event: Event): void => {
+			const target = event.target instanceof HTMLElement ? event.target.closest('button') : null;
+			if (target?.textContent?.trim() !== 'Select All') {
+				return;
+			}
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			const editor = this.editor;
+			const model = editor?.getModel?.();
+			if (!editor || !model) {
+				return;
+			}
+			const lineCount = Math.max(1, model.getLineCount());
+			const endColumn = model.getLineMaxColumn(lineCount);
+			editor.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: lineCount, endColumn });
+			editor.focus?.();
+		};
+		for (const eventName of ['pointerdown', 'mousedown', 'touchstart', 'click']) {
+			this.toolbar.addEventListener(eventName, forceToolbarSelectAll, true);
+		}
+		this.toolbar.dataset.shikiSelectAllToolbarCapture = 'true';
 		this.startHandle = document.createElement('div');
 		this.startHandle.className = 'shiki-monaco-selection-handle is-start';
 		this.startHandle.hidden = true;
