@@ -7,7 +7,7 @@
 [verify-edit] evaluate #7
 live preview diag: {"missing":true}
 [verify-edit] evaluate #8
-live preview debug: {"allMonacoBlocks":1,"allActiveMonacoBlocks":0,"allEditableLines":20,"allCmContent":"<div class=\"cm-active HyperMD-header HyperMD-header-1 cm-line\" dir=\"ltr\"><div class=\"cm-fold-indicator\" contenteditable=\"false\"><div class=\"collapse-indicator collapse-icon\"><svg xmlns=\"http://www.w3."}
+live preview debug: {"allMonacoBlocks":1,"allActiveMonacoBlocks":1,"allEditableLines":20,"allCmContent":"<div class=\"cm-active HyperMD-header HyperMD-header-1 cm-line\" dir=\"ltr\"><div class=\"cm-fold-indicator\" contenteditable=\"false\"><div class=\"collapse-indicator collapse-icon\"><svg xmlns=\"http://www.w3."}
 [verify-edit] evaluate #9
 [verify-edit] evaluate #10
 [verify-edit] evaluate #11
@@ -47,10 +47,10 @@ Activation log: []
 [verify-edit] evaluate #44
 [verify-edit] evaluate #45
 [verify-edit] evaluate #46
-[verify-edit] evaluate #47
 mobile live preview diag: {"missing":true}
-[verify-edit] evaluate #48
+[verify-edit] evaluate #47
 mobile live preview debug: {"allMonacoBlocks":1,"allActiveMonacoBlocks":0,"allEditableLines":15,"allCmContent":"<div class=\"cm-active HyperMD-header HyperMD-header-1 cm-line\" dir=\"ltr\"><div class=\"cm-fold-indicator\" contenteditable=\"false\"><div class=\"collapse-indicator collapse-icon\"><svg xmlns=\"http://www.w3."}
+[verify-edit] evaluate #48
 [verify-edit] evaluate #49
 [verify-edit] evaluate #50
 [verify-edit] evaluate #51
@@ -59,8 +59,8 @@ mobile live preview debug: {"allMonacoBlocks":1,"allActiveMonacoBlocks":0,"allEd
 [verify-edit] evaluate #54
 [verify-edit] evaluate #55
 [verify-edit] evaluate #56
-[verify-edit] evaluate #57
 Activation log: []
+[verify-edit] evaluate #57
 [verify-edit] evaluate #58
 [verify-edit] evaluate #59
 [verify-edit] evaluate #60
@@ -96,9 +96,3 @@ Activation log: []
 [verify-edit] evaluate #90
 [verify-edit] evaluate #91
 [verify-edit] evaluate #92
-[verify-edit] evaluate #93
-[verify-edit] evaluate #94
-[verify-edit] evaluate #95
-[verify-edit] evaluate #96
-[verify-edit] evaluate #97
-[verify-edit] evaluate #98

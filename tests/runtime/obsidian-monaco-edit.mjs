@@ -1462,7 +1462,18 @@ async function main() {
 		await waitFor(client, `Boolean(document.body.classList.contains('is-phone') || app.isMobile)`, 'Mobile emulation did not activate');
 		await verifyMode(client, 'mobile live preview', true, 'MOBILE_LIVE_PREVIEW_EDIT_');
 
-		const finalContent = await readFile(path.join(VAULT, NOTE_PATH), 'utf8');
+		const finalContent = await waitFor(
+			client,
+			`(async () => {
+				const view = app.workspace.activeLeaf?.view;
+				view?.requestSave?.();
+				await view?.save?.();
+				const content = await app.vault.adapter.read(${JSON.stringify(NOTE_PATH)});
+				return content.includes('LIVE_PREVIEW_EDIT_') ? content : null;
+			})()`,
+			'Live preview edit marker missing from disk',
+			8_000,
+		);
 		assert(finalContent.includes('LIVE_PREVIEW_EDIT_'), 'Live preview edit marker missing from disk', { finalContent });
 	} finally {
 		client?.close();

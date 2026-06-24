@@ -166,7 +166,8 @@ export class LivePreviewAdapter {
 			this.plugin.codeBlockRegistry.upsert(block);
 		}
 		this.decorations = builder.finish();
-	}
+	
+		this.reconcileActiveBlockIdentity();}
 
 	private collectLines(): CodeBlockLineInfo[] {
 		const lines: CodeBlockLineInfo[] = [];
@@ -331,6 +332,27 @@ export class LivePreviewAdapter {
 	private prepareSurfaceHost(block: CodeBlockModel, host: HTMLElement): void {
 		host.setAttribute('data-shiki-live-anchor', this.getLiveBlockAnchor(block));
 	}
+	private reconcileActiveBlockIdentity(): void {
+		if (!this.activeBlockId || !this.activeBlockAnchor) {
+			return;
+		}
+		const activeSurface = this.plugin.surfaceRegistry.get(this.activeBlockId);
+		if (!activeSurface) {
+			return;
+		}
+		const nextBlock = this.blocks.find(block => block.id !== this.activeBlockId && this.getLiveBlockAnchor(block) === this.activeBlockAnchor);
+		if (!nextBlock) {
+			return;
+		}
+		const adopted = this.plugin.surfaceRegistry.adoptSurface(this.activeBlockId, nextBlock);
+		if (!adopted) {
+			return;
+		}
+		this.activeBlockId = nextBlock.id;
+		this.activeBlockAnchor = this.getLiveBlockAnchor(nextBlock);
+	}
+
+
 	private getLiveBlockAnchor(block: CodeBlockModel): string {
 		return `${block.sourcePath}::${block.hostMode}::${block.openingFenceLine}::${block.language}`;
 	}

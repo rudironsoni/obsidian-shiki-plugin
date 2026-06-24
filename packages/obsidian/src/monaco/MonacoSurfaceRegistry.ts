@@ -21,6 +21,24 @@ export class MonacoSurfaceRegistry {
 		return surface;
 	}
 
+	adoptSurface(previousBlockId: string, block: CodeBlockModel): MonacoCodeBlockSurface | undefined {
+		if (previousBlockId === block.id) {
+			return this.getOrCreate(block);
+		}
+		const existing = this.surfaces.get(previousBlockId);
+		if (!existing) {
+			return undefined;
+		}
+		const stale = this.surfaces.get(block.id);
+		if (stale && stale !== existing) {
+			stale.dispose();
+		}
+		this.surfaces.delete(previousBlockId);
+		existing.updateBlock(block);
+		this.surfaces.set(block.id, existing);
+		return existing;
+	}
+
 	get(blockId: string): MonacoCodeBlockSurface | undefined {
 		return this.surfaces.get(blockId);
 	}
