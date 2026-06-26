@@ -128,6 +128,10 @@ export class LivePreviewAdapter {
 		this.scheduleSync(0);
 	}
 
+	refreshDomMounts(): void {
+		this.scheduleSync(50);
+	}
+
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
@@ -176,14 +180,11 @@ export class LivePreviewAdapter {
 				continue;
 			}
 			const hiddenClass = this.hiddenBlockIds.has(block.id) ? ' shiki-editing-codeblock-line-hidden' : '';
-			const openingLine = this.view.state.doc.line(block.openingFenceLine);
 			builder.add(
-				openingLine.from,
-				openingLine.from,
-				Decoration.widget({
+				block.fenceFrom ?? this.view.state.doc.line(block.openingFenceLine).from,
+				block.fenceTo ?? this.view.state.doc.line(block.closingFenceLine ?? block.openingFenceLine).to,
+				Decoration.replace({
 					widget: new LivePreviewMonacoWidget(block.id),
-					block: true,
-					side: -1,
 				}),
 			);
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
@@ -250,27 +251,23 @@ export class LivePreviewAdapter {
 			if (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to) {
 				continue;
 			}
-			const lineElements = [
-				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
-			] as HTMLElement[];
-			if (lineElements.length === 0) {
-				missingVisibleLines = true;
-				continue;
-			}
-			this.missingLineRetryCount = 0;
 			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
 			if (!widget) {
 				missingVisibleLines = true;
 				continue;
 			}
+			const lineElements = [
+				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
+			] as HTMLElement[];
+			this.missingLineRetryCount = 0;
 			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			surface.setNoteScrollerProvider(() => this.getNoteScroller());
 			if (this.destroyed || !this.plugin.isCurrentInstance()) {
 				return;
 			}
 			visibleIds.add(block.id);
-			const first = lineElements[0];
-			const last = lineElements[lineElements.length - 1];
+			const first = lineElements[0] ?? widget;
+			const last = lineElements[lineElements.length - 1] ?? widget;
 			const firstRect = first.getBoundingClientRect();
 			const lastRect = last.getBoundingClientRect();
 			this.prepareSurfaceHost(block, surface.hostEl);
@@ -302,7 +299,8 @@ export class LivePreviewAdapter {
 			surface.hostEl.style.left = '';
 			surface.hostEl.style.top = '';
 			surface.hostEl.style.width = '100%';
-			const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight);
+			const estimatedHeight = Math.max(120, Math.min(420, block.code.split('\n').length * 20 + 24));
+			const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight, estimatedHeight);
 			if (rawHeight > 0) {
 				surface.hostEl.style.height = `${rawHeight}px`;
 			}

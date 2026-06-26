@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const DEFAULT_PORT = 9230;
 const PORT = Number(process.env.OBSIDIAN_DEBUG_PORT ?? DEFAULT_PORT);
 const REPORT_DIR = process.env.OBSIDIAN_MOBILE_RENDER_REPORT_DIR ?? path.join('planning', 'test-reports', 'runtime', 'mobile-rendering');
-const VERIFY_VAULT = process.env.OBSIDIAN_VERIFY_VAULT ?? '/private/tmp/obsidian-shiki-real-verify-vault';
 const NOTE_PATH = 'codex-monaco-mobile-rendering.md';
 const MOBILE_VIEWPORTS = [
 	{ name: 'iphone-390x844', width: 390, height: 844, deviceScaleFactor: 3 },
@@ -26,24 +25,6 @@ async function delay(ms) {
 function modeState(mode) {
 	if (mode === 'reading') return { file: NOTE_PATH, mode: 'preview' };
 	return { file: NOTE_PATH, mode: 'source', source: mode === 'source' };
-}
-
-async function seedMobileWorkspace(mode = 'reading') {
-	const workspacePath = path.join(VERIFY_VAULT, '.obsidian', 'workspace-mobile.json');
-	const workspace = JSON.parse(await readFile(workspacePath, 'utf8'));
-	const tabs = workspace?.main?.children?.[0];
-	const leaf = tabs?.children?.[0];
-	if (!leaf) throw new Error(`workspace-mobile.json has no main leaf at ${workspacePath}`);
-	leaf.type = 'leaf';
-	leaf.state = {
-		type: 'markdown',
-		state: modeState(mode),
-		icon: 'lucide-file',
-		title: NOTE_PATH.replace(/\.md$/, ''),
-	};
-	workspace.active = leaf.id;
-	workspace.lastOpenFiles = [NOTE_PATH, ...(workspace.lastOpenFiles ?? []).filter(file => file !== NOTE_PATH)];
-	await writeFile(workspacePath, JSON.stringify(workspace, null, '\t'));
 }
 
 function assert(condition, message, details = undefined) {
@@ -131,8 +112,187 @@ async function waitForApp(client) {
 	throw new Error('Timed out waiting for Obsidian window.app');
 }
 
+async function reconnectClient(client) {
+	client.close();
+	const next = await connectToExistingObsidian(PORT);
+	await next.send('Runtime.enable');
+	await next.send('Page.enable');
+	await waitForApp(next);
+	return next;
+}
+
+async function waitForMobileApp(client) {
+	for (let attempt = 0; attempt < 120; attempt++) {
+		const ready = await evaluate(client, `window.app?.isMobile === true`).catch(() => false);
+		if (ready) {
+			return;
+		}
+		await delay(250);
+	}
+	throw new Error('Timed out waiting for Obsidian mobile emulation');
+}
+
+async function pressKey(client, key, code = key, windowsVirtualKeyCode = undefined) {
+	const keyCode = windowsVirtualKeyCode ?? (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0);
+	await client.send('Input.dispatchKeyEvent', {
+		type: 'keyDown',
+		key,
+		code,
+		windowsVirtualKeyCode: keyCode,
+		nativeVirtualKeyCode: keyCode,
+	});
+	await client.send('Input.dispatchKeyEvent', {
+		type: 'keyUp',
+		key,
+		code,
+		windowsVirtualKeyCode: keyCode,
+		nativeVirtualKeyCode: keyCode,
+	});
+	await delay(100);
+}
+
+async function mobileOpenDiagnostics(client) {
+	return evaluate(
+		client,
+		`(() => ({
+			isMobile: window.app?.isMobile,
+			activeFile: window.app?.workspace?.getActiveFile?.()?.path ?? null,
+			activeLeafType: window.app?.workspace?.activeLeaf?.view?.getViewType?.() ?? window.app?.workspace?.activeLeaf?.view?.state?.type ?? null,
+			activeLeafState: window.app?.workspace?.activeLeaf?.getViewState?.() ?? null,
+			bodyClass: document.body.className,
+			promptOpen: document.querySelector('.prompt') !== null,
+			promptText: document.querySelector('.prompt')?.textContent ?? null,
+			suggestions: [...document.querySelectorAll('.suggestion-item')].map(item => item.textContent?.trim()).slice(0, 8),
+			viewText: document.querySelector('.workspace-leaf.mod-active')?.textContent?.slice(0, 240) ?? null,
+		}))()`,
+	).catch(error => ({ diagnosticError: error.message }));
+}
+
+async function waitForActiveFixture(client, context) {
+	let last = null;
+	for (let attempt = 0; attempt < 40; attempt++) {
+		last = await mobileOpenDiagnostics(client);
+		if (last.activeFile === NOTE_PATH) {
+			return last;
+		}
+		await delay(250);
+	}
+	throw new Error(`${context}: active mobile file is not ${NOTE_PATH}\n${JSON.stringify(last, null, 2)}`);
+}
+
+async function openFixtureDirectlyInMobile(client) {
+	await evaluate(
+		client,
+		`(async () => {
+			const file = window.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+			if (!file) throw new Error('Fixture note does not exist');
+			const bounded = async promise => {
+				try {
+					await Promise.race([promise, new Promise(resolve => setTimeout(resolve, 1000))]);
+				} catch {
+					// Keep trying the next mobile workspace open path.
+				}
+			};
+			let leaf = window.app.workspace.activeLeaf;
+			if (!leaf || leaf.view?.getViewType?.() === 'empty') {
+				leaf = window.app.workspace.getLeaf('tab') ?? window.app.workspace.getLeaf(true);
+			}
+			if (leaf?.setViewState) {
+				await bounded(leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(modeState('reading'))}, active: true }, { history: false }));
+			}
+			if (window.app.workspace.getActiveFile?.()?.path !== ${JSON.stringify(NOTE_PATH)} && leaf?.openFile) {
+				await bounded(leaf.openFile(file, { active: true }));
+			}
+			if (window.app.workspace.getActiveFile?.()?.path !== ${JSON.stringify(NOTE_PATH)}) {
+				await bounded(window.app.workspace.openLinkText(${JSON.stringify(NOTE_PATH)}, '/', false, { active: true }));
+			}
+			window.app.workspace.setActiveLeaf?.(window.app.workspace.activeLeaf ?? leaf, { focus: true });
+			await new Promise(resolve => setTimeout(resolve, 600));
+			return window.app.workspace.getActiveFile?.()?.path ?? null;
+		})()`,
+	);
+	await waitForActiveFixture(client, 'direct mobile open fallback');
+}
+
+async function openFixtureInMobile(client) {
+	const alreadyOpen = await evaluate(client, `window.app?.workspace?.getActiveFile?.()?.path === ${JSON.stringify(NOTE_PATH)}`).catch(() => false);
+	if (alreadyOpen) {
+		return;
+	}
+
+	await pressKey(client, 'Escape', 'Escape', 27).catch(() => undefined);
+	await evaluate(client, `window.app?.commands?.executeCommandById?.('switcher:open'); true`);
+
+	for (let attempt = 0; attempt < 40; attempt++) {
+		const promptReady = await evaluate(client, `document.querySelector('.prompt-input') !== null`).catch(() => false);
+		if (promptReady) {
+			break;
+		}
+		await delay(100);
+	}
+
+	const focused = await evaluate(
+		client,
+		`(() => {
+			const input = document.querySelector('.prompt-input');
+			if (!input) return false;
+			input.focus();
+			input.value = '';
+			input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+			const rect = input.getBoundingClientRect();
+			return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+		})()`,
+	);
+	assert(focused, 'Mobile quick switcher prompt did not open', await mobileOpenDiagnostics(client));
+	await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(focused.x), y: Math.round(focused.y), button: 'none' });
+	await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(focused.x), y: Math.round(focused.y), button: 'left', clickCount: 1 });
+	await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: Math.round(focused.x), y: Math.round(focused.y), button: 'left', clickCount: 1 });
+
+	const query = NOTE_PATH.replace(/\.md$/, '');
+	await client.send('Input.insertText', { text: query });
+
+	let suggestion = null;
+	for (let attempt = 0; attempt < 60; attempt++) {
+		suggestion = await evaluate(
+			client,
+			`(() => {
+				const match = [...document.querySelectorAll('.suggestion-item')].find(item => item.textContent?.includes(${JSON.stringify(query)}));
+				if (!match) return null;
+				const rect = match.getBoundingClientRect();
+				return { text: match.textContent, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+			})()`,
+		).catch(() => null);
+		if (suggestion) {
+			break;
+		}
+		await delay(150);
+	}
+	assert(suggestion, `Mobile quick switcher did not suggest ${NOTE_PATH}`, await mobileOpenDiagnostics(client));
+
+	await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'none' });
+	await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'left', clickCount: 1 });
+	await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'left', clickCount: 1 });
+	try {
+		await waitForActiveFixture(client, 'quick switcher mouse click');
+		return;
+	} catch {
+		await openFixtureDirectlyInMobile(client).catch(async () => {
+			await pressKey(client, 'Enter', 'Enter', 13);
+			await waitForActiveFixture(client, 'quick switcher enter');
+		});
+		return;
+	}
+}
+
+async function ensureFixtureOpenInMobile(client) {
+	try {
+		await openFixtureInMobile(client);
+	} catch {
+		await openFixtureDirectlyInMobile(client);
+	}
+}
+
 async function setMobileViewport(client, viewport) {
-	await seedMobileWorkspace('reading');
 	await client.send('Emulation.setDeviceMetricsOverride', {
 		width: viewport.width,
 		height: viewport.height,
@@ -141,11 +301,6 @@ async function setMobileViewport(client, viewport) {
 		screenWidth: viewport.width,
 		screenHeight: viewport.height,
 	});
-	client.close();
-	client = await connectToExistingObsidian(PORT);
-	await client.send('Runtime.enable');
-	await client.send('Page.enable');
-	await waitForApp(client);
 	await Promise.race([
 		client.send('Runtime.evaluate', {
 			expression: `window.app?.emulateMobile?.(true);`,
@@ -154,12 +309,10 @@ async function setMobileViewport(client, viewport) {
 		}),
 		delay(1000),
 	]).catch(() => undefined);
-	client.close();
-	client = await connectToExistingObsidian(PORT);
-	await client.send('Runtime.enable');
-	await client.send('Page.enable');
-	await waitForApp(client);
+	client = await reconnectClient(client);
+	await waitForMobileApp(client);
 	await delay(500);
+	await ensureFixtureOpenInMobile(client);
 	return client;
 }
 
@@ -269,28 +422,18 @@ async function applySettings(client, settings) {
 
 async function openMode(client, mode) {
 	const state = modeState(mode);
-	const restoreMobile = await evaluate(client, `window.app?.isMobile === true`);
-	if (restoreMobile) {
-		await seedMobileWorkspace(mode);
-		await Promise.race([
-			client.send('Runtime.evaluate', {
-				expression: `window.app?.emulateMobile?.(false);`,
-				awaitPromise: false,
-				returnByValue: false,
-			}),
-			delay(1000),
-		]).catch(() => undefined);
-		client.close();
-		client = await connectToExistingObsidian(PORT);
-		await client.send('Runtime.enable');
-		await client.send('Page.enable');
-		await waitForApp(client);
-		await delay(500);
-	}
+	await waitForMobileApp(client);
+	await ensureFixtureOpenInMobile(client);
 	await evaluate(
 		client,
 		`(async () => {
-			const leaf = window.app.workspace.getLeaf(false);
+			let leaf = window.app.workspace.activeLeaf;
+			if (window.app.workspace.getActiveFile?.()?.path !== "codex-monaco-mobile-rendering.md" || leaf?.view?.getViewType?.() !== 'markdown') {
+				const file = window.app.vault.getAbstractFileByPath("codex-monaco-mobile-rendering.md");
+				if (!file) throw new Error('Fixture note does not exist');
+				leaf = window.app.workspace.getLeaf(false);
+				await leaf.openFile(file, { active: true });
+			}
 			await leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false });
 			await new Promise(resolve => setTimeout(resolve, 900));
 			document.body.classList.remove('mod-toolbar-open');
@@ -305,22 +448,17 @@ async function openMode(client, mode) {
 			return leaf.view?.getState?.() ?? null;
 		})()`,
 	);
-	if (restoreMobile) {
-		await Promise.race([
-			client.send('Runtime.evaluate', {
-				expression: `window.app?.emulateMobile?.(true);`,
-				awaitPromise: false,
-				returnByValue: false,
-			}),
-			delay(1000),
-		]).catch(() => undefined);
-		client.close();
-		client = await connectToExistingObsidian(PORT);
-		await client.send('Runtime.enable');
-		await client.send('Page.enable');
-		await waitForApp(client);
-		await delay(700);
-	}
+	await waitForActiveFixture(client, `open ${mode}`);
+	const markdownReady = await evaluate(
+		client,
+		`(() => ({
+			file: window.app?.workspace?.getActiveFile?.()?.path ?? null,
+			view: window.app?.workspace?.activeLeaf?.view?.getViewType?.() ?? null,
+			sourceRoot: document.querySelector('.workspace-leaf.mod-active .markdown-source-view.mod-cm6') !== null,
+			previewRoot: document.querySelector('.workspace-leaf.mod-active .markdown-preview-view') !== null,
+		}))()`,
+	);
+	assert(markdownReady.view === 'markdown', `${mode}: active mobile leaf is not markdown`, markdownReady);
 	return client;
 }
 
