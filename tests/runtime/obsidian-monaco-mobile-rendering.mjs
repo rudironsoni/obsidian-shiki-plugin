@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const DEFAULT_PORT = 9230;
 const PORT = Number(process.env.OBSIDIAN_DEBUG_PORT ?? DEFAULT_PORT);
 const REPORT_DIR = process.env.OBSIDIAN_MOBILE_RENDER_REPORT_DIR ?? path.join('planning', 'test-reports', 'runtime', 'mobile-rendering');
+const VERIFY_VAULT = process.env.OBSIDIAN_VERIFY_VAULT ?? '/private/tmp/obsidian-shiki-real-verify-vault';
 const NOTE_PATH = 'codex-monaco-mobile-rendering.md';
 const MOBILE_VIEWPORTS = [
 	{ name: 'iphone-390x844', width: 390, height: 844, deviceScaleFactor: 3 },
@@ -20,6 +21,29 @@ const SETTINGS_MATRIX = [
 
 async function delay(ms) {
 	await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function modeState(mode) {
+	if (mode === 'reading') return { file: NOTE_PATH, mode: 'preview' };
+	return { file: NOTE_PATH, mode: 'source', source: mode === 'source' };
+}
+
+async function seedMobileWorkspace(mode = 'reading') {
+	const workspacePath = path.join(VERIFY_VAULT, '.obsidian', 'workspace-mobile.json');
+	const workspace = JSON.parse(await readFile(workspacePath, 'utf8'));
+	const tabs = workspace?.main?.children?.[0];
+	const leaf = tabs?.children?.[0];
+	if (!leaf) throw new Error(`workspace-mobile.json has no main leaf at ${workspacePath}`);
+	leaf.type = 'leaf';
+	leaf.state = {
+		type: 'markdown',
+		state: modeState(mode),
+		icon: 'lucide-file',
+		title: NOTE_PATH.replace(/\.md$/, ''),
+	};
+	workspace.active = leaf.id;
+	workspace.lastOpenFiles = [NOTE_PATH, ...(workspace.lastOpenFiles ?? []).filter(file => file !== NOTE_PATH)];
+	await writeFile(workspacePath, JSON.stringify(workspace, null, '\t'));
 }
 
 function assert(condition, message, details = undefined) {
@@ -108,6 +132,7 @@ async function waitForApp(client) {
 }
 
 async function setMobileViewport(client, viewport) {
+	await seedMobileWorkspace('reading');
 	await client.send('Emulation.setDeviceMetricsOverride', {
 		width: viewport.width,
 		height: viewport.height,
@@ -243,7 +268,25 @@ async function applySettings(client, settings) {
 }
 
 async function openMode(client, mode) {
-	const state = mode === 'reading' ? { file: NOTE_PATH, mode: 'preview' } : { file: NOTE_PATH, mode: 'source', source: mode === 'source' };
+	const state = modeState(mode);
+	const restoreMobile = await evaluate(client, `window.app?.isMobile === true`);
+	if (restoreMobile) {
+		await seedMobileWorkspace(mode);
+		await Promise.race([
+			client.send('Runtime.evaluate', {
+				expression: `window.app?.emulateMobile?.(false);`,
+				awaitPromise: false,
+				returnByValue: false,
+			}),
+			delay(1000),
+		]).catch(() => undefined);
+		client.close();
+		client = await connectToExistingObsidian(PORT);
+		await client.send('Runtime.enable');
+		await client.send('Page.enable');
+		await waitForApp(client);
+		await delay(500);
+	}
 	await evaluate(
 		client,
 		`(async () => {
@@ -262,6 +305,23 @@ async function openMode(client, mode) {
 			return leaf.view?.getState?.() ?? null;
 		})()`,
 	);
+	if (restoreMobile) {
+		await Promise.race([
+			client.send('Runtime.evaluate', {
+				expression: `window.app?.emulateMobile?.(true);`,
+				awaitPromise: false,
+				returnByValue: false,
+			}),
+			delay(1000),
+		]).catch(() => undefined);
+		client.close();
+		client = await connectToExistingObsidian(PORT);
+		await client.send('Runtime.enable');
+		await client.send('Page.enable');
+		await waitForApp(client);
+		await delay(700);
+	}
+	return client;
 }
 
 async function waitForRendering(client, mode) {
@@ -292,7 +352,7 @@ async function getRenderState(client, mode) {
 	return evaluate(
 		client,
 		`(() => {
-			const active = document.querySelector('.workspace-leaf.mod-active') ?? document;
+			const active = window.app?.workspace?.activeLeaf?.view?.contentEl ?? document.querySelector('.workspace-leaf.mod-active') ?? document;
 			const sourceRoot = active.querySelector('.markdown-source-view.mod-cm6');
 			const previewRoot = active.querySelector('.markdown-preview-view');
 			const renderRoot = ${JSON.stringify(mode)} === 'reading' ? previewRoot : sourceRoot;
@@ -430,7 +490,7 @@ async function setNoteScrollTop(client, value) {
 	await evaluate(
 		client,
 		`(() => {
-			const active = document.querySelector('.workspace-leaf.mod-active') ?? document;
+			const active = window.app?.workspace?.activeLeaf?.view?.contentEl ?? document.querySelector('.workspace-leaf.mod-active') ?? document;
 			const block = [...active.querySelectorAll('.shiki-monaco-codeblock, .shiki-monaco-block')].find(candidate => {
 				const rect = candidate.getBoundingClientRect();
 				return rect.width > 0 && rect.height > 0 && candidate._monacoEditor;
@@ -640,7 +700,7 @@ async function main() {
 				await applySettings(client, settings);
 				for (const mode of ['reading', 'live-preview', 'source']) {
 					console.log(`mode ${viewport.name} ${settingName(settings)} ${mode}`);
-					await openMode(client, mode);
+					client = await openMode(client, mode);
 					const state = await waitForRendering(client, mode);
 					assertRenderState(mode, settings, state);
 					const shot = await screenshot(client, `${viewport.name}-${settingName(settings)}-${mode}`);

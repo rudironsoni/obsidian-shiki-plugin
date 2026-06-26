@@ -1,4 +1,4 @@
-import { Decoration, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
+import { Decoration, WidgetType, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
@@ -9,14 +9,34 @@ const LIVE_PREVIEW_ADAPTER_OWNER = '__shikiLivePreviewAdapterOwner';
 
 type LivePreviewOwnerElement = HTMLElement & { [LIVE_PREVIEW_ADAPTER_OWNER]?: LivePreviewAdapter };
 
+class LivePreviewMonacoWidget extends WidgetType {
+	constructor(private readonly blockId: string) {
+		super();
+	}
+
+	eq(other: LivePreviewMonacoWidget): boolean {
+		return other.blockId === this.blockId;
+	}
+
+	toDOM(): HTMLElement {
+		const container = document.createElement('div');
+		container.className = 'shiki-monaco-live-widget';
+		container.dataset.shikiBlockId = this.blockId;
+		return container;
+	}
+
+	ignoreEvent(): boolean {
+		return false;
+	}
+}
+
 export class LivePreviewAdapter {
 	decorations: DecorationSet = Decoration.none;
 	private readonly plugin: ShikiPlugin;
 	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
 	private readonly modeClassObserver: MutationObserver;
-	private readonly overlayRoot: HTMLDivElement;
-	private readonly view: EditorView;
+  private readonly view: EditorView;
 	private blocks: CodeBlockModel[] = [];
 	private retrySyncTimer: number | undefined;
 	private visibilityRefreshTimer: number | undefined;
@@ -41,18 +61,15 @@ export class LivePreviewAdapter {
 		this.modeClassObserver = new MutationObserver(() => this.refreshForModeChange());
 		this.modeClassObserver.observe(this.getSourceViewRoot(), { attributes: true, attributeFilter: ['class'] });
 		this.requestDecorationRefresh = requestDecorationRefresh;
-		this.overlayRoot = document.createElement('div');
-		this.overlayRoot.className = 'shiki-monaco-overlay-root';
-		if (this.plugin.isCurrentInstance()) {
+    if (this.plugin.isCurrentInstance()) {
 			const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
 			this.ownerRoot = sourceViewRoot;
-			this.getCleanupRoot()
-				.querySelectorAll('.shiki-monaco-overlay-root')
-				.forEach(root => root.remove());
-			this.view.dom.appendChild(this.overlayRoot);
-			this.view.scrollDOM.addEventListener('scroll', this.handleScroll, { passive: true });
+      this.getCleanupRoot()
+        .querySelectorAll('.shiki-monaco-overlay-root')
+        .forEach(root => root.remove());
+      this.view.scrollDOM.addEventListener('scroll', this.handleScroll, { passive: true });
 			window.addEventListener('resize', this.handleScroll, { passive: true });
 		}
 	}
@@ -123,7 +140,6 @@ export class LivePreviewAdapter {
 		this.view.scrollDOM.removeEventListener('scroll', this.handleScroll);
 		window.removeEventListener('resize', this.handleScroll);
 		this.detachAll();
-		this.overlayRoot.remove();
 		if (this.ownerRoot?.[LIVE_PREVIEW_ADAPTER_OWNER] === this) {
 			delete this.ownerRoot[LIVE_PREVIEW_ADAPTER_OWNER];
 		}
@@ -156,7 +172,20 @@ export class LivePreviewAdapter {
 
 		const builder = new RangeSetBuilder<Decoration>();
 		for (const block of this.blocks) {
+			if (block.openingFenceLine === undefined) {
+				continue;
+			}
 			const hiddenClass = this.hiddenBlockIds.has(block.id) ? ' shiki-editing-codeblock-line-hidden' : '';
+			const openingLine = this.view.state.doc.line(block.openingFenceLine);
+			builder.add(
+				openingLine.from,
+				openingLine.from,
+				Decoration.widget({
+					widget: new LivePreviewMonacoWidget(block.id),
+					block: true,
+					side: -1,
+				}),
+			);
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
 				const line = this.view.state.doc.line(lineNumber);
 				builder.add(
@@ -212,7 +241,6 @@ export class LivePreviewAdapter {
 			return;
 		}
 		this.resetNoteHorizontalScroll();
-		this.ensureSingleOverlayRoot();
 		const visibleIds = new Set<string>();
 		let missingVisibleLines = false;
 		for (const block of this.blocks) {
@@ -230,6 +258,11 @@ export class LivePreviewAdapter {
 				continue;
 			}
 			this.missingLineRetryCount = 0;
+			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget) {
+				missingVisibleLines = true;
+				continue;
+			}
 			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			surface.setNoteScrollerProvider(() => this.getNoteScroller());
 			if (this.destroyed || !this.plugin.isCurrentInstance()) {
@@ -238,12 +271,11 @@ export class LivePreviewAdapter {
 			visibleIds.add(block.id);
 			const first = lineElements[0];
 			const last = lineElements[lineElements.length - 1];
-			const rootRect = this.view.dom.getBoundingClientRect();
 			const firstRect = first.getBoundingClientRect();
 			const lastRect = last.getBoundingClientRect();
 			this.prepareSurfaceHost(block, surface.hostEl);
 			this.dedupeSurfaceHost(surface.hostEl, block.id);
-			surface.attach(this.overlayRoot);
+			surface.attach(widget);
 			this.removeDuplicateSurfaceHosts(block, surface.hostEl);
 			this.removeDuplicateBlockSurfaces(block.id, surface.hostEl);
 			const mobileMode = this.isMobile();
@@ -266,22 +298,14 @@ export class LivePreviewAdapter {
 				void this.activateBlock(block.id, { clientX: touch?.clientX ?? 0, clientY: touch?.clientY ?? 0 });
 			};
 			surface.setActivationHandler(point => void this.activateBlock(block.id, point));
-			surface.hostEl.style.position = 'absolute';
-			surface.hostEl.style.left = `${Math.max(0, firstRect.left - rootRect.left)}px`;
-			surface.hostEl.style.top = `${firstRect.top - rootRect.top}px`;
-			const contentRect = (
-				this.view.dom.closest('.workspace-leaf-content, .view-content, .markdown-source-view') ?? this.view.dom
-			).getBoundingClientRect();
-			const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
-			const availableViewportWidth = Math.max(0, viewportWidth - firstRect.left - 24);
-			const availableContentWidth = Math.max(0, contentRect.right - firstRect.left);
-			const overlayWidth = Math.max(firstRect.width, this.view.scrollDOM.clientWidth, rootRect.width, availableContentWidth, availableViewportWidth, 320);
-			const overlayRoot = surface.hostEl.parentElement instanceof HTMLElement ? surface.hostEl.parentElement : undefined;
-			if (overlayRoot?.classList.contains('shiki-monaco-overlay-root')) {
-				overlayRoot.style.width = `${Math.max(rootRect.width, contentRect.width, this.view.scrollDOM.clientWidth, viewportWidth)}px`;
+			surface.hostEl.style.position = 'relative';
+			surface.hostEl.style.left = '';
+			surface.hostEl.style.top = '';
+			surface.hostEl.style.width = '100%';
+			const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight);
+			if (rawHeight > 0) {
+				surface.hostEl.style.height = `${rawHeight}px`;
 			}
-			surface.hostEl.style.width = `${overlayWidth}px`;
-			surface.hostEl.style.height = `${Math.max(lastRect.bottom - firstRect.top, first.offsetHeight)}px`;
 			if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
 				this.setBlockHidden(block.id, true);
 			} else {
@@ -319,8 +343,8 @@ export class LivePreviewAdapter {
 			}
 		}
 
-		this.removeStaleOverlayChildren(visibleIds);
-		this.ensureSingleOverlayRoot();
+		this.removeStaleSurfaceChildren(visibleIds);
+		this.removeStaleOverlayRoots();
 		if (missingVisibleLines && this.missingLineRetryCount < 20) {
 			this.missingLineRetryCount++;
 			this.requestDecorationRefresh();
@@ -342,7 +366,6 @@ export class LivePreviewAdapter {
 		this.decorations = Decoration.none;
 		this.lastViewportKey = '';
 		this.detachAll();
-		this.overlayRoot.remove();
 		this.hiddenBlockIds.clear();
 		this.blocks = [];
 	}
@@ -383,6 +406,9 @@ export class LivePreviewAdapter {
 		if (surfaceRect.width < 1 || surfaceRect.height < 1) {
 			return false;
 		}
+		if (surfaceHost.parentElement?.classList.contains('shiki-monaco-live-widget')) {
+			return true;
+		}
 		const firstRect = lineElements[0].getBoundingClientRect();
 		const lastRect = lineElements[lineElements.length - 1].getBoundingClientRect();
 		const topAligned = Math.abs(surfaceRect.top - firstRect.top) <= 4;
@@ -394,12 +420,9 @@ export class LivePreviewAdapter {
 
 	private dedupeSurfaceHost(hostEl: HTMLElement, blockId: string): void {
 		hostEl.dataset.shikiBlockId = blockId;
-		for (const duplicate of Array.from(this.overlayRoot.querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
+		for (const duplicate of Array.from(this.getCleanupRoot().querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
 			if (duplicate === hostEl || duplicate.dataset.shikiBlockId !== blockId) continue;
 			duplicate.remove();
-		}
-		if (hostEl.parentElement && hostEl.parentElement !== this.overlayRoot) {
-			hostEl.remove();
 		}
 	}
 	private prepareSurfaceHost(block: CodeBlockModel, host: HTMLElement): void {
@@ -442,19 +465,14 @@ export class LivePreviewAdapter {
 		return undefined;
 	}
 
-	private ensureSingleOverlayRoot(): void {
+	private removeStaleOverlayRoots(): void {
 		for (const root of Array.from(this.getCleanupRoot().querySelectorAll<HTMLElement>('.shiki-monaco-overlay-root'))) {
-			if (root !== this.overlayRoot) {
-				root.remove();
-			}
+			root.remove();
 		}
 		for (const root of Array.from(document.querySelectorAll<HTMLElement>('.shiki-monaco-overlay-root'))) {
-			if (root !== this.overlayRoot && root.querySelector('.shiki-monaco-block, .shiki-monaco-codeblock') === null) {
+			if (root.querySelector('.shiki-monaco-block, .shiki-monaco-codeblock') === null) {
 				root.remove();
 			}
-		}
-		if (this.overlayRoot.parentElement !== this.view.dom) {
-			this.view.dom.appendChild(this.overlayRoot);
 		}
 	}
 
@@ -478,8 +496,8 @@ export class LivePreviewAdapter {
 		}
 	}
 
-	private removeStaleOverlayChildren(visibleIds: Set<string>): void {
-		for (const element of Array.from(this.overlayRoot.querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
+	private removeStaleSurfaceChildren(visibleIds: Set<string>): void {
+		for (const element of Array.from(this.getCleanupRoot().querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
 			const id = element.getAttribute('data-shiki-block-id');
 			if (id !== null && !visibleIds.has(id)) {
 				element.remove();
