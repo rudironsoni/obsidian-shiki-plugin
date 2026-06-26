@@ -91,10 +91,10 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					set.between(0, this.view.state.doc.length, (from, to, value) => {
 						ranges.push(value.range(from, to));
 					});
+				}
+				this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
+				this.livePreviewAdapter.refreshDomMounts();
 			}
-			this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
-			this.livePreviewAdapter.refreshDomMounts();
-		}
 
 			private readonly scheduleDecorationRefresh = (): void => {
 				if (this.destroyed || this.decorationRefreshTimer !== undefined) {

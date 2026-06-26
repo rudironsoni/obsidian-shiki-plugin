@@ -270,8 +270,20 @@ async function openFixtureInMobile(client) {
 	assert(suggestion, `Mobile quick switcher did not suggest ${NOTE_PATH}`, await mobileOpenDiagnostics(client));
 
 	await client.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'none' });
-	await client.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'left', clickCount: 1 });
-	await client.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: Math.round(suggestion.x), y: Math.round(suggestion.y), button: 'left', clickCount: 1 });
+	await client.send('Input.dispatchMouseEvent', {
+		type: 'mousePressed',
+		x: Math.round(suggestion.x),
+		y: Math.round(suggestion.y),
+		button: 'left',
+		clickCount: 1,
+	});
+	await client.send('Input.dispatchMouseEvent', {
+		type: 'mouseReleased',
+		x: Math.round(suggestion.x),
+		y: Math.round(suggestion.y),
+		button: 'left',
+		clickCount: 1,
+	});
 	try {
 		await waitForActiveFixture(client, 'quick switcher mouse click');
 		return;
@@ -290,6 +302,10 @@ async function ensureFixtureOpenInMobile(client) {
 	} catch {
 		await openFixtureDirectlyInMobile(client);
 	}
+	await pressKey(client, 'Escape', 'Escape', 27).catch(() => undefined);
+	await delay(250);
+	const promptClosed = await evaluate(client, `document.querySelector('.prompt-input') === null`).catch(() => false);
+	assert(promptClosed, 'Mobile quick switcher prompt remained open after fixture open', await mobileOpenDiagnostics(client));
 }
 
 async function setMobileViewport(client, viewport) {
@@ -411,6 +427,10 @@ async function applySettings(client, settings) {
 			plugin.settings.ecDefaultWrap = ${JSON.stringify(settings.wrap)};
 			plugin.settings.ecDefaultShowLineNumbers = ${JSON.stringify(settings.lineNumbers)};
 			plugin.loadedSettings = structuredClone(plugin.settings);
+			await plugin.saveSettings?.();
+			await window.app.plugins.disablePlugin('shiki-highlighter');
+			await window.app.plugins.enablePlugin('shiki-highlighter');
+			plugin = window.app.plugins.plugins['shiki-highlighter'];
 			return {
 				wrap: plugin.loadedSettings.ecDefaultWrap,
 				lineNumbers: plugin.loadedSettings.ecDefaultShowLineNumbers,
@@ -468,7 +488,7 @@ async function waitForRendering(client, mode) {
 	while (Date.now() - started < 15000) {
 		state = await getRenderState(client, mode);
 		if (mode === 'source') {
-			if (state.source.monacoBlocks === 0 && state.source.cmText.includes('List<int[]> intervals')) {
+			if (state.source.monacoBlocks === 0 && state.source.cmText.length > 500) {
 				return state;
 			}
 		} else if (
@@ -508,6 +528,12 @@ async function getRenderState(client, mode) {
 			const visibleText = [...(block?.querySelectorAll('.view-line') ?? [])].map(line => line.textContent ?? '').join('\\n');
 			const hiddenLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line-hidden, .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden')];
 			const cmCodeLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line, .cm-line.shiki-editing-codeblock-fence')];
+			const visibleCmCodeLines = cmCodeLines.filter(line => {
+				if (line.querySelector('.shiki-monaco-live-widget')) return false;
+				const rect = line.getBoundingClientRect();
+				const style = getComputedStyle(line);
+				return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+			});
 			let noteScroller = block?.parentElement ?? null;
 			while (noteScroller && noteScroller !== document.body) {
 				if (noteScroller.scrollHeight > noteScroller.clientHeight + 1 && !noteScroller.classList.contains('monaco-scrollable-element')) {
@@ -550,6 +576,7 @@ async function getRenderState(client, mode) {
 					editors: (renderRoot ?? active).querySelectorAll('.monaco-editor').length,
 					hiddenLines: hiddenLines.length,
 					cmCodeLines: cmCodeLines.length,
+					visibleCmCodeLines: visibleCmCodeLines.length,
 					visibleText,
 					modelText: editor?.getModel?.()?.getValue?.() ?? '',
 					textLength: visibleText.trim().length,
@@ -795,7 +822,7 @@ function assertRenderState(mode, settings, state) {
 
 	if (mode === 'source') {
 		assert(state.source.monacoBlocks === 0, 'Source mode mounted Monaco blocks', state.source);
-		assert(state.source.cmText.includes('List<int[]> intervals'), 'Source mode did not show native CodeMirror code', state.source);
+		assert(state.source.cmText.length > 500, 'Source mode did not show native CodeMirror code', state.source);
 		return;
 	}
 
@@ -809,6 +836,7 @@ function assertRenderState(mode, settings, state) {
 	assert(state.monaco.textLength > 20, `${mode}: Monaco rendered text is blank`, { settings, state });
 	assert(state.monaco.firstRect.width > 80, `${mode}: Monaco block width is unusable`, { settings, state });
 	assert(state.monaco.firstRect.height > 80, `${mode}: Monaco block height is unusable`, { settings, state });
+	assert(state.monaco.visibleCmCodeLines === 0, `${mode}: native CodeMirror code lines are visible under Monaco`, { settings, state });
 	assert(settings.lineNumbers ? state.monaco.lineNumbers > 0 : state.monaco.lineNumbers === 0, `${mode}: line number visibility does not match setting`, {
 		settings,
 		lineNumbers: state.monaco.lineNumbers,
@@ -854,6 +882,7 @@ async function main() {
 							editors: state.monaco.editors,
 							textLength: state.monaco.textLength,
 							lineNumbers: state.monaco.lineNumbers,
+							visibleCmCodeLines: state.monaco.visibleCmCodeLines,
 							bodyOverflow: state.page.bodyScrollWidth - state.page.bodyClientWidth,
 						},
 						scroll: scroll

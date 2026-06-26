@@ -12,11 +12,12 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
 			"horizontalCodeScrollLeft": 180,
-			"verticalNoteScrollTop": 294
+			"verticalNoteScrollTop": 384
 		},
 		"flickerSamples": 8
 	},
@@ -33,11 +34,12 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
-			"horizontalCodeScrollLeft": 90,
-			"verticalNoteScrollTop": 0
+			"horizontalCodeScrollLeft": 30,
+			"verticalNoteScrollTop": 500
 		},
 		"flickerSamples": 8
 	},
@@ -54,6 +56,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -72,6 +75,7 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 23,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -93,11 +97,12 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 22,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
-			"horizontalCodeScrollLeft": 90,
-			"verticalNoteScrollTop": 491
+			"horizontalCodeScrollLeft": 30,
+			"verticalNoteScrollTop": 500
 		},
 		"flickerSamples": 8
 	},
@@ -114,6 +119,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -132,6 +138,7 @@
 			"editors": 1,
 			"textLength": 739,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -151,13 +158,14 @@
 		"render": {
 			"blocks": 1,
 			"editors": 1,
-			"textLength": 787,
+			"textLength": 794,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
 			"horizontalCodeScrollLeft": 0,
-			"verticalNoteScrollTop": 514
+			"verticalNoteScrollTop": 500
 		},
 		"flickerSamples": 8
 	},
@@ -174,6 +182,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -192,6 +201,7 @@
 			"editors": 1,
 			"textLength": 588,
 			"lineNumbers": 7,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -213,11 +223,12 @@
 			"editors": 1,
 			"textLength": 710,
 			"lineNumbers": 7,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
 			"horizontalCodeScrollLeft": 0,
-			"verticalNoteScrollTop": 514
+			"verticalNoteScrollTop": 500
 		},
 		"flickerSamples": 8
 	},
@@ -234,6 +245,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -252,6 +264,7 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -273,11 +286,12 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
-			"horizontalCodeScrollLeft": 90,
-			"verticalNoteScrollTop": 397.5
+			"horizontalCodeScrollLeft": 30,
+			"verticalNoteScrollTop": 429
 		},
 		"flickerSamples": 8
 	},
@@ -294,6 +308,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -312,6 +327,7 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 23,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -333,11 +349,12 @@
 			"editors": 1,
 			"textLength": 1681,
 			"lineNumbers": 22,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
-			"horizontalCodeScrollLeft": 90,
-			"verticalNoteScrollTop": 420.5
+			"horizontalCodeScrollLeft": 30,
+			"verticalNoteScrollTop": 452
 		},
 		"flickerSamples": 8
 	},
@@ -354,6 +371,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -372,6 +390,7 @@
 			"editors": 1,
 			"textLength": 813,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -391,13 +410,14 @@
 		"render": {
 			"blocks": 1,
 			"editors": 1,
-			"textLength": 960,
+			"textLength": 970,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
 			"horizontalCodeScrollLeft": 0,
-			"verticalNoteScrollTop": 420.5
+			"verticalNoteScrollTop": 452
 		},
 		"flickerSamples": 8
 	},
@@ -414,6 +434,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,
@@ -432,6 +453,7 @@
 			"editors": 1,
 			"textLength": 732,
 			"lineNumbers": 7,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
@@ -453,11 +475,12 @@
 			"editors": 1,
 			"textLength": 780,
 			"lineNumbers": 7,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": {
 			"horizontalCodeScrollLeft": 0,
-			"verticalNoteScrollTop": 420.5
+			"verticalNoteScrollTop": 452
 		},
 		"flickerSamples": 8
 	},
@@ -474,6 +497,7 @@
 			"editors": 0,
 			"textLength": 0,
 			"lineNumbers": 0,
+			"visibleCmCodeLines": 0,
 			"bodyOverflow": 0
 		},
 		"scroll": null,

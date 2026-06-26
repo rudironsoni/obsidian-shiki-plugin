@@ -36,7 +36,7 @@ export class LivePreviewAdapter {
 	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
 	private readonly modeClassObserver: MutationObserver;
-  private readonly view: EditorView;
+	private readonly view: EditorView;
 	private blocks: CodeBlockModel[] = [];
 	private retrySyncTimer: number | undefined;
 	private visibilityRefreshTimer: number | undefined;
@@ -61,15 +61,15 @@ export class LivePreviewAdapter {
 		this.modeClassObserver = new MutationObserver(() => this.refreshForModeChange());
 		this.modeClassObserver.observe(this.getSourceViewRoot(), { attributes: true, attributeFilter: ['class'] });
 		this.requestDecorationRefresh = requestDecorationRefresh;
-    if (this.plugin.isCurrentInstance()) {
+		if (this.plugin.isCurrentInstance()) {
 			const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
 			this.ownerRoot = sourceViewRoot;
-      this.getCleanupRoot()
-        .querySelectorAll('.shiki-monaco-overlay-root')
-        .forEach(root => root.remove());
-      this.view.scrollDOM.addEventListener('scroll', this.handleScroll, { passive: true });
+			this.getCleanupRoot()
+				.querySelectorAll('.shiki-monaco-overlay-root')
+				.forEach(root => root.remove());
+			this.view.scrollDOM.addEventListener('scroll', this.handleScroll, { passive: true });
 			window.addEventListener('resize', this.handleScroll, { passive: true });
 		}
 	}
@@ -179,14 +179,6 @@ export class LivePreviewAdapter {
 			if (block.openingFenceLine === undefined) {
 				continue;
 			}
-			const hiddenClass = this.hiddenBlockIds.has(block.id) ? ' shiki-editing-codeblock-line-hidden' : '';
-			builder.add(
-				block.fenceFrom ?? this.view.state.doc.line(block.openingFenceLine).from,
-				block.fenceTo ?? this.view.state.doc.line(block.closingFenceLine ?? block.openingFenceLine).to,
-				Decoration.replace({
-					widget: new LivePreviewMonacoWidget(block.id),
-				}),
-			);
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
 				const line = this.view.state.doc.line(lineNumber);
 				builder.add(
@@ -195,21 +187,29 @@ export class LivePreviewAdapter {
 					Decoration.line({
 						attributes: {
 							class:
-								lineNumber === block.openingFenceLine || lineNumber === block.closingFenceLine
-									? `shiki-editing-codeblock-fence${hiddenClass}`
-									: `shiki-editing-codeblock-line${hiddenClass}`,
+								(lineNumber === block.openingFenceLine || lineNumber === block.closingFenceLine
+									? 'shiki-editing-codeblock-fence'
+									: 'shiki-editing-codeblock-line') + (this.hiddenBlockIds.has(block.id) ? ' shiki-editing-codeblock-line-hidden' : ''),
 							'data-shiki-editing-block-id': block.id,
 						},
 					}),
 				);
+				if (lineNumber === block.openingFenceLine) {
+					builder.add(
+						line.to,
+						line.to,
+						Decoration.widget({
+							widget: new LivePreviewMonacoWidget(block.id),
+							side: 1,
+						}),
+					);
+				}
 			}
 			this.plugin.codeBlockRegistry.upsert(block);
 		}
 		this.decorations = builder.finish();
-
 		this.reconcileActiveBlockIdentity();
 	}
-
 	private collectLines(): CodeBlockLineInfo[] {
 		const lines: CodeBlockLineInfo[] = [];
 		for (let lineNumber = 1; lineNumber <= this.view.state.doc.lines; lineNumber++) {
@@ -243,7 +243,7 @@ export class LivePreviewAdapter {
 		}
 		this.resetNoteHorizontalScroll();
 		const visibleIds = new Set<string>();
-		let missingVisibleLines = false;
+		const missingVisibleLines = false;
 		for (const block of this.blocks) {
 			if (block.codeTo === undefined || block.codeFrom === undefined) {
 				continue;
@@ -251,14 +251,12 @@ export class LivePreviewAdapter {
 			if (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to) {
 				continue;
 			}
-			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
-			if (!widget) {
-				missingVisibleLines = true;
-				continue;
-			}
 			const lineElements = [
 				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
 			] as HTMLElement[];
+			const widget =
+				this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`) ??
+				this.createFallbackLiveWidget(block, lineElements[0] ?? this.view.contentDOM);
 			this.missingLineRetryCount = 0;
 			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			surface.setNoteScrollerProvider(() => this.getNoteScroller());
@@ -273,6 +271,7 @@ export class LivePreviewAdapter {
 			this.prepareSurfaceHost(block, surface.hostEl);
 			this.dedupeSurfaceHost(surface.hostEl, block.id);
 			surface.attach(widget);
+			this.setBlockHidden(block.id, true);
 			this.removeDuplicateSurfaceHosts(block, surface.hostEl);
 			this.removeDuplicateBlockSurfaces(block.id, surface.hostEl);
 			const mobileMode = this.isMobile();
@@ -307,7 +306,6 @@ export class LivePreviewAdapter {
 			if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
 				this.setBlockHidden(block.id, true);
 			} else {
-				this.setBlockHidden(block.id, false);
 				void surface
 					.hydrateReadonly()
 					.then(() => {
@@ -350,6 +348,20 @@ export class LivePreviewAdapter {
 		}
 	}
 
+	private createFallbackLiveWidget(block: CodeBlockModel, anchor: HTMLElement): HTMLElement {
+		let widget = this.getCleanupRoot().querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+		if (!widget) {
+			widget = document.createElement('div');
+			widget.className = 'shiki-monaco-live-widget';
+			widget.dataset.shikiBlockId = block.id;
+		}
+		const parent = anchor.parentElement ?? this.view.scrollDOM;
+		if (widget.parentElement !== parent) {
+			parent.insertBefore(widget, anchor === parent ? parent.firstChild : anchor);
+		}
+		return widget;
+	}
+
 	private detachAll(): void {
 		for (const block of this.blocks) {
 			this.hiddenBlockIds.delete(block.id);
@@ -385,27 +397,31 @@ export class LivePreviewAdapter {
 	}
 
 	private setBlockHidden(blockId: string, hidden: boolean): void {
-		const changed = hidden ? !this.hiddenBlockIds.has(blockId) : this.hiddenBlockIds.delete(blockId);
+		const changed = hidden ? !this.hiddenBlockIds.has(blockId) : this.hiddenBlockIds.has(blockId);
 		if (hidden) {
 			this.hiddenBlockIds.add(blockId);
+		} else {
+			this.hiddenBlockIds.delete(blockId);
 		}
-		if (!changed) {
-			return;
+		for (const line of this.view.contentDOM.querySelectorAll<HTMLElement>(
+			`[data-shiki-editing-block-id="${blockId}"].shiki-editing-codeblock-line, [data-shiki-editing-block-id="${blockId}"].shiki-editing-codeblock-fence`,
+		)) {
+			line.classList.toggle('shiki-editing-codeblock-line-hidden', hidden);
 		}
-		this.rebuildBlocks();
-		this.scheduleVisibilityRefresh();
+		if (changed) {
+			this.scheduleVisibilityRefresh();
+		}
 	}
-
 	private surfaceMatchesCodeLines(surfaceHost: HTMLElement, lineElements: HTMLElement[]): boolean {
-		if (lineElements.length === 0) {
-			return false;
-		}
 		const surfaceRect = surfaceHost.getBoundingClientRect();
 		if (surfaceRect.width < 1 || surfaceRect.height < 1) {
 			return false;
 		}
 		if (surfaceHost.parentElement?.classList.contains('shiki-monaco-live-widget')) {
 			return true;
+		}
+		if (lineElements.length === 0) {
+			return false;
 		}
 		const firstRect = lineElements[0].getBoundingClientRect();
 		const lastRect = lineElements[lineElements.length - 1].getBoundingClientRect();
@@ -510,6 +526,7 @@ export class LivePreviewAdapter {
 		}
 		this.visibilityRefreshTimer = window.setTimeout(() => {
 			this.visibilityRefreshTimer = undefined;
+			this.rebuildBlocks();
 			this.requestDecorationRefresh();
 		}, 0);
 	}

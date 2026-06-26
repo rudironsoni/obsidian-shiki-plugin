@@ -132,10 +132,13 @@ span.shiki-ul {
 	white-space: pre !important;
 }
 
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)),
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)) {
+	display: none !important;
+}
+
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden *,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden * {
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden {
 	color: transparent !important;
 	caret-color: transparent !important;
 	-webkit-text-fill-color: transparent !important;
@@ -143,7 +146,39 @@ span.shiki-ul {
 	background: transparent !important;
 	border-color: transparent !important;
 	opacity: 1 !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)) *,
+.markdown-source-view.mod-cm6.is-live-preview
+	.cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget))
+	* {
 	pointer-events: none !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
+	color: var(--text-normal) !important;
+	-webkit-text-fill-color: initial !important;
+	pointer-events: auto !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget * {
+	-webkit-text-fill-color: initial !important;
+	pointer-events: auto !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
+	display: block !important;
+	max-width: 100%;
+	min-width: 0;
+	overflow: visible;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) {
+	pointer-events: auto !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) .shiki-monaco-live-widget {
+	pointer-events: auto !important;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
@@ -378,34 +413,18 @@ span.shiki-ul {
 }
 
 body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
-  width: 100%;
-  max-width: 100%;
-  overscroll-behavior-x: contain;
-  touch-action: none;
+	width: 100%;
+	max-width: 100%;
+	overscroll-behavior-x: contain;
+	touch-action: none;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-live-widget {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* Keep Live Preview raw fenced Markdown hidden without hiding Monaco internals. */
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden {
-  display: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden *,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden * {
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  text-shadow: none !important;
-	caret-color: transparent !important;
-	border-color: transparent !important;
-	pointer-events: none !important;
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock,
