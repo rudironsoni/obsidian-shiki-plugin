@@ -171,7 +171,15 @@ export class MonacoGestureRouter {
 	};
 
 	readonly onPointerUp = (event: PointerEvent): void => {
-		this.traceGesture('pointerup:start', { pointerType: event.pointerType, isPrimary: event.isPrimary, pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, hasStart: Boolean(this.pointerTouchStart), startPointerId: this.pointerTouchStart?.pointerId });
+		this.traceGesture('pointerup:start', {
+			pointerType: event.pointerType,
+			isPrimary: event.isPrimary,
+			pointerId: event.pointerId,
+			clientX: event.clientX,
+			clientY: event.clientY,
+			hasStart: Boolean(this.pointerTouchStart),
+			startPointerId: this.pointerTouchStart?.pointerId,
+		});
 		if (event.pointerId !== this.pointerTouchStart?.pointerId) {
 			this.traceGesture('pointerup:ignored-no-start', { pointerId: event.pointerId });
 			return;
@@ -195,10 +203,11 @@ export class MonacoGestureRouter {
 			this.blurMonacoFocusTarget();
 			if (nativePosition) {
 				this.nativeInteraction?.placeCursor(nativePosition);
-				for (const delayMs of [25, 75, 150, 225]) window.setTimeout(() => {
-					this.blurMonacoFocusTarget();
-					this.nativeInteraction?.placeCursor(nativePosition);
-				}, delayMs);
+				for (const delayMs of [25, 75, 150, 225])
+					window.setTimeout(() => {
+						this.blurMonacoFocusTarget();
+						this.nativeInteraction?.placeCursor(nativePosition);
+					}, delayMs);
 			}
 			return;
 		}
@@ -332,10 +341,11 @@ export class MonacoGestureRouter {
 			this.lastReadonlyNativePosition = nativePosition;
 			this.blurMonacoFocusTarget();
 			this.nativeInteraction.placeCursor(nativePosition);
-			for (const delayMs of [25, 75, 150, 225]) window.setTimeout(() => {
-				this.blurMonacoFocusTarget();
-				this.nativeInteraction?.placeCursor(nativePosition);
-			}, delayMs);
+			for (const delayMs of [25, 75, 150, 225])
+				window.setTimeout(() => {
+					this.blurMonacoFocusTarget();
+					this.nativeInteraction?.placeCursor(nativePosition);
+				}, delayMs);
 			return;
 		}
 		this.selectionController.placeCursor(touch.clientX, touch.clientY);
@@ -343,7 +353,17 @@ export class MonacoGestureRouter {
 	private readonly onMouseUp = (event: MouseEvent): void => {
 		const mouseDown = this.mouseDown;
 		this.mouseDown = null;
-		if (this.isSelectionUiEvent(event) || !mouseDown || !this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+		if (
+			this.isSelectionUiEvent(event) ||
+			!mouseDown ||
+			!this.isEditable() ||
+			event.button !== 0 ||
+			event.detail > 1 ||
+			event.shiftKey ||
+			event.altKey ||
+			event.metaKey ||
+			event.ctrlKey
+		) {
 			return;
 		}
 		if (Math.abs(event.clientX - mouseDown.clientX) > 3 || Math.abs(event.clientY - mouseDown.clientY) > 3) {
@@ -357,7 +377,16 @@ export class MonacoGestureRouter {
 		this.onMouseUp(event);
 	};
 	private readonly onClick = (event: MouseEvent): void => {
-		if (this.isSelectionUiEvent(event) || !this.isEditable() || event.button !== 0 || event.detail > 1 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+		if (
+			this.isSelectionUiEvent(event) ||
+			!this.isEditable() ||
+			event.button !== 0 ||
+			event.detail > 1 ||
+			event.shiftKey ||
+			event.altKey ||
+			event.metaKey ||
+			event.ctrlKey
+		) {
 			return;
 		}
 		this.focusEditorAtPoint(event.clientX, event.clientY);
@@ -429,7 +458,6 @@ export class MonacoGestureRouter {
 		return target?.closest('.shiki-monaco-selection-toolbar, .shiki-monaco-selection-handle') !== null;
 	}
 
-
 	private readonly onTouchCancel = (): void => {
 		this.lastTouchTime = Date.now();
 		this.touchState = null;
@@ -467,7 +495,16 @@ export class MonacoGestureRouter {
 	private focusEditorAtPoint(clientX: number, clientY: number): void {
 		const position = this.positionFromClientPoint(clientX, clientY);
 		if (position) {
-			(this.editor as MonacoEditorLike & { setSelection?: (selection: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }) => void }).setSelection?.({ startLineNumber: position.lineNumber, startColumn: position.column, endLineNumber: position.lineNumber, endColumn: position.column });
+			(
+				this.editor as MonacoEditorLike & {
+					setSelection?: (selection: { startLineNumber: number; startColumn: number; endLineNumber: number; endColumn: number }) => void;
+				}
+			).setSelection?.({
+				startLineNumber: position.lineNumber,
+				startColumn: position.column,
+				endLineNumber: position.lineNumber,
+				endColumn: position.column,
+			});
 			this.editor.setPosition(position);
 		}
 		this.editor.focus?.();
@@ -475,28 +512,36 @@ export class MonacoGestureRouter {
 
 	private positionFromClientPoint(clientX: number, clientY: number): { lineNumber: number; column: number } | undefined {
 		const hitPosition = this.editor.getTargetAtClientPoint?.(clientX, clientY)?.position;
-		const editorWithModel = this.editor as MonacoEditorLike & { getModel?: () => { getLineCount(): number; getLineContent(lineNumber: number): string; getLineMaxColumn(lineNumber: number): number } | null; getScrollTop?: () => number };
-		const model = editorWithModel.getModel?.();
-		if (model === undefined || model === null) {
 		const editorWithModel = this.editor as MonacoEditorLike & {
-			getModel?: () => {
-				getValue?: () => string;
-				getLineCount?: () => number;
-				getLineMaxColumn?: (lineNumber: number) => number;
-			} | null;
-			getTargetAtClientPoint?: (clientX: number, clientY: number) => { position?: { lineNumber: number; column: number } } | null;
-			getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number } | null;
+			getModel?: () => { getLineCount(): number; getLineContent(lineNumber: number): string; getLineMaxColumn(lineNumber: number): number } | null;
+			getScrollTop?: () => number;
 		};
 		const model = editorWithModel.getModel?.();
-		const modelValue = model?.getValue?.() ?? '';
-		const modelLines = modelValue.split(/\r\n|\r|\n/);
-		const getLineCount = (): number => model?.getLineCount?.() ?? Math.max(1, modelLines.length);
-		const getLineMaxColumn = (lineNumber: number): number => model?.getLineMaxColumn?.(lineNumber) ?? ((modelLines[lineNumber - 1] ?? '').length + 1);
+		if (model === undefined || model === null) {
+			const editorWithModel = this.editor as MonacoEditorLike & {
+				getModel?: () => {
+					getValue?: () => string;
+					getLineCount?: () => number;
+					getLineMaxColumn?: (lineNumber: number) => number;
+				} | null;
+				getTargetAtClientPoint?: (clientX: number, clientY: number) => { position?: { lineNumber: number; column: number } } | null;
+				getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number } | null;
+			};
+			const model = editorWithModel.getModel?.();
+			const modelValue = model?.getValue?.() ?? '';
+			const modelLines = modelValue.split(/\r\n|\r|\n/);
+			const getLineCount = (): number => model?.getLineCount?.() ?? Math.max(1, modelLines.length);
+			const getLineMaxColumn = (lineNumber: number): number => model?.getLineMaxColumn?.(lineNumber) ?? (modelLines[lineNumber - 1] ?? '').length + 1;
 
 			const targetPosition = editorWithModel.getTargetAtClientPoint?.(clientX, clientY)?.position;
 			const firstViewLineRect = this.host.querySelector<HTMLElement>('.view-line')?.getBoundingClientRect();
 			const pointInsideFirstViewLine = firstViewLineRect ? clientY >= firstViewLineRect.top && clientY <= firstViewLineRect.bottom : false;
-			const targetLooksStaleNativeMobile = document.activeElement?.classList?.contains('native-edit-context') === true && targetPosition?.lineNumber === 1 && targetPosition.column === 1 && this.host.querySelectorAll('.view-line').length > 0 && !pointInsideFirstViewLine;
+			const targetLooksStaleNativeMobile =
+				document.activeElement?.classList?.contains('native-edit-context') === true &&
+				targetPosition?.lineNumber === 1 &&
+				targetPosition.column === 1 &&
+				this.host.querySelectorAll('.view-line').length > 0 &&
+				!pointInsideFirstViewLine;
 			const targetVisiblePosition = targetPosition ? editorWithModel.getScrolledVisiblePosition?.(targetPosition) : null;
 			const editorRect = (this.host.querySelector<HTMLElement>('.monaco-editor') ?? this.host).getBoundingClientRect();
 			const targetClientLeft = targetVisiblePosition ? editorRect.left + targetVisiblePosition.left : undefined;
@@ -504,74 +549,79 @@ export class MonacoGestureRouter {
 			if (targetPosition && !targetLooksStaleNativeMobile && !targetLooksMisaligned) {
 				const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
 				return {
-				lineNumber,
-				column: Math.max(1, Math.min(getLineMaxColumn(lineNumber), targetPosition.column)),
-			};
-		}
-
-		const viewLines = Array.from(this.host.querySelectorAll<HTMLElement>('.view-line'));
-		if (viewLines.length === 0) {
-			return undefined;
-		}
-
-		let bestLineElement: HTMLElement | null = null;
-		let bestLineDistance = Number.POSITIVE_INFINITY;
-		for (const lineEl of viewLines) {
-			const rect = lineEl.getBoundingClientRect();
-			if (rect.width === 0 && rect.height === 0) {
-				continue;
+					lineNumber,
+					column: Math.max(1, Math.min(getLineMaxColumn(lineNumber), targetPosition.column)),
+				};
 			}
-			const distance = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
-			if (distance < bestLineDistance) {
-				bestLineDistance = distance;
-				bestLineElement = lineEl;
+
+			const viewLines = Array.from(this.host.querySelectorAll<HTMLElement>('.view-line'));
+			if (viewLines.length === 0) {
+				return undefined;
 			}
-		}
-		if (!bestLineElement) {
-			return undefined;
-		}
 
-		const lineRect = bestLineElement.getBoundingClientRect();
-		const lineHeight = Math.max(1, lineRect.height || Number.parseFloat(getComputedStyle(bestLineElement).lineHeight) || 20);
-		const topMatchedLine = Number.parseFloat(bestLineElement.style.top || '');
-		const topMatchedLineNumber = Number.isFinite(topMatchedLine) ? Math.round(topMatchedLine / lineHeight) + 1 : -1;
-		const renderedText = (bestLineElement.textContent ?? '').replace(/\u00a0/g, ' ');
-		const textMatchedLine = modelLines.findIndex((line) => line === renderedText);
-		const sortedLines = viewLines
-			.map((lineEl, index) => ({ lineEl, index, top: lineEl.getBoundingClientRect().top }))
-			.sort((a, b) => a.top - b.top || a.index - b.index);
-		const visualLineIndex = sortedLines.findIndex((entry) => entry.lineEl === bestLineElement);
-		const fallbackLineNumber = Math.max(0, visualLineIndex) + 1;
-		const lineNumber = Math.max(1, Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber));
-		const maxColumn = getLineMaxColumn(lineNumber);
-		if (maxColumn <= 1) {
-			return { lineNumber, column: 1 };
-		}
+			let bestLineElement: HTMLElement | null = null;
+			let bestLineDistance = Number.POSITIVE_INFINITY;
+			for (const lineEl of viewLines) {
+				const rect = lineEl.getBoundingClientRect();
+				if (rect.width === 0 && rect.height === 0) {
+					continue;
+				}
+				const distance = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+				if (distance < bestLineDistance) {
+					bestLineDistance = distance;
+					bestLineElement = lineEl;
+				}
+			}
+			if (!bestLineElement) {
+				return undefined;
+			}
 
-		const contentLeft = lineRect.left;
-		let low = 1;
-		let high = maxColumn;
-		let bestColumn = 1;
+			const lineRect = bestLineElement.getBoundingClientRect();
+			const lineHeight = Math.max(1, lineRect.height || Number.parseFloat(getComputedStyle(bestLineElement).lineHeight) || 20);
+			const topMatchedLine = Number.parseFloat(bestLineElement.style.top || '');
+			const topMatchedLineNumber = Number.isFinite(topMatchedLine) ? Math.round(topMatchedLine / lineHeight) + 1 : -1;
+			const renderedText = (bestLineElement.textContent ?? '').replace(/\u00a0/g, ' ');
+			const textMatchedLine = modelLines.findIndex(line => line === renderedText);
+			const sortedLines = viewLines
+				.map((lineEl, index) => ({ lineEl, index, top: lineEl.getBoundingClientRect().top }))
+				.sort((a, b) => a.top - b.top || a.index - b.index);
+			const visualLineIndex = sortedLines.findIndex(entry => entry.lineEl === bestLineElement);
+			const fallbackLineNumber = Math.max(0, visualLineIndex) + 1;
+			const lineNumber = Math.max(
+				1,
+				Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber),
+			);
+			const maxColumn = getLineMaxColumn(lineNumber);
+			if (maxColumn <= 1) {
+				return { lineNumber, column: 1 };
+			}
+
+			const contentLeft = lineRect.left;
+			let low = 1;
+			let high = maxColumn;
+			let bestColumn = 1;
 			while (low <= high) {
 				const mid = Math.floor((low + high) / 2);
 				const visiblePosition = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: mid });
-				const left = visiblePosition ? editorRect.left + visiblePosition.left : contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
+				const left = visiblePosition
+					? editorRect.left + visiblePosition.left
+					: contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
 				if (left <= clientX) {
 					bestColumn = mid;
 					low = mid + 1;
-			} else {
-				high = mid - 1;
+				} else {
+					high = mid - 1;
+				}
 			}
-		}
 
 			const nextColumn = Math.min(maxColumn, bestColumn + 1);
 			const bestVisible = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: bestColumn });
 			const nextVisible = editorWithModel.getScrolledVisiblePosition?.({ lineNumber, column: nextColumn });
 			const bestLeft = bestVisible ? editorRect.left + bestVisible.left : contentLeft;
 			const nextLeft = nextVisible ? editorRect.left + nextVisible.left : lineRect.right;
-		const column = Math.abs(clientX - nextLeft) < Math.abs(clientX - bestLeft) ? nextColumn : bestColumn;
-		return { lineNumber, column: Math.max(1, Math.min(maxColumn, column)) };
-	}
+			const column = Math.abs(clientX - nextLeft) < Math.abs(clientX - bestLeft) ? nextColumn : bestColumn;
+			return { lineNumber, column: Math.max(1, Math.min(maxColumn, column)) };
+		}
 		const editorEl = this.host.querySelector<HTMLElement>('.monaco-editor') ?? this.host;
 		const rect = editorEl.getBoundingClientRect();
 		if (rect.width <= 0 || rect.height <= 0) {
@@ -584,7 +634,9 @@ export class MonacoGestureRouter {
 		const lineCount = model.getLineCount();
 		const lineNumber = Math.max(1, Math.min(lineCount, Math.floor((clientY - rect.top) / lineHeight) + 1));
 		const maxColumn = model.getLineMaxColumn(lineNumber);
-		const geometryEditor = this.editor as MonacoEditorLike & { getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number; top: number; height: number } | null };
+		const geometryEditor = this.editor as MonacoEditorLike & {
+			getScrolledVisiblePosition?: (position: { lineNumber: number; column: number }) => { left: number; top: number; height: number } | null;
+		};
 		let column = 1;
 		let closestDistance = Number.POSITIVE_INFINITY;
 		if (geometryEditor.getScrolledVisiblePosition !== undefined) {
@@ -609,5 +661,4 @@ export class MonacoGestureRouter {
 		}
 		return { lineNumber, column };
 	}
-
 }

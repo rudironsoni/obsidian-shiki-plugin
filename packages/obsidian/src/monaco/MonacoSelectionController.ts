@@ -111,17 +111,14 @@ export class MonacoSelectionController {
 	selectWordAt(clientX: number, clientY: number): void {
 		const editor = this.editor;
 		const position =
-			(editor ? this.positionFromClientPoint(clientX, clientY, editor) : undefined) ??
-			editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
+			(editor ? this.positionFromClientPoint(clientX, clientY, editor) : undefined) ?? editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
 		const model = editor?.getModel();
 		if (!editor || !position || !model) {
 			return;
 		}
 		const word = model.getWordAtPosition(position);
 		const fallbackWord =
-			word && word.endColumn > word.startColumn
-				? word
-				: this.getWordRangeFromLine(model.getLineContent(position.lineNumber), position.column);
+			word && word.endColumn > word.startColumn ? word : this.getWordRangeFromLine(model.getLineContent(position.lineNumber), position.column);
 		if (!fallbackWord) {
 			editor.setPosition(position);
 			this.clearVisualSelection();
@@ -189,9 +186,10 @@ export class MonacoSelectionController {
 			return;
 		}
 
-		const anchor = draggingHandle === 'start'
-			? { lineNumber: selection.endLineNumber, column: selection.endColumn }
-			: { lineNumber: selection.startLineNumber, column: selection.startColumn };
+		const anchor =
+			draggingHandle === 'start'
+				? { lineNumber: selection.endLineNumber, column: selection.endColumn }
+				: { lineNumber: selection.startLineNumber, column: selection.startColumn };
 		editor.setSelection({
 			startLineNumber: draggingHandle === 'start' ? position.lineNumber : anchor.lineNumber,
 			startColumn: draggingHandle === 'start' ? position.column : anchor.column,

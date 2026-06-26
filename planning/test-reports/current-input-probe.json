@@ -1,12 +1,12 @@
 {
-  "before": {
-    "hasHost": false,
-    "domReadOnly": false,
-    "activeTag": "BODY",
-    "activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links"
-  },
-  "after": {
-    "activeTag": "BODY",
-    "activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links"
-  }
+	"before": {
+		"hasHost": false,
+		"domReadOnly": false,
+		"activeTag": "BODY",
+		"activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links"
+	},
+	"after": {
+		"activeTag": "BODY",
+		"activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links"
+	}
 }

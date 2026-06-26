@@ -353,14 +353,22 @@ async function evaluate(wsUrl, expression) {
 	try {
 		await new Promise((resolve, reject) => {
 			const timer = setTimeout(() => reject(new Error('Timed out opening CDP socket for `' + expressionLabel + '`')), 10000);
-			socket.addEventListener('open', () => {
-				clearTimeout(timer);
-				resolve();
-			}, { once: true });
-			socket.addEventListener('error', (event) => {
-				clearTimeout(timer);
-				reject(event.error ?? new Error('CDP socket error'));
-			}, { once: true });
+			socket.addEventListener(
+				'open',
+				() => {
+					clearTimeout(timer);
+					resolve();
+				},
+				{ once: true },
+			);
+			socket.addEventListener(
+				'error',
+				event => {
+					clearTimeout(timer);
+					reject(event.error ?? new Error('CDP socket error'));
+				},
+				{ once: true },
+			);
 		});
 
 		return await new Promise((resolve, reject) => {
@@ -374,18 +382,21 @@ async function evaluate(wsUrl, expression) {
 			}, CDP_EVALUATE_TIMEOUT_MS);
 			const cleanup = () => {
 				if (timeout !== undefined) {
-						clearTimeout(timeout);
+					clearTimeout(timeout);
 					traceCdp(`Runtime.evaluate#${callId}: done ${Date.now() - evaluateStarted}ms ${expressionLabel}`);
 					timeout = undefined;
 				}
 			};
-			socket.addEventListener('message', (event) => {
+			socket.addEventListener('message', event => {
 				const message = JSON.parse(event.data);
 				if (message.id !== id) return;
 				cleanup();
 				if (message.error) {
 					try {
-						writeFileSync('/tmp/obsidian-real-evaluate-error.json', JSON.stringify({ callId, expressionLabel, expression, protocolError: message.error }, null, 2));
+						writeFileSync(
+							'/tmp/obsidian-real-evaluate-error.json',
+							JSON.stringify({ callId, expressionLabel, expression, protocolError: message.error }, null, 2),
+						);
 					} catch {}
 					reject(new Error(JSON.stringify(message.error)));
 					return;
@@ -394,22 +405,27 @@ async function evaluate(wsUrl, expression) {
 				if (result?.exceptionDetails) {
 					const exception = result.exceptionDetails.exception;
 					try {
-						writeFileSync('/tmp/obsidian-real-evaluate-error.json', JSON.stringify({ callId, expressionLabel, expression, exceptionDetails: result.exceptionDetails }, null, 2));
+						writeFileSync(
+							'/tmp/obsidian-real-evaluate-error.json',
+							JSON.stringify({ callId, expressionLabel, expression, exceptionDetails: result.exceptionDetails }, null, 2),
+						);
 					} catch {}
 					reject(new Error(exception?.description ?? exception?.value ?? result.exceptionDetails.text ?? 'Runtime.evaluate failed'));
 					return;
 				}
 				resolve(result?.result?.value);
 			});
-			socket.send(JSON.stringify({
-				id,
-				method: 'Runtime.evaluate',
-				params: {
-					expression,
-					awaitPromise: true,
-					returnByValue: true,
-				},
-			}));
+			socket.send(
+				JSON.stringify({
+					id,
+					method: 'Runtime.evaluate',
+					params: {
+						expression,
+						awaitPromise: true,
+						returnByValue: true,
+					},
+				}),
+			);
 		});
 	} finally {
 		if (timeout !== undefined) clearTimeout(timeout);
@@ -431,7 +447,8 @@ async function waitForAppPlugins(wsUrl) {
 			);
 			if (state.hasPlugins) return { ...state, wsUrl: currentWsUrl };
 		} catch (error) {
-			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed')) throw error;
+			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed'))
+				throw error;
 			currentWsUrl = (await waitForAppTarget()).webSocketDebuggerUrl;
 		}
 		await sleep(100);
@@ -443,13 +460,11 @@ async function waitForVaultPath(wsUrl) {
 	let currentWsUrl = wsUrl;
 	for (let i = 0; i < 100; i++) {
 		try {
-			const state = await evaluate(
-				currentWsUrl,
-				`(() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()`,
-			);
+			const state = await evaluate(currentWsUrl, `(() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()`);
 			if (state.vaultPath === VAULT) return { ...state, wsUrl: currentWsUrl };
 		} catch (error) {
-			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed')) throw error;
+			if (!String(error?.message ?? error).includes('Timed out') && !String(error?.message ?? error).includes('Execution context was destroyed'))
+				throw error;
 			currentWsUrl = (await waitForAppTarget()).webSocketDebuggerUrl;
 		}
 		await sleep(100);
@@ -589,25 +604,29 @@ async function dispatchTouchTap(wsUrl, x, y) {
 	try {
 		const touchStartId = ++nextId;
 		traceCdp('dispatchTouchTap fire Input.dispatchTouchEvent#' + touchStartId + ' touchStart');
-		socket.send(JSON.stringify({
-			id: touchStartId,
-			method: 'Input.dispatchTouchEvent',
-			params: {
-				type: 'touchStart',
-				touchPoints: [{ x, y, radiusX: 2, radiusY: 2, force: 1 }],
-			},
-		}));
+		socket.send(
+			JSON.stringify({
+				id: touchStartId,
+				method: 'Input.dispatchTouchEvent',
+				params: {
+					type: 'touchStart',
+					touchPoints: [{ x, y, radiusX: 2, radiusY: 2, force: 1 }],
+				},
+			}),
+		);
 		await new Promise(resolve => setTimeout(resolve, 50));
 		const touchEndId = ++nextId;
 		traceCdp('dispatchTouchTap fire Input.dispatchTouchEvent#' + touchEndId + ' touchEnd');
-		socket.send(JSON.stringify({
-			id: touchEndId,
-			method: 'Input.dispatchTouchEvent',
-			params: {
-				type: 'touchEnd',
-				touchPoints: [],
-			},
-		}));
+		socket.send(
+			JSON.stringify({
+				id: touchEndId,
+				method: 'Input.dispatchTouchEvent',
+				params: {
+					type: 'touchEnd',
+					touchPoints: [],
+				},
+			}),
+		);
 		await new Promise(resolve => setTimeout(resolve, 250));
 	} finally {
 		traceCdp('dispatchTouchTap done');
@@ -974,7 +993,7 @@ async function trustVault(wsUrl) {
 	try {
 		result = await evaluate(
 			wsUrl,
-		`(async () => {
+			`(async () => {
 			const app = window.app;
 			if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 			const trust = [...document.querySelectorAll('button')].find(button => button.innerText.includes('Trust author'));
@@ -1220,7 +1239,7 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			await dispatchTouchTap(activeWsUrl, livePreviewEditTarget.x, livePreviewEditTarget.y);
 			await evaluate(
 				activeWsUrl,
-			`(async () => {
+				`(async () => {
 				const app = window.app;
 				if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				for (let i = 0; i < 20 && document.activeElement?.closest?.('.monaco-editor'); i++) {

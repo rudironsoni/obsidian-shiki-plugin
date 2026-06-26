@@ -305,7 +305,6 @@ async function clickSelectionToolbarButton(client, label) {
 	await delay(300);
 }
 
-
 async function waitForUsableInteractionState(client) {
 	for (let attempt = 0; attempt < 20; attempt++) {
 		const state = await getInteractionState(client);

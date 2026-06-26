@@ -1,12 +1,12 @@
 {
-  "before": {
-    "missing": true,
-    "title": "feature-test - obsidian-shiki-real-verify-vault - Obsidian 1.12.7",
-    "body": "mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header",
-    "text": "feature-test\nFeature test\n\n\nInline code {ts} const inlineValue: number = 2 should render.\n\n\nTypeScript\nconst x: number = 1;\nconsole.log(x);\n\n\ndiff\n- old line\n+ new line\n\n\nodin\npackage main\n\n\nC#\nList<int[]> intervals = [[1, 3], [2, 6], [8, 10], [15, 18], [21, 34], [55, 89], [144, 233], [377, 610], [9"
-  },
-  "afterScroll": null,
-  "afterTap": null,
-  "afterType": null,
-  "screenshot": "planning/test-reports/current-mobile-touch-edit-probe.png"
+	"before": {
+		"missing": true,
+		"title": "feature-test - obsidian-shiki-real-verify-vault - Obsidian 1.12.7",
+		"body": "mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header",
+		"text": "feature-test\nFeature test\n\n\nInline code {ts} const inlineValue: number = 2 should render.\n\n\nTypeScript\nconst x: number = 1;\nconsole.log(x);\n\n\ndiff\n- old line\n+ new line\n\n\nodin\npackage main\n\n\nC#\nList<int[]> intervals = [[1, 3], [2, 6], [8, 10], [15, 18], [21, 34], [55, 89], [144, 233], [377, 610], [9"
+	},
+	"afterScroll": null,
+	"afterTap": null,
+	"afterType": null,
+	"screenshot": "planning/test-reports/current-mobile-touch-edit-probe.png"
 }

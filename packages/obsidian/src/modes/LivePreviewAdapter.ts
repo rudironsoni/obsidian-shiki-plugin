@@ -176,8 +176,9 @@ export class LivePreviewAdapter {
 			this.plugin.codeBlockRegistry.upsert(block);
 		}
 		this.decorations = builder.finish();
-	
-		this.reconcileActiveBlockIdentity();}
+
+		this.reconcileActiveBlockIdentity();
+	}
 
 	private collectLines(): CodeBlockLineInfo[] {
 		const lines: CodeBlockLineInfo[] = [];
@@ -267,7 +268,9 @@ export class LivePreviewAdapter {
 			surface.hostEl.style.position = 'absolute';
 			surface.hostEl.style.left = `${firstRect.left - rootRect.left}px`;
 			surface.hostEl.style.top = `${firstRect.top - rootRect.top}px`;
-			const contentRect = (this.view.dom.closest('.workspace-leaf-content, .view-content, .markdown-source-view') ?? this.view.dom).getBoundingClientRect();
+			const contentRect = (
+				this.view.dom.closest('.workspace-leaf-content, .view-content, .markdown-source-view') ?? this.view.dom
+			).getBoundingClientRect();
 			const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
 			const availableViewportWidth = Math.max(0, viewportWidth - firstRect.left - 24);
 			const availableContentWidth = Math.max(0, contentRect.right - firstRect.left);
@@ -387,7 +390,6 @@ export class LivePreviewAdapter {
 		this.activeBlockAnchor = this.getLiveBlockAnchor(nextBlock);
 	}
 
-
 	private getLiveBlockAnchor(block: CodeBlockModel): string {
 		return `${block.sourcePath}::${block.hostMode}::${block.openingFenceLine}::${block.language}`;
 	}
@@ -424,7 +426,8 @@ export class LivePreviewAdapter {
 	private removeDuplicateSurfaceHosts(block: CodeBlockModel, ownedHost: HTMLElement): void {
 		const ownedAnchor = this.getLiveBlockAnchor(block);
 		const currentIds = new Set(this.blocks.map(candidate => candidate.id));
-		const liveSurfaceSelector = '.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-block, .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock';
+		const liveSurfaceSelector =
+			'.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-block, .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock';
 		for (const element of Array.from(document.querySelectorAll<HTMLElement>(liveSurfaceSelector))) {
 			if (element === ownedHost) {
 				continue;
@@ -463,12 +466,17 @@ export class LivePreviewAdapter {
 	createEditSync(block: CodeBlockModel): MonacoEditSync {
 		const resolveCurrent = (): CodeBlockModel | undefined => {
 			const anchor = this.getLiveBlockAnchor(block);
-			return this.blocks.find(candidate => candidate.id === block.id)
-				?? this.blocks.find(candidate => this.getLiveBlockAnchor(candidate) === anchor)
-				?? this.blocks.find(candidate => candidate.sourcePath === block.sourcePath
-					&& candidate.hostMode === block.hostMode
-					&& candidate.openingFenceLine === block.openingFenceLine
-					&& candidate.language === block.language);
+			return (
+				this.blocks.find(candidate => candidate.id === block.id) ??
+				this.blocks.find(candidate => this.getLiveBlockAnchor(candidate) === anchor) ??
+				this.blocks.find(
+					candidate =>
+						candidate.sourcePath === block.sourcePath &&
+						candidate.hostMode === block.hostMode &&
+						candidate.openingFenceLine === block.openingFenceLine &&
+						candidate.language === block.language,
+				)
+			);
 		};
 		return {
 			getCurrentRange: (): { from: number; to: number } | undefined => {
@@ -490,7 +498,6 @@ export class LivePreviewAdapter {
 			},
 		};
 	}
-
 
 	private requestActiveMarkdownSave(): void {
 		const view = this.plugin.app.workspace.activeLeaf?.view as { requestSave?: () => void; save?: () => Promise<void> | void } | undefined;
@@ -588,7 +595,11 @@ export class LivePreviewAdapter {
 		if (mobileMode && this.lastMobileMode !== true) {
 			for (const block of this.blocks) {
 				const surface = this.plugin.surfaceRegistry.get(block.id);
-				if (block.id === this.activeBlockId || surface?.hostEl.classList.contains('shiki-monaco-active') || surface?.hostEl.classList.contains('shiki-monaco-editable')) {
+				if (
+					block.id === this.activeBlockId ||
+					surface?.hostEl.classList.contains('shiki-monaco-active') ||
+					surface?.hostEl.classList.contains('shiki-monaco-editable')
+				) {
 					continue;
 				}
 				surface?.deactivateToReadonly();

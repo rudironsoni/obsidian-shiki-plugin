@@ -270,8 +270,12 @@ test('Monaco gesture routing uses explicit horizontal intent and Obsidian note s
 	expect(livePreview).toContain('void this.activateBlock(block.id, { clientX: event.clientX, clientY: event.clientY });');
 	expect(livePreview).toContain('surface.hostEl.ontouchend = (event): void => {');
 	expect(livePreview).toContain('const availableViewportWidth = Math.max(0, viewportWidth - firstRect.left - 24);');
-	expect(livePreview).toContain('const overlayWidth = Math.max(firstRect.width, this.view.scrollDOM.clientWidth, rootRect.width, availableContentWidth, availableViewportWidth, 320);');
-	expect(livePreview).toContain("overlayRoot.style.width = `${Math.max(rootRect.width, contentRect.width, this.view.scrollDOM.clientWidth, viewportWidth)}px`;");
+	expect(livePreview).toContain(
+		'const overlayWidth = Math.max(firstRect.width, this.view.scrollDOM.clientWidth, rootRect.width, availableContentWidth, availableViewportWidth, 320);',
+	);
+	expect(livePreview).toContain(
+		'overlayRoot.style.width = `${Math.max(rootRect.width, contentRect.width, this.view.scrollDOM.clientWidth, viewportWidth)}px`;',
+	);
 	expect(livePreview).toContain("window.addEventListener('resize', this.handleScroll, { passive: true });");
 	expect(livePreview).toContain("window.removeEventListener('resize', this.handleScroll);");
 	expect(readingView).toContain('surface.setNoteScrollerProvider(');
@@ -283,7 +287,6 @@ test('Monaco gesture routing uses explicit horizontal intent and Obsidian note s
 	expect(styles).toContain('body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock');
 	expect(styles).toContain('overscroll-behavior-x: contain;');
 });
-
 
 test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
 	const cm6 = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
@@ -299,19 +302,22 @@ test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
 	expect(cm6).toContain("this.view.dom.closest('.markdown-source-view.mod-cm6.is-live-preview') !== null");
 });
 
-
 test('plugin refreshes editor integration after workspace mode/layout changes', () => {
 	const main = read('packages/obsidian/src/main.ts');
 
-	expect(main).toContain('const refreshEditorIntegration = debounce(() => {');
+	expect(main).toContain('const refreshEditorIntegration = debounce(');
+	expect(main).toContain('() => {');
 	expect(main).toContain('void this.updateCm6Plugin?.();');
 	expect(main).toContain("this.registerEvent(this.app.workspace.on('layout-change', refreshEditorIntegration));");
 	expect(main).toContain("this.registerEvent(this.app.workspace.on('active-leaf-change', refreshEditorIntegration));");
 	expect(main).toContain("this.registerEvent(this.app.workspace.on('file-open', refreshEditorIntegration));");
-	expect(main).toContain('const livePreviewModeObserver = new MutationObserver(mutations => {');
-	expect(main).toContain("livePreviewModeObserver.observe(this.app.workspace.containerEl.ownerDocument.body, { attributes: true, attributeFilter: ['class'], subtree: true });");
+	expect(main).toContain('const livePreviewModeObserver = new MutationObserver(');
+	expect(main).toContain('mutations => {');
+	expect(main).toContain(
+		"livePreviewModeObserver.observe(this.app.workspace.containerEl.ownerDocument.body, { attributes: true, attributeFilter: ['class'], subtree: true });",
+	);
 	expect(main).toContain('this.register(() => livePreviewModeObserver.disconnect());');
-	expect(main).toContain('const startEditorIntegrationSettle = (): void => {');
+	expect(main).toContain('const startEditorIntegrationSettle = (): void =>');
 	expect(main).toContain('attempts >= 12');
 	expect(main).toContain('this.registerInterval(interval);');
 });

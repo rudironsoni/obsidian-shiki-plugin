@@ -132,7 +132,6 @@ async function waitFor(client, expression, message, timeoutMs = 20_000) {
 	throw new Error(`${message}\nLast value:\n${JSON.stringify(lastValue, null, 2)}`);
 }
 
-
 function isObsidianRuntimeTarget(target) {
 	if (!target?.webSocketDebuggerUrl) return false;
 	if (/worker/i.test(`${target.type ?? ''}`)) return false;
@@ -142,10 +141,10 @@ function isObsidianRuntimeTarget(target) {
 }
 
 function pickObsidianRuntimeTarget(targets) {
-	const pages = targets.filter((target) => target.webSocketDebuggerUrl && target.type === 'page');
-	const appPages = pages.filter((target) => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
+	const pages = targets.filter(target => target.webSocketDebuggerUrl && target.type === 'page');
+	const appPages = pages.filter(target => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
 	const candidates = appPages.length > 0 ? appPages : pages;
-	return candidates.find((target) => /obsidian/i.test(target.title ?? '')) ?? candidates[0] ?? null;
+	return candidates.find(target => /obsidian/i.test(target.title ?? '')) ?? candidates[0] ?? null;
 }
 
 function normalizeHiddenPageTimers(expression) {
@@ -154,7 +153,6 @@ function normalizeHiddenPageTimers(expression) {
 		.replace(/await\s+new\s+Promise\(\(resolve\)\s*=>\s*(?:window\.)?setTimeout\(resolve,\s*\d+\)\);?/g, 'await Promise.resolve();')
 		.replace(/await\s+new\s+Promise\(resolve\s*=>\s*requestAnimationFrame\(\(\)\s*=>\s*resolve\([^)]*\)\)\);?/g, 'await Promise.resolve();');
 }
-
 
 async function waitForTarget() {
 	const deadline = Date.now() + 45_000;
@@ -177,8 +175,8 @@ async function waitForAppClient() {
 	let lastTargets = [];
 	while (Date.now() < deadline) {
 		lastTargets = await fetchJson(`http://127.0.0.1:${PORT}/json`).catch(() => []);
-		const pages = lastTargets.filter((target) => target.webSocketDebuggerUrl && target.type === 'page');
-		const appPages = pages.filter((target) => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
+		const pages = lastTargets.filter(target => target.webSocketDebuggerUrl && target.type === 'page');
+		const appPages = pages.filter(target => /app:\/\/obsidian\.md\/index\.html/i.test(target.url ?? ''));
 		const candidates = appPages.length > 0 ? appPages : pages;
 		for (const target of candidates) {
 			const client = createCdpClient(target.webSocketDebuggerUrl);
@@ -259,7 +257,7 @@ function createCdpClient(wsUrl) {
 			request.reject(new Error(`${message.error.message}: ${message.error.data ?? ''}`));
 		} else {
 			if (TRACE_CDP) traceCdp('done #' + message.id);
-				request.resolve(message.result);
+			request.resolve(message.result);
 		}
 	});
 
@@ -271,7 +269,8 @@ function createCdpClient(wsUrl) {
 		send(method, params = {}) {
 			const id = nextId++;
 			const shouldTraceCdp = TRACE_CDP && (/^(Input\.|Page\.captureScreenshot$)/.test(method) || method === 'Runtime.evaluate');
-			if (shouldTraceCdp) traceCdp('start #' + id + ' ' + method + ' ' + (params?.expression ? String(params.expression).slice(0, 100).replace(/\s+/g, ' ') : ''));
+			if (shouldTraceCdp)
+				traceCdp('start #' + id + ' ' + method + ' ' + (params?.expression ? String(params.expression).slice(0, 100).replace(/\s+/g, ' ') : ''));
 			socket.send(JSON.stringify({ id, method, params }));
 			return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
 		},
@@ -296,10 +295,11 @@ async function evaluate(client, expression, timeoutMs = 45_000) {
 		new Promise((_, reject) => setTimeout(() => reject(new Error(`Timed out evaluating expression #${current}`)), timeoutMs)),
 	]);
 	if (result.exceptionDetails) {
-		const message = result.exceptionDetails.exception?.description
-			?? result.exceptionDetails.exception?.value
-			?? result.exceptionDetails.text
-			?? JSON.stringify(result.exceptionDetails);
+		const message =
+			result.exceptionDetails.exception?.description ??
+			result.exceptionDetails.exception?.value ??
+			result.exceptionDetails.text ??
+			JSON.stringify(result.exceptionDetails);
 		throw new Error(`Expression #${current} failed: ${message || JSON.stringify(result.exceptionDetails)}\n${normalizedExpression.slice(0, 600)}`);
 	}
 	return result.result.value;
@@ -331,8 +331,6 @@ async function openNote(client, livePreview = true) {
 	await evaluate(client, expression);
 	await delay(livePreview ? 2000 : 750);
 }
-
-
 
 async function openNoteSafe(client, livePreview = true) {
 	await waitForObsidianAppGlobal(client);
@@ -401,8 +399,8 @@ async function getEditableCodeLine(client) {
 	return (async () => {
 		await ensureLivePreviewMode(client);
 		return waitFor(
-		client,
-		`(() => {
+			client,
+			`(() => {
 			const container = (document.querySelector('.workspace-leaf.mod-active') ?? document).querySelector('.markdown-source-view.mod-cm6 .shiki-monaco-codeblock, .markdown-source-view.mod-cm6 .shiki-monaco-block');
 			if (!container) return null;
 			const editor = container._monacoEditor;
@@ -426,8 +424,8 @@ async function getEditableCodeLine(client) {
 				hasEditableDecoration: false,
 			} : null;
 		})()`,
-		'Timed out waiting for visible editable code line',
-	);
+			'Timed out waiting for visible editable code line',
+		);
 	})();
 }
 
@@ -589,7 +587,6 @@ async function scrollObsidianNoteByApi(client, deltaY) {
 	);
 }
 
-
 async function dispatchHorizontalWheel(client, x, y, deltaX) {
 	await client.send('Input.dispatchMouseEvent', {
 		type: 'mouseWheel',
@@ -673,7 +670,7 @@ async function readMonacoScrollState(client) {
 				viewLines,
 				hasEditorHook: Boolean(editor?.getModel?.()),
 			};
-		})()`
+		})()`,
 	);
 }
 async function assertEditableCursorPlacement(client, modeName) {
@@ -751,7 +748,6 @@ async function clickSelectionToolbarButton(client, modeName, labels) {
 	return { ...state, button };
 }
 
-
 async function assertEditableCursorPlacementSweep(client, modeName) {
 	const summary = await evaluate(
 		client,
@@ -815,10 +811,12 @@ async function assertEditableCursorPlacementSweep(client, modeName) {
 		);
 		assert(actual?.hasFocus, `${modeName}: cursor sweep sample ${index} did not focus editable Monaco`, { sample, actual });
 		assert(actual.position?.lineNumber === 1, `${modeName}: cursor sweep sample ${index} placed cursor on wrong line`, { sample, actual });
-		assert(Math.abs(actual.position.column - sample.expected.column) <= 2, `${modeName}: cursor sweep sample ${index} placed cursor on wrong column`, { sample, actual });
+		assert(Math.abs(actual.position.column - sample.expected.column) <= 2, `${modeName}: cursor sweep sample ${index} placed cursor on wrong column`, {
+			sample,
+			actual,
+		});
 	}
 }
-
 
 async function assertMobileSelectionToolbarActions(client, modeName) {
 	const initial = await evaluate(
@@ -1137,22 +1135,29 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
 	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
 
-	await evaluate(client, `(() => {
+	await evaluate(
+		client,
+		`(() => {
 		const activeEditor = app.workspace.activeEditor?.editor ?? app.workspace.activeLeaf?.view?.editor;
 		const cm = activeEditor?.cm ?? app.workspace.activeLeaf?.view?.editor?.cm;
 		const scroller = cm?.scrollDOM ?? app.workspace.activeLeaf?.view?.contentEl?.querySelector?.('.cm-scroller') ?? document.querySelector('.markdown-source-view .cm-scroller');
 		if (scroller) scroller.scrollTop = 0;
-	})()`);
+	})()`,
+	);
 	await delay(100);
 	const outsideBefore = await readObsidianNoteScrollState(client);
 	const outsideScroll = await scrollObsidianNoteByApi(client, 220);
 	await delay(100);
 	const outsideAfter = await readObsidianNoteScrollState(client);
-	assert(!outsideScroll.missing && outsideAfter.noteScrollTop > outsideBefore.noteScrollTop, `${modeName}: Obsidian editor scroller API did not scroll the note`, {
-		outsideBefore,
-		outsideScroll,
-		outsideAfter,
-	});
+	assert(
+		!outsideScroll.missing && outsideAfter.noteScrollTop > outsideBefore.noteScrollTop,
+		`${modeName}: Obsidian editor scroller API did not scroll the note`,
+		{
+			outsideBefore,
+			outsideScroll,
+			outsideAfter,
+		},
+	);
 
 	const isMobileMode = modeName.includes('mobile');
 	await clickLine(client, line);
@@ -1240,7 +1245,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 				if (!row) return null;
 				const rect = row.getBoundingClientRect();
 				return { x: Math.min(rect.right - 4, Math.max(rect.left + 4, ${line.x})), y: rect.top + rect.height / 2 };
-			})()`
+			})()`,
 		);
 		assert(activeLine, `${modeName}: mobile active Monaco line target was unavailable`, { line, activeLine });
 		const placementTap = await evaluate(
@@ -1262,7 +1267,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 				document.removeEventListener('pointerdown', listener, true);
 				document.removeEventListener('pointerup', listener, true);
 				return { point, targetClass: target?.className?.toString?.() ?? '', before, after: editor?.getPosition?.() ?? null, seen, gestureTrace: window.__shikiMonacoGestureTrace };
-			})()`
+			})()`,
 		);
 		await delay(120);
 		await delay(120);
@@ -1392,8 +1397,8 @@ async function main() {
 	const obsidian = reuseRunningTarget
 		? null
 		: spawn(OBSIDIAN_APP, [`--remote-debugging-port=${PORT}`, `--user-data-dir=${USER_DATA}`, VAULT], {
-			stdio: ['ignore', 'pipe', 'pipe'],
-		});
+				stdio: ['ignore', 'pipe', 'pipe'],
+			});
 	obsidian?.stdout?.on('data', chunk => {
 		launchOutput += chunk.toString();
 	});

@@ -108,4 +108,3 @@ test('plugin reload clears source mode tokenization cache before CM6 refresh', a
 	expect(rerenderCalls).toEqual(['rerender']);
 	expect(updateCalls).toEqual(['update-cm6']);
 });
-

@@ -103,9 +103,13 @@ export default class ShikiPlugin extends Plugin {
 			}),
 		);
 
-		const refreshEditorIntegration = debounce(() => {
-			void this.updateCm6Plugin?.();
-		}, 100, true);
+		const refreshEditorIntegration = debounce(
+			() => {
+				void this.updateCm6Plugin?.();
+			},
+			100,
+			true,
+		);
 		this.registerEvent(this.app.workspace.on('layout-change', refreshEditorIntegration));
 		this.registerEvent(this.app.workspace.on('active-leaf-change', refreshEditorIntegration));
 		this.registerEvent(this.app.workspace.on('file-open', refreshEditorIntegration));

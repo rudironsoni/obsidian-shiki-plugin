@@ -177,12 +177,7 @@ export class MonacoCodeBlockSurface {
 		if (!this.editor || this.disposed) {
 			return;
 		}
-		const metrics = this.blockSizer.measure(
-			this.modeController.isEditable()
-				? { ...this.block, code: this.editor.getValue() }
-				: this.block,
-			this.hostEl,
-		);
+		const metrics = this.blockSizer.measure(this.modeController.isEditable() ? { ...this.block, code: this.editor.getValue() } : this.block, this.hostEl);
 		this.hostEl.style.height = `${metrics.height}px`;
 		this.editorEl!.style.height = `${metrics.height}px`;
 		this.editor.updateOptions({
@@ -273,7 +268,12 @@ export class MonacoCodeBlockSurface {
 		const targetPosition = geometryEditor.getTargetAtClientPoint?.(clientX, clientY)?.position;
 		const firstViewLineRect = this.hostEl.querySelector<HTMLElement>('.view-line')?.getBoundingClientRect();
 		const pointInsideFirstViewLine = firstViewLineRect ? clientY >= firstViewLineRect.top && clientY <= firstViewLineRect.bottom : false;
-		const targetLooksStaleNativeMobile = document.activeElement?.classList?.contains('native-edit-context') === true && targetPosition?.lineNumber === 1 && targetPosition.column === 1 && this.hostEl.querySelectorAll('.view-line').length > 0 && !pointInsideFirstViewLine;
+		const targetLooksStaleNativeMobile =
+			document.activeElement?.classList?.contains('native-edit-context') === true &&
+			targetPosition?.lineNumber === 1 &&
+			targetPosition.column === 1 &&
+			this.hostEl.querySelectorAll('.view-line').length > 0 &&
+			!pointInsideFirstViewLine;
 		const targetVisiblePosition = targetPosition ? geometryEditor.getScrolledVisiblePosition?.(targetPosition) : null;
 		const editorRect = this.editorEl?.getBoundingClientRect() ?? this.hostEl.getBoundingClientRect();
 		const targetClientLeft = targetVisiblePosition ? editorRect.left + targetVisiblePosition.left : undefined;
@@ -317,13 +317,16 @@ export class MonacoCodeBlockSurface {
 		const topMatchedLine = Number.parseFloat(bestLineElement.style.top || '');
 		const topMatchedLineNumber = Number.isFinite(topMatchedLine) ? Math.round(topMatchedLine / lineHeight) + 1 : -1;
 		const renderedText = (bestLineElement.textContent ?? '').replace(/\u00a0/g, ' ');
-		const textMatchedLine = modelLines.findIndex((line) => line === renderedText);
+		const textMatchedLine = modelLines.findIndex(line => line === renderedText);
 		const sortedLines = viewLines
 			.map((lineEl, index) => ({ lineEl, index, top: lineEl.getBoundingClientRect().top }))
 			.sort((a, b) => a.top - b.top || a.index - b.index);
-		const visualLineIndex = sortedLines.findIndex((entry) => entry.lineEl === bestLineElement);
+		const visualLineIndex = sortedLines.findIndex(entry => entry.lineEl === bestLineElement);
 		const fallbackLineNumber = Math.max(0, visualLineIndex) + 1;
-		const lineNumber = Math.max(1, Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber));
+		const lineNumber = Math.max(
+			1,
+			Math.min(getLineCount(), topMatchedLineNumber > 0 ? topMatchedLineNumber : textMatchedLine >= 0 ? textMatchedLine + 1 : fallbackLineNumber),
+		);
 		const maxColumn = getLineMaxColumn(lineNumber);
 		if (maxColumn <= 1) {
 			this.editor.setPosition({ lineNumber, column: 1 });
@@ -338,7 +341,9 @@ export class MonacoCodeBlockSurface {
 		while (low <= high) {
 			const mid = Math.floor((low + high) / 2);
 			const visiblePosition = geometryEditor.getScrolledVisiblePosition?.({ lineNumber, column: mid });
-			const left = visiblePosition ? editorRect.left + visiblePosition.left : contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
+			const left = visiblePosition
+				? editorRect.left + visiblePosition.left
+				: contentLeft + ((mid - 1) / Math.max(1, maxColumn - 1)) * Math.max(1, lineRect.width);
 			if (left <= clientX) {
 				bestColumn = mid;
 				low = mid + 1;
