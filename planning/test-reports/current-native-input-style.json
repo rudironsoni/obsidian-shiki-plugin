@@ -1,0 +1,24 @@
+{
+	"hostCount": 1,
+	"activeHost": false,
+	"editorFocus": false,
+	"pos": {
+		"lineNumber": 1,
+		"column": 1
+	},
+	"activeTag": "BODY",
+	"activeClass": "theme-dark mod-macos is-frameless is-hidden-frameless obsidian-app emulate-mobile is-phone is-mobile show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header monaco-enable-motion underline-links",
+	"nativeTag": "DIV",
+	"nativeClass": "native-edit-context",
+	"style": {
+		"display": "block",
+		"visibility": "visible",
+		"opacity": "1",
+		"pointerEvents": "auto",
+		"width": "366px",
+		"height": "21px",
+		"left": "0px",
+		"top": "8px",
+		"transform": "none"
+	}
+}

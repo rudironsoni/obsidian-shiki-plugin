@@ -1,44 +1,79 @@
-import { debounce, loadPrism, Plugin, TFile, type MarkdownPostProcessor } from 'obsidian';
-import { CodeBlock } from 'packages/obsidian/src/CodeBlock';
-import { createCm6Plugin } from 'packages/obsidian/src/codemirror/Cm6_ViewPlugin';
+import { debounce, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
-import { ShikiSettingsTab } from 'packages/obsidian/src/settings/SettingsTab';
-import { filterHighlightAllPlugin, type PrismWithFilterHighlightAll } from 'packages/obsidian/src/PrismPlugin';
-import { CodeHighlighter } from 'packages/obsidian/src/Highlighter';
-import { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
+import { LazyHighlighter } from 'packages/obsidian/src/LazyHighlighter';
+import type { CodeBlock } from 'packages/obsidian/src/CodeBlock';
+import type { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
+import { CodeBlockRegistry } from 'packages/obsidian/src/codeblocks/CodeBlockRegistry';
+import { LazyMonacoRuntime } from 'packages/obsidian/src/monaco/LazyMonacoRuntime';
+import { MonacoSurfaceRegistry } from 'packages/obsidian/src/monaco/MonacoSurfaceRegistry';
+import { HydrationQueue } from 'packages/obsidian/src/monaco/HydrationQueue';
+import { SourceModeTokenizationCache } from 'packages/obsidian/src/runtime/SourceModeTokenizationCache';
+import { getObsidianSafeLanguageNames } from 'packages/obsidian/src/runtime/LanguageMetadata';
+import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
+import type { ReadingViewAdapter } from 'packages/obsidian/src/modes/ReadingViewAdapter';
 
 import 'packages/obsidian/src/styles.css';
-import 'virtual:ec-styles.css';
-import 'virtual:ec-runtime';
 
 export const SHIKI_INLINE_REGEX = /^\{([^\s]+)\} (.*)/i; // format: `{lang} code`
+const SHIKI_INSTANCE_KEY = '__shikiHighlighterInstanceId';
+
+type ShikiWindow = Window & { [SHIKI_INSTANCE_KEY]?: number };
 
 export default class ShikiPlugin extends Plugin {
-	highlighter!: CodeHighlighter;
+	highlighter!: LazyHighlighter;
+	monacoRuntime!: LazyMonacoRuntime;
+	codeBlockRegistry!: CodeBlockRegistry;
+	surfaceRegistry!: MonacoSurfaceRegistry;
+	hydrationQueue!: HydrationQueue;
+	readingViewAdapter!: ReadingViewAdapter;
+	sourceModeTokenizationCache!: SourceModeTokenizationCache;
 	activeCodeBlocks!: Map<string, (CodeBlock | InlineCodeBlock)[]>;
 	settings!: Settings;
 	loadedSettings!: Settings;
 	updateCm6Plugin!: () => Promise<void>;
-
-	codeBlockProcessors: MarkdownPostProcessor[] = [];
+	private unloaded = true;
+	private cm6PluginRegistered = false;
+	private codeBlockProcessorsRegistered = false;
+	private inlineCodeProcessorRegistered = false;
+	private settingsLoaded: Promise<void> | undefined;
+	private instanceId = 0;
 
 	async onload(): Promise<void> {
-		await this.loadSettings();
+		this.unloaded = false;
+		this.instanceId = ((window as ShikiWindow)[SHIKI_INSTANCE_KEY] ?? 0) + 1;
+		(window as ShikiWindow)[SHIKI_INSTANCE_KEY] = this.instanceId;
+		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
-		this.addSettingTab(new ShikiSettingsTab(this));
-
-		this.highlighter = new CodeHighlighter(this);
-		await this.highlighter.load();
-
+		this.monacoRuntime = new LazyMonacoRuntime(this);
+		this.highlighter = new LazyHighlighter(this);
+		this.codeBlockRegistry = new CodeBlockRegistry();
+		this.surfaceRegistry = new MonacoSurfaceRegistry(this);
+		this.hydrationQueue = new HydrationQueue();
+		this.readingViewAdapter = undefined as never;
+		this.sourceModeTokenizationCache = new SourceModeTokenizationCache();
 		this.activeCodeBlocks = new Map();
+		this.updateCm6Plugin = async (): Promise<void> => {};
 
-		this.registerInlineCodeProcessor();
-		this.registerCodeBlockProcessors();
+		this.addSettingTab(new LazyShikiSettingsTab(this));
 
-		this.registerEditorExtension([createCm6Plugin(this)]);
+		this.deferStartupWork((): void => {
+			this.registerInlineCodeProcessor();
+		});
+
+		this.deferStartupWork((): void => {
+			void this.registerCodeBlockProcessors().catch(error => {
+				console.warn('Unable to register Shiki code block processors.', error);
+			});
+		});
+
+		this.deferStartupWork((): void => {
+			void this.registerCm6Plugin().catch(error => {
+				console.warn('Unable to register Shiki editor integration.', error);
+			});
+		});
 
 		// this is a workaround for the fact that obsidian does not rerender the code block
-		// when the start line with the language changes, and we need that for the EC meta string
+		// when the start line with the language changes, and we need that for the meta string
 		this.registerEvent(
 			this.app.vault.on('modify', async file => {
 				// sleep 0 so that the code block context is updated before we rerender
@@ -68,6 +103,39 @@ export default class ShikiPlugin extends Plugin {
 			}),
 		);
 
+		const refreshEditorIntegration = debounce(
+			() => {
+				void this.updateCm6Plugin?.();
+			},
+			100,
+			true,
+		);
+		this.registerEvent(this.app.workspace.on('layout-change', refreshEditorIntegration));
+		this.registerEvent(this.app.workspace.on('active-leaf-change', refreshEditorIntegration));
+		this.registerEvent(this.app.workspace.on('file-open', refreshEditorIntegration));
+		const livePreviewModeObserver = new MutationObserver(mutations => {
+			if (mutations.some(mutation => mutation.type === 'attributes' && mutation.attributeName === 'class')) {
+				refreshEditorIntegration();
+			}
+		});
+		livePreviewModeObserver.observe(this.app.workspace.containerEl.ownerDocument.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+		this.register(() => livePreviewModeObserver.disconnect());
+		const startEditorIntegrationSettle = (): void => {
+			let attempts = 0;
+			const interval = window.setInterval(() => {
+				attempts += 1;
+				refreshEditorIntegration();
+				if (attempts >= 12) {
+					window.clearInterval(interval);
+				}
+			}, 250);
+			this.registerInterval(interval);
+		};
+		this.registerEvent(this.app.workspace.on('layout-change', startEditorIntegrationSettle));
+		this.registerEvent(this.app.workspace.on('active-leaf-change', startEditorIntegrationSettle));
+		this.registerEvent(this.app.workspace.on('file-open', startEditorIntegrationSettle));
+		startEditorIntegrationSettle();
+
 		this.addCommand({
 			id: 'reload-highlighter',
 			name: 'Reload highlighter',
@@ -75,16 +143,15 @@ export default class ShikiPlugin extends Plugin {
 				void this.reloadHighlighter();
 			},
 		});
-
-		await this.registerPrismPlugin();
 	}
 
 	async reloadHighlighter(): Promise<void> {
-		await this.highlighter.unload();
-
+		await this.ensureSettingsLoaded();
 		this.loadedSettings = structuredClone(this.settings);
 
-		await this.highlighter.load();
+		await this.highlighter.reload();
+		this.sourceModeTokenizationCache.clear();
+		this.surfaceRegistry.updateThemes();
 
 		for (const [_, codeBlocks] of this.activeCodeBlocks) {
 			for (const codeBlock of codeBlocks) {
@@ -95,55 +162,107 @@ export default class ShikiPlugin extends Plugin {
 		await this.updateCm6Plugin();
 	}
 
-	async registerPrismPlugin(): Promise<void> {
-		const prism = (await loadPrism()) as PrismWithFilterHighlightAll;
-		const filterHighlightAll = filterHighlightAllPlugin(prism);
-		filterHighlightAll?.reject.addSelector('div.expressive-code pre code');
+	async registerCm6Plugin(): Promise<void> {
+		if (this.unloaded || this.cm6PluginRegistered) {
+			return;
+		}
+
+		const { createCm6Plugin } = await import('packages/obsidian/src/codemirror/Cm6_ViewPlugin');
+		this.registerEditorExtension([createCm6Plugin(this)]);
+		this.cm6PluginRegistered = true;
+		this.app.workspace.updateOptions();
 	}
 
-	registerCodeBlockProcessors(): void {
-		const languages = this.highlighter.obsidianSafeLanguageNames();
-
-		for (const language of languages) {
-			try {
-				this.registerMarkdownCodeBlockProcessor(
-					language,
-					async (source, el, ctx) => {
-						// we need to avoid making the hidden frontmatter code block visible
-						if (el.parentElement?.classList.contains('mod-frontmatter')) {
-							return;
-						}
-
-						const codeBlock = new CodeBlock(this, el, source, language, ctx);
-
-						ctx.addChild(codeBlock);
-					},
-					1000,
-				);
-			} catch (e) {
-				console.warn(`Failed to register code block processor for ${language}.`, e);
-			}
+	async registerCodeBlockProcessors(): Promise<void> {
+		if (this.unloaded || this.codeBlockProcessorsRegistered) {
+			return;
 		}
+
+		if (!this.readingViewAdapter) {
+			const { ReadingViewAdapter } = await import('packages/obsidian/src/modes/ReadingViewAdapter');
+			this.readingViewAdapter = new ReadingViewAdapter(this);
+		}
+		const { CodeBlock } = await import('packages/obsidian/src/CodeBlock');
+		let languages: Set<string>;
+		try {
+			languages = new Set(getObsidianSafeLanguageNames());
+		} catch (error) {
+			console.error('[Shiki] Failed to load language names, code blocks will not be highlighted:', error);
+			return;
+		}
+
+		if (this.unloaded || this.codeBlockProcessorsRegistered) {
+			return;
+		}
+
+		this.registerMarkdownPostProcessor((el, ctx) => {
+			if (this.unloaded || el.closest('.markdown-source-view')) {
+				return;
+			}
+
+			const codeElements = el.querySelectorAll('pre > code[class*="language-"]');
+			for (const codeElement of codeElements) {
+				const className = [...codeElement.classList].find(value => value.startsWith('language-'));
+				const language = className?.slice('language-'.length) ?? '';
+				if (language === '' || !languages.has(language)) {
+					continue;
+				}
+
+				const pre = codeElement.parentElement;
+				if (!(pre instanceof HTMLElement)) {
+					continue;
+				}
+
+				// Keep the frontmatter preview hidden.
+				if (pre.parentElement?.classList.contains('mod-frontmatter')) {
+					continue;
+				}
+
+				const codeBlock = new CodeBlock(this, pre, codeElement.textContent ?? '', language, ctx);
+				ctx.addChild(codeBlock);
+			}
+		}, 1000);
+
+		this.codeBlockProcessorsRegistered = true;
+		this.app.workspace.updateOptions();
 	}
 
 	registerInlineCodeProcessor(): void {
+		if (this.unloaded || this.inlineCodeProcessorRegistered) {
+			return;
+		}
+
 		this.registerMarkdownPostProcessor(async (el, ctx) => {
 			const inlineCodes = el.findAll(':not(pre) > code');
+			let InlineCodeBlockConstructor: typeof InlineCodeBlock | undefined;
 			for (const codeElm of inlineCodes) {
 				const match = SHIKI_INLINE_REGEX.exec(codeElm.textContent ?? ''); // format: `{lang} code`
 				if (!match) {
 					continue;
 				}
 
-				const codeBlock = new InlineCodeBlock(this, codeElm, match[2], match[1], ctx);
-
+				InlineCodeBlockConstructor ??= (await import('packages/obsidian/src/InlineCodeBlock')).InlineCodeBlock;
+				const codeBlock = new InlineCodeBlockConstructor(this, codeElm, match[2], match[1], ctx);
 				ctx.addChild(codeBlock);
 			}
 		});
+		this.inlineCodeProcessorRegistered = true;
 	}
 
 	onunload(): void {
-		void this.highlighter.unload();
+		this.unloaded = true;
+		void this.highlighter?.unload();
+		this.surfaceRegistry.clear();
+		this.hydrationQueue.clear();
+		this.codeBlockRegistry.clear();
+	}
+
+	isCurrentInstance(): boolean {
+		return !this.unloaded && (window as ShikiWindow)[SHIKI_INSTANCE_KEY] === this.instanceId;
+	}
+
+	getActiveTheme(): string {
+		return getActiveTheme(this);
 	}
 
 	addActiveCodeBlock(codeBlock: CodeBlock | InlineCodeBlock): void {
@@ -180,5 +299,53 @@ export default class ShikiPlugin extends Plugin {
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
+	}
+
+	async ensureSettingsLoaded(): Promise<void> {
+		this.settingsLoaded ??= this.loadSettings().then(() => {
+			this.loadedSettings = structuredClone(this.settings);
+		});
+		await this.settingsLoaded;
+	}
+
+	async saveSettingsAndReloadHighlighter(): Promise<void> {
+		this.settingsLoaded ??= Promise.resolve();
+		await this.ensureSettingsLoaded();
+		await this.saveSettings();
+		await this.reloadHighlighter();
+	}
+
+	private deferStartupWork(callback: () => void): void {
+		const guardedCallback = (): void => {
+			if (!this.unloaded) {
+				callback();
+			}
+		};
+
+		if (typeof window.requestIdleCallback === 'function') {
+			window.requestIdleCallback(guardedCallback, { timeout: 1000 });
+			return;
+		}
+
+		window.setTimeout(guardedCallback, 1000);
+	}
+}
+
+class LazyShikiSettingsTab extends PluginSettingTab {
+	private plugin: ShikiPlugin;
+
+	constructor(plugin: ShikiPlugin) {
+		super(plugin.app, plugin);
+		this.plugin = plugin;
+	}
+
+	display(): void {
+		this.containerEl.empty();
+		void this.plugin.ensureSettingsLoaded().then(async () => {
+			const { ShikiSettingsTab } = await import('packages/obsidian/src/settings/SettingsTab');
+			const settingsTab = new ShikiSettingsTab(this.plugin);
+			settingsTab.containerEl = this.containerEl;
+			settingsTab.display();
+		});
 	}
 }

@@ -1,0 +1,284 @@
+{
+	"point": {
+		"x": 244,
+		"y": 485.6875
+	},
+	"line": {
+		"i": 12,
+		"text": "        'shell_plus',",
+		"styleTop": "260px",
+		"topLine": 13,
+		"rect": {
+			"left": 24,
+			"top": 475.1875,
+			"width": 1818,
+			"height": 21
+		}
+	},
+	"targetClass": "view-line",
+	"seen": [
+		{
+			"type": "pointerdown",
+			"pointerType": "touch",
+			"isPrimary": true,
+			"targetClass": "view-line",
+			"x": 244,
+			"y": 485.6875
+		},
+		{
+			"type": "pointerup",
+			"pointerType": "touch",
+			"isPrimary": true,
+			"targetClass": "view-line",
+			"x": 244,
+			"y": 485.6875
+		}
+	],
+	"position": {
+		"lineNumber": 13,
+		"column": 22
+	},
+	"focus": true,
+	"sample": [
+		{
+			"i": 0,
+			"text": "import builtins, os, runpy, sys",
+			"styleTop": "8px",
+			"topLine": 1,
+			"rect": {
+				"left": 24,
+				"top": 223.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 1,
+			"text": "print('Python %s on %s' % (sys.version, sys.platform))",
+			"styleTop": "29px",
+			"topLine": 2,
+			"rect": {
+				"left": 24,
+				"top": 244.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 2,
+			"text": "very_long_runtime_scroll_line = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'",
+			"styleTop": "50px",
+			"topLine": 3,
+			"rect": {
+				"left": 24,
+				"top": 265.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 3,
+			"text": "import django",
+			"styleTop": "71px",
+			"topLine": 4,
+			"rect": {
+				"left": 24,
+				"top": 286.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 4,
+			"text": "print('Django %s' % django.get_version())",
+			"styleTop": "92px",
+			"topLine": 5,
+			"rect": {
+				"left": 24,
+				"top": 307.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 5,
+			"text": "sys.path.extend(['/app/src', '/opt/.pycharm_helpers'])",
+			"styleTop": "113px",
+			"topLine": 6,
+			"rect": {
+				"left": 24,
+				"top": 328.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 6,
+			"text": "os.chdir('/app/src')",
+			"styleTop": "134px",
+			"topLine": 7,
+			"rect": {
+				"left": 24,
+				"top": 349.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 7,
+			"text": "if 'setup' in dir(django): django.setup()",
+			"styleTop": "155px",
+			"topLine": 8,
+			"rect": {
+				"left": 24,
+				"top": 370.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 8,
+			"text": "_original_argv = sys.argv[:]",
+			"styleTop": "176px",
+			"topLine": 9,
+			"rect": {
+				"left": 24,
+				"top": 391.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 9,
+			"text": "try:",
+			"styleTop": "197px",
+			"topLine": 10,
+			"rect": {
+				"left": 24,
+				"top": 412.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 10,
+			"text": "    sys.argv = [",
+			"styleTop": "218px",
+			"topLine": 11,
+			"rect": {
+				"left": 24,
+				"top": 433.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 11,
+			"text": "        'manage.py',",
+			"styleTop": "239px",
+			"topLine": 12,
+			"rect": {
+				"left": 24,
+				"top": 454.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 12,
+			"text": "        'shell_plus',",
+			"styleTop": "260px",
+			"topLine": 13,
+			"rect": {
+				"left": 24,
+				"top": 475.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 13,
+			"text": "        '--command',",
+			"styleTop": "281px",
+			"topLine": 14,
+			"rect": {
+				"left": 24,
+				"top": 496.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 14,
+			"text": "        'import builtins; builtins.__dict__[\"__pycharm_marker\"] = True',",
+			"styleTop": "302px",
+			"topLine": 15,
+			"rect": {
+				"left": 24,
+				"top": 517.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 15,
+			"text": "    ]",
+			"styleTop": "323px",
+			"topLine": 16,
+			"rect": {
+				"left": 24,
+				"top": 538.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 16,
+			"text": "    runpy.run_path('/app/src' + '/manage.py', run_name='__main__')",
+			"styleTop": "344px",
+			"topLine": 17,
+			"rect": {
+				"left": 24,
+				"top": 559.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 17,
+			"text": "finally:",
+			"styleTop": "365px",
+			"topLine": 18,
+			"rect": {
+				"left": 24,
+				"top": 580.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 18,
+			"text": "    sys.argv = _original_argv",
+			"styleTop": "386px",
+			"topLine": 19,
+			"rect": {
+				"left": 24,
+				"top": 601.1875,
+				"width": 1818,
+				"height": 21
+			}
+		},
+		{
+			"i": 19,
+			"text": "print('runtimeEditableCodeBlockMarker')",
+			"styleTop": "407px",
+			"topLine": 20,
+			"rect": {
+				"left": 24,
+				"top": 622.1875,
+				"width": 1818,
+				"height": 21
+			}
+		}
+	]
+}

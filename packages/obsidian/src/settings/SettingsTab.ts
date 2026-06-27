@@ -1,9 +1,8 @@
 import { PluginSettingTab, Setting, Platform, Notice, normalizePath } from 'obsidian';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { StringSelectModal } from 'packages/obsidian/src/settings/StringSelectModal';
-import { bundledThemesInfo } from 'shiki';
-import { OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/themes/ThemeMapper';
-import { FrameType } from 'packages/obsidian/src/settings/Settings';
+import { OBSIDIAN_THEME_IDENTIFIER } from 'packages/obsidian/src/Constants';
+import { BUNDLED_THEMES_INFO } from 'packages/obsidian/src/settings/BundledThemeInfo';
 
 export class ShikiSettingsTab extends PluginSettingTab {
 	plugin: ShikiPlugin;
@@ -17,24 +16,11 @@ export class ShikiSettingsTab extends PluginSettingTab {
 	display(): void {
 		this.containerEl.empty();
 
-		const customThemes = Object.fromEntries(this.plugin.highlighter.customThemes.map(theme => [theme.name, `${theme.displayName} (${theme.type})`]));
-		const builtInThemes = Object.fromEntries(bundledThemesInfo.map(theme => [theme.id, `${theme.displayName} (${theme.type})`]));
+		const builtInThemes = Object.fromEntries(BUNDLED_THEMES_INFO.map(theme => [theme.id, `${theme.displayName} (${theme.type})`]));
 		const themes = {
 			[OBSIDIAN_THEME_IDENTIFIER]: 'Obsidian built-in (both)',
-			...customThemes,
 			...builtInThemes,
 		};
-
-		new Setting(this.containerEl).setName('All setting changes require a reload of the highlighter').addButton(button => {
-			button
-				.setCta()
-				.setButtonText('Reload Highlighter')
-				.onClick(async () => {
-					button.setDisabled(true);
-					await this.plugin.reloadHighlighter();
-					button.setDisabled(false);
-				});
-		});
 
 		new Setting(this.containerEl)
 			.setName('Inline Syntax Highlighting')
@@ -42,7 +28,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.inlineHighlighting).onChange(async value => {
 					this.plugin.settings.inlineHighlighting = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -54,7 +40,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.ecDefaultShowLineNumbers).onChange(async value => {
 					this.plugin.settings.ecDefaultShowLineNumbers = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -64,23 +50,19 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.ecDefaultWrap).onChange(async value => {
 					this.plugin.settings.ecDefaultWrap = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
+		new Setting(this.containerEl).setName('Editor').setHeading();
+
 		new Setting(this.containerEl)
-			.setName('Frame')
-			.setDesc('Controls the default frame type for code blocks.')
-			.addDropdown(dropdown => {
-				dropdown.addOptions({
-					[FrameType.Code]: 'Code',
-					[FrameType.Terminal]: 'Terminal',
-					[FrameType.None]: 'None',
-					[FrameType.Auto]: 'Auto',
-				});
-				dropdown.setValue(this.plugin.settings.ecDefaultFrame).onChange(async value => {
-					this.plugin.settings.ecDefaultFrame = value as FrameType;
-					await this.plugin.saveSettings();
+			.setName('Font family')
+			.setDesc('Font family for the inline code block editor. Use CSS font-family syntax.')
+			.addText(text => {
+				text.setValue(this.plugin.settings.ecEditorFontFamily).onChange(async value => {
+					this.plugin.settings.ecEditorFontFamily = value || 'var(--font-monospace)';
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -93,7 +75,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				dropdown.addOptions(themes);
 				dropdown.setValue(this.plugin.settings.darkTheme).onChange(async value => {
 					this.plugin.settings.darkTheme = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -104,7 +86,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				dropdown.addOptions(themes);
 				dropdown.setValue(this.plugin.settings.lightTheme).onChange(async value => {
 					this.plugin.settings.lightTheme = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -116,7 +98,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customThemeFolder)
 					.onChange(async value => {
 						this.plugin.settings.customThemeFolder = value;
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettingsAndReloadHighlighter();
 					})
 					.then(textbox => {
 						textbox.inputEl.addClass('shiki-custom-theme-folder');
@@ -129,7 +111,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.preferThemeColors).onChange(async value => {
 					this.plugin.settings.preferThemeColors = value;
-					await this.plugin.saveSettings();
+					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
@@ -143,7 +125,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.customLanguageFolder)
 					.onChange(async value => {
 						this.plugin.settings.customLanguageFolder = value;
-						await this.plugin.saveSettings();
+						await this.plugin.saveSettingsAndReloadHighlighter();
 					})
 					.then(textbox => {
 						textbox.inputEl.addClass('shiki-custom-language-folder');
@@ -154,10 +136,14 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.setName('Excluded Languages')
 			.setDesc('Configure language to exclude.')
 			.addButton(button => {
-				button.setButtonText('Add Language Rule').onClick(() => {
-					const modal = new StringSelectModal(this.plugin, this.plugin.highlighter.supportedLanguages, language => {
+				button.setButtonText('Add Language Rule').onClick(async () => {
+					button.setDisabled(true);
+					const languages = await this.plugin.highlighter.obsidianSafeLanguageNames();
+					button.setDisabled(false);
+
+					const modal = new StringSelectModal(this.plugin, languages, language => {
 						this.plugin.settings.disabledLanguages.push(language);
-						void this.plugin.saveSettings();
+						void this.plugin.saveSettingsAndReloadHighlighter();
 						this.display();
 					});
 					modal.open();
@@ -171,7 +157,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 					.setWarning()
 					.onClick(() => {
 						this.plugin.settings.disabledLanguages = this.plugin.settings.disabledLanguages.filter(x => x !== language);
-						void this.plugin.saveSettings();
+						void this.plugin.saveSettingsAndReloadHighlighter();
 						this.display();
 					});
 			});

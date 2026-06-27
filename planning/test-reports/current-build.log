@@ -1,0 +1,18 @@
+vite v8.0.10 building client environment for production...
+[2Ktransforming...✓ 7 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/modern-monaco.js  4,793.89 kB │ gzip: 1,332.53 kB
+
+✓ built in 1.68s
+Generated modern-monaco fallback loader
+vite v8.0.10 building client environment for production...
+[2Ktransforming...✓ 429 modules transformed.
+rendering chunks...
+[vite-plugin-static-copy] Copied 1 items.
+computing gzip size...
+dist/styles.css  11.37 kB │ gzip:  1.93 kB
+dist/main.js     80.20 kB │ gzip: 20.44 kB
+
+✓ built in 132ms
+Embedded compressed modern-monaco.js fallback in manifest.json (4794276 chars, 1753600 base64 chars)

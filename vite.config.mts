@@ -1,109 +1,68 @@
 import path from 'node:path';
 import { builtinModules } from 'node:module';
 import { defineConfig, type UserConfig } from 'vite';
-import { ExpressiveCodeEngine } from '@expressive-code/core';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import banner from 'vite-plugin-banner';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { getBuildBanner } from '@lemons_dev/lemons-obsidian-plugin-automation';
 import manifest from './manifest.json' with { type: 'json' };
-import { createCssVariableThemeBundle, createEcEngineConfig, EC_VIRTUAL_SETTINGS } from './packages/ec-core/src/Config';
-import { OBSIDIAN_THEME } from './packages/ec-core/src/ObsidianTheme';
 
-const polyfilledNodeBuiltins = new Set(['fs', 'path', 'url']);
-const externalNodeBuiltins = builtinModules.filter(moduleName => !polyfilledNodeBuiltins.has(moduleName.replace(/^node:/, '')));
+const externalNodeBuiltins = builtinModules;
 
 const entryFile = 'packages/obsidian/src/main.ts';
-const EC_RUNTIME_MODULE_ID = 'virtual:ec-runtime';
-const EC_STYLES_MODULE_ID = 'virtual:ec-styles.css';
-const EC_RUNTIME_RESOLVED_ID = `\0${EC_RUNTIME_MODULE_ID}`;
-const EC_STYLES_RESOLVED_ID = `\0${EC_STYLES_MODULE_ID}`;
+const modernMonacoEntryFile = 'packages/obsidian/src/modern-monaco-entry.ts';
 
-function expressiveCodeBundlePlugin() {
-	let bundlePromise: Promise<{ runtimeModule: string; styles: string }> | undefined;
-
-	const getBundle = async (): Promise<{ runtimeModule: string; styles: string }> => {
-		if (!bundlePromise) {
-			bundlePromise = (async () => {
-				const cssVariableTheme = createCssVariableThemeBundle(OBSIDIAN_THEME);
-				const ec = new ExpressiveCodeEngine(
-					createEcEngineConfig({
-						theme: cssVariableTheme.theme,
-						customLanguages: [],
-						settings: EC_VIRTUAL_SETTINGS,
-						usingObsidianTheme: true,
-					}),
-				);
-
-				const [baseStyles, jsModules] = await Promise.all([ec.getBaseStyles(), ec.getJsModules()]);
-
-				return {
-					runtimeModule: jsModules.join('\n'),
-					styles: cssVariableTheme.restoreCssVariables(baseStyles),
-				};
-			})();
-		}
-
-		return bundlePromise;
-	};
-
-	return {
-		name: 'expressive-code-bundle',
-		resolveId(id: string): string | undefined {
-			if (id === EC_RUNTIME_MODULE_ID) {
-				return EC_RUNTIME_RESOLVED_ID;
-			}
-			if (id === EC_STYLES_MODULE_ID) {
-				return EC_STYLES_RESOLVED_ID;
-			}
-
-			return undefined;
-		},
-		async load(id: string): Promise<string | undefined> {
-			if (id !== EC_RUNTIME_RESOLVED_ID && id !== EC_STYLES_RESOLVED_ID) {
-				return undefined;
-			}
-
-			const bundle = await getBundle();
-
-			if (id === EC_RUNTIME_RESOLVED_ID) {
-				return bundle.runtimeModule;
-			}
-
-			return bundle.styles;
-		},
-	};
+function getBuildEntryFile(buildEntry: string): string {
+	if (buildEntry === 'modern-monaco') return modernMonacoEntryFile;
+	return entryFile;
 }
 
 export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
+	const buildEntry = process.env.SHIKI_BUILD_ENTRY === 'modern-monaco' ? 'modern-monaco' : 'main';
+
+	const external = [
+		'obsidian',
+		'electron',
+		'@codemirror/autocomplete',
+		'@codemirror/collab',
+		'@codemirror/commands',
+		'@codemirror/language',
+		'@codemirror/lint',
+		'@codemirror/search',
+		'@codemirror/state',
+		'@codemirror/view',
+		'@lezer/common',
+		'@lezer/highlight',
+		'@lezer/lr',
+		...externalNodeBuiltins,
+	];
 
 	return {
 		plugins: [
-			nodePolyfills({
-				include: ['fs', 'path', 'url'],
-				protocolImports: true,
-			}),
-			expressiveCodeBundlePlugin(),
 			banner({
 				outDir,
 				content: getBuildBanner(prod ? 'Release Build' : 'Dev Build', version => version),
 			}),
-			viteStaticCopy({
-				targets: [{ src: 'manifest.json', dest: outDir }],
-			}),
+			...(buildEntry === 'main'
+				? [
+						viteStaticCopy({
+							targets: [{ src: 'manifest.json', dest: '' }],
+						}),
+					]
+				: []),
 		],
 		resolve: {
 			alias: {
 				packages: path.resolve(__dirname, './packages'),
+				'shiki-wasm': path.resolve(__dirname, './node_modules/modern-monaco/dist/shiki-wasm.mjs'),
 			},
 		},
 		build: {
 			lib: {
-				entry: path.resolve(__dirname, entryFile),
-				name: 'main',
-				fileName: () => 'main.js',
+				entry: path.resolve(__dirname, getBuildEntryFile(buildEntry)),
+				name: buildEntry,
+				fileName: () => `${buildEntry}.js`,
 				formats: ['cjs'],
 			},
 			minify: prod,
@@ -111,33 +70,19 @@ export default defineConfig(({ mode }) => {
 			sourcemap: prod ? false : 'inline',
 			cssCodeSplit: false,
 			emptyOutDir: false,
-			outDir: '',
+			outDir,
 			rolldownOptions: {
-				input: {
-					main: path.resolve(__dirname, entryFile),
+				checks: {
+					pluginTimings: false,
 				},
 				output: {
 					dir: outDir,
-					entryFileNames: 'main.js',
+					entryFileNames: `${buildEntry}.js`,
 					assetFileNames: 'styles.css',
 					codeSplitting: false,
+					exports: 'named',
 				},
-				external: [
-					'obsidian',
-					'electron',
-					'@codemirror/autocomplete',
-					'@codemirror/collab',
-					'@codemirror/commands',
-					'@codemirror/language',
-					'@codemirror/lint',
-					'@codemirror/search',
-					'@codemirror/state',
-					'@codemirror/view',
-					'@lezer/common',
-					'@lezer/highlight',
-					'@lezer/lr',
-					...externalNodeBuiltins,
-				],
+				external,
 			},
 		},
 	} as UserConfig;

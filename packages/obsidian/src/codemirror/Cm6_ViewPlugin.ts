@@ -1,306 +1,185 @@
+import { Prec, type Range } from '@codemirror/state';
+import { Decoration, ViewPlugin, type EditorView, type ViewUpdate } from '@codemirror/view';
+import { editorLivePreviewField } from 'obsidian';
+import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/main';
-import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import { type EditorState, type Range } from '@codemirror/state';
-import { type SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
-import { Cm6_Util } from 'packages/obsidian/src/codemirror/Cm6_Util';
+import { LivePreviewAdapter } from 'packages/obsidian/src/modes/LivePreviewAdapter';
+import { SourceModeAdapter } from 'packages/obsidian/src/modes/SourceModeAdapter';
 import { type ThemedToken } from 'shiki';
-import { editorLivePreviewField } from 'obsidian';
 
-enum DecorationUpdateType {
-	Insert,
-	Remove,
-}
-
-type DecorationUpdate = InsertDecoration | RemoveDecoration;
-
-interface InsertDecoration {
-	type: DecorationUpdateType.Insert;
-	from: number;
-	to: number;
-	lang: string;
-	content: string;
-	hideLang?: boolean;
-	hideTo?: number;
-}
-
-interface RemoveDecoration {
-	type: DecorationUpdateType.Remove;
-	from: number;
-	to: number;
-}
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- not an easily named type
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createCm6Plugin(plugin: ShikiPlugin) {
-	return ViewPlugin.fromClass(
+	const activeViewPlugins = new Set<{ retokenizeSourceMode(): void }>();
+	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
-			decorations: DecorationSet;
-			view: EditorView;
+			decorations = Decoration.none;
+			inlineDecorations = Decoration.none;
+			private view: EditorView;
+			private readonly livePreviewAdapter: LivePreviewAdapter;
+			private readonly sourceModeAdapter: SourceModeAdapter;
+			private decorationRefreshTimer: number | undefined;
+			private destroyed = false;
+			private lastIsLivePreview: boolean;
 
 			constructor(view: EditorView) {
 				this.view = view;
-				this.decorations = Decoration.none;
-				void this.updateWidgets(view);
-
-				plugin.updateCm6Plugin = (): Promise<void> => {
-					return this.updateWidgets(this.view);
-				};
+				this.livePreviewAdapter = new LivePreviewAdapter(plugin, view, this.scheduleDecorationRefresh);
+				this.sourceModeAdapter = new SourceModeAdapter(plugin, view, this.scheduleDecorationRefresh);
+				this.lastIsLivePreview = this.isLivePreview(view.state);
+				activeViewPlugins.add(this);
+				void this.updateInlineDecorations();
+				if (this.lastIsLivePreview) {
+					void this.livePreviewAdapter.forceRefresh();
+				} else {
+					void this.sourceModeAdapter.retokenize();
+				}
+				this.refreshDecorations();
 			}
 
-			/**
-			 * Triggered by codemirror when the view updates.
-			 * Depending on the update type, the decorations are either updated or recreated.
-			 *
-			 * @param update
-			 */
 			update(update: ViewUpdate): void {
-				try {
-					this.decorations = this.decorations.map(update.changes);
-				} catch (e) {
-					// Decorations may have stale positions if the document changed while an async
-					// updateWidgets call was in flight. Reset them so the next update can rebuild.
-					this.decorations = Decoration.none;
-					console.warn('Resetting decorations due to error:', e);
+				this.view = update.view;
+				const isLivePreview = this.isLivePreview(update.view.state);
+				const modeChanged = isLivePreview !== this.lastIsLivePreview;
+				this.lastIsLivePreview = isLivePreview;
+				if (modeChanged && isLivePreview) {
+					this.livePreviewAdapter.refreshForModeChange();
 				}
-
-				// we handle doc changes and selection changes here
-				if (update.docChanged || update.selectionSet) {
-					this.view = update.view;
-					void this.updateWidgets(update.view, update.docChanged);
+				if (update.docChanged || update.viewportChanged || update.selectionSet) {
+					void this.updateInlineDecorations();
 				}
-			}
-
-			isLivePreview(state: EditorState): boolean {
-				// @ts-ignore some strange private field not being assignable
-				return state.field(editorLivePreviewField);
-			}
-
-			/**
-			 * Updates all the widgets by traversing the syntax tree.
-			 *
-			 * @param view
-			 * @param docChanged
-			 */
-			async updateWidgets(view: EditorView, docChanged: boolean = true): Promise<void> {
-				let lang = '';
-				let state: SyntaxNode[] = [];
-				const decorationUpdates: DecorationUpdate[] = [];
-				// Capture the state at the time of the syntax tree traversal so we can
-				// detect if the document changed while async decoration building was in flight.
-				const capturedState = view.state;
-
-				// const t1 = performance.now();
-
-				syntaxTree(view.state).iterate({
-					enter: nodeRef => {
-						const node = nodeRef.node;
-
-						const props: Set<string> = new Set<string>(node.type.name?.split('_'));
-
-						if (props.has('formatting')) {
-							return;
-						}
-
-						if (props.has('inline-code')) {
-							const content = Cm6_Util.getContent(view.state, node.from, node.to);
-
-							if (content.startsWith('{') && plugin.settings.inlineHighlighting) {
-								const match = content.match(SHIKI_INLINE_REGEX); // format: `{lang} code`
-								if (match) {
-									const hasSelectionOverlap = Cm6_Util.checkSelectionAndRangeOverlap(view.state.selection, node.from - 1, node.to + 1);
-
-									decorationUpdates.push({
-										type: DecorationUpdateType.Insert,
-										from: node.from,
-										to: node.to,
-										lang: match[1],
-										content: match[2],
-										hideLang: this.isLivePreview(view.state) && !hasSelectionOverlap,
-										hideTo: node.from + match[1].length + 3, // hide `{lang} `
-									});
-								}
-							} else {
-								// we don't want to highlight normal inline code blocks, thus we remove any of our decorations
-								// we could check if we even have any decorations at this node, but it's not necessary
-								this.removeDecoration(node.from, node.to);
-							}
-							return;
-						}
-
-						// if !docChanged, then this change was a selection change.
-						// We only care about inline code blocks in this case, so we can skip the rest.
-						if (!docChanged) {
-							return;
-						}
-
-						if (props.has('HyperMD-codeblock') && !props.has('HyperMD-codeblock-begin') && !props.has('HyperMD-codeblock-end')) {
-							state.push(node);
-							return;
-						}
-
-						if (props.has('HyperMD-codeblock-begin')) {
-							const content = Cm6_Util.getContent(view.state, node.from, node.to);
-
-							lang = /```\s*(\S+)/.exec(content)?.[1] ?? '';
-						}
-
-						if (props.has('HyperMD-codeblock-end')) {
-							if (state.length > 0 && lang !== '') {
-								const start = state[0].from;
-								const end = state[state.length - 1].to;
-
-								decorationUpdates.push({
-									type: DecorationUpdateType.Insert,
-									from: start,
-									to: end,
-									lang,
-									content: Cm6_Util.getContent(view.state, start, end),
-								});
-							}
-
-							if (state.length > 0 && lang === '') {
-								const start = state[0].from;
-								const end = state[state.length - 1].to;
-
-								decorationUpdates.push({
-									type: DecorationUpdateType.Remove,
-									from: start,
-									to: end,
-								});
-							}
-
-							lang = '';
-							state = [];
-						}
-					},
-				});
-
-				for (const node of decorationUpdates) {
-					try {
-						if (node.type === DecorationUpdateType.Remove) {
-							this.removeDecoration(node.from, node.to);
-						} else if (node.type === DecorationUpdateType.Insert) {
-							const decorations = await this.buildDecorations(node.hideTo ?? node.from, node.to, node.lang, node.content);
-							// If the document changed while we were awaiting, the positions we captured
-							// from the syntax tree are stale. Abort to avoid applying out-of-range decorations.
-							if (this.view.state !== capturedState) {
-								return;
-							}
-							this.removeDecoration(node.from, node.to);
-							if (node.hideLang) {
-								// add the decoration that hides the language tag
-								decorations.unshift(Decoration.replace({}).range(node.from, node.hideTo));
-							}
-							// add the highlight decorations
-							this.addDecoration(node.from, node.to, decorations);
-						}
-					} catch (e) {
-						console.error(e);
+				this.livePreviewAdapter.update(update, isLivePreview);
+				this.sourceModeAdapter.update(update, isLivePreview);
+				if (modeChanged) {
+					if (isLivePreview) {
+						void this.livePreviewAdapter.forceRefresh();
+					} else {
+						void this.sourceModeAdapter.retokenize();
 					}
 				}
+				this.refreshDecorations();
+			}
 
-				if (decorationUpdates.length > 0 && this.view.state === capturedState) {
-					// Use requestAnimationFrame to avoid "Calls to EditorView.update are not allowed while an update is in progress"
-					requestAnimationFrame(() => {
-						if (this.view.state === capturedState) {
-							this.view.dispatch(this.view.state.update({}));
-						}
+			retokenizeSourceMode(): void {
+				if (this.lastIsLivePreview) {
+					return;
+				}
+
+				void this.sourceModeAdapter.retokenize();
+
+				this.scheduleDecorationRefresh();
+			}
+
+			destroy(): void {
+				activeViewPlugins.delete(this);
+				this.destroyed = true;
+				if (this.decorationRefreshTimer !== undefined) {
+					window.clearTimeout(this.decorationRefreshTimer);
+				}
+				this.livePreviewAdapter.destroy();
+				this.sourceModeAdapter.destroy();
+			}
+
+			private isLivePreview(state: EditorView['state']): boolean {
+				return state.field(editorLivePreviewField) || this.view.dom.closest('.markdown-source-view.mod-cm6.is-live-preview') !== null;
+			}
+
+			private refreshDecorations(): void {
+				const ranges: Range<Decoration>[] = [];
+				for (const set of [this.inlineDecorations, this.livePreviewAdapter.decorations, this.sourceModeAdapter.decorations]) {
+					set.between(0, this.view.state.doc.length, (from, to, value) => {
+						ranges.push(value.range(from, to));
 					});
 				}
-
-				// console.log('Traversed syntax tree in', performance.now() - t1, 'ms');
+				this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
+				this.livePreviewAdapter.refreshDomMounts();
 			}
 
-			/**
-			 * Removes all decorations at a given node.
-			 *
-			 * @param from
-			 * @param to
-			 */
-			removeDecoration(from: number, to: number): void {
-				this.decorations = this.decorations.update({
-					filterFrom: from,
-					filterTo: to,
-					filter: (_from3, _to3, _decoration) => {
-						return false;
+			private readonly scheduleDecorationRefresh = (): void => {
+				if (this.destroyed || this.decorationRefreshTimer !== undefined) {
+					return;
+				}
+				this.decorationRefreshTimer = window.setTimeout(() => {
+					this.decorationRefreshTimer = undefined;
+					if (this.destroyed) {
+						return;
+					}
+					this.refreshDecorations();
+					try {
+						this.view.dispatch(this.view.state.update({}));
+					} catch (error) {
+						if (String(error).includes('Calls to EditorView.update are not allowed while an update is in progress')) {
+							this.scheduleDecorationRefresh();
+							return;
+						}
+						throw error;
+					}
+				}, 16);
+			};
+
+			private async updateInlineDecorations(): Promise<void> {
+				const inlineRequests: { from: number; to: number; language: string; content: string }[] = [];
+				const captured = this.view.state.doc;
+				syntaxTree(this.view.state).iterate({
+					enter: nodeRef => {
+						const props = new Set<string>(nodeRef.node.type.name?.split('_'));
+						if (!props.has('inline-code') || props.has('formatting')) {
+							return;
+						}
+						const content = Cm6_Util.getContent(this.view.state, nodeRef.node.from, nodeRef.node.to);
+						const match = content.startsWith('{') ? content.match(SHIKI_INLINE_REGEX) : null;
+						if (!match || !plugin.settings.inlineHighlighting) {
+							return;
+						}
+						inlineRequests.push({ from: nodeRef.node.from, to: nodeRef.node.to, language: match[1], content: match[2] });
 					},
 				});
+
+				const built: Range<Decoration>[] = [];
+				for (const node of inlineRequests) {
+					const decorations = await this.buildInlineTokenDecorations(node.from, node.to, node.language, node.content);
+					if (captured !== this.view.state.doc) {
+						return;
+					}
+					built.push(...decorations);
+				}
+				this.inlineDecorations = built.length ? Decoration.set(built, true) : Decoration.none;
+				this.scheduleDecorationRefresh();
 			}
 
-			/**
-			 * Adds a widget at a given node if it does not exist yet.
-			 *
-			 * @param from
-			 * @param to
-			 * @param newDecorations
-			 */
-			addDecoration(from: number, to: number, newDecorations: Range<Decoration>[]): void {
-				// check if the decoration already exists and only add it if it does not exist
-				if (Cm6_Util.existsDecorationBetween(this.decorations, from, to)) {
-					return;
-				}
-
-				if (newDecorations.length === 0) {
-					return;
-				}
-
-				this.decorations = this.decorations.update({
-					add: newDecorations,
-				});
-			}
-
-			/**
-			 * Builds mark decorations for a given range, laguage and content.
-			 *
-			 * @param from
-			 * @param to
-			 * @param language
-			 * @param content
-			 */
-			async buildDecorations(from: number, to: number, language: string, content: string): Promise<Range<Decoration>[]> {
-				if (language === '') {
-					return [];
-				}
-
+			private async buildInlineTokenDecorations(from: number, to: number, language: string, content: string): Promise<Range<Decoration>[]> {
 				const highlight = await plugin.highlighter.getHighlightTokens(content, language.toLowerCase());
-
 				if (!highlight) {
 					return [];
 				}
-
 				const tokens = highlight.tokens.flat(1);
-
 				const decorations: Range<Decoration>[] = [];
-
 				for (let i = 0; i < tokens.length; i++) {
 					const token = tokens[i];
-					const nextToken: ThemedToken | undefined = tokens[i + 1];
-
+					const next: ThemedToken | undefined = tokens[i + 1];
 					const tokenStyle = plugin.highlighter.getTokenStyle(token);
-
 					decorations.push(
-						Decoration.mark({
-							attributes: {
-								style: tokenStyle.style,
-								class: tokenStyle.classes.join(' '),
-							},
-						}).range(from + token.offset, nextToken ? from + nextToken.offset : to),
+						Decoration.mark({ attributes: { style: tokenStyle.style, class: tokenStyle.classes.join(' ') } }).range(
+							from + token.offset,
+							next ? from + next.offset : to,
+						),
 					);
 				}
-
 				return decorations;
 			}
-
-			/**
-			 * Triggered by codemirror when the view plugin is destroyed.
-			 */
-			destroy(): void {
-				this.decorations = Decoration.none;
-			}
 		},
-		{
-			decorations: v => v.decorations,
-		},
+		{ decorations: value => value.decorations },
 	);
+
+	plugin.updateCm6Plugin = async (): Promise<void> => {
+		plugin.surfaceRegistry.updateThemes();
+		plugin.sourceModeTokenizationCache.clear();
+		for (const viewPlugin of activeViewPlugins) {
+			viewPlugin.retokenizeSourceMode();
+		}
+		plugin.app.workspace.updateOptions();
+	};
+
+	return Prec.highest(cm6Plugin);
 }

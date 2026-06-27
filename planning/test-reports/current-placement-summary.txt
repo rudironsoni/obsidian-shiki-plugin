@@ -1,0 +1,8 @@
+pos={"lineNumber":1,"column":1}
+expected={"lineNumber":3,"column":55}
+placement.before={"lineNumber":1,"column":1}
+placement.after={"lineNumber":1,"column":1}
+placement.point={"x":478,"y":275.6875}
+placement.targetClass=shiki-monaco-block shiki-monaco-codeblock shiki-monaco-editable shiki-monaco-active
+seen0={"type":"pointerdown","pointerType":"touch","isPrimary":true,"targetClass":"shiki-monaco-block shiki-monaco-codeblock shiki-monaco-editable shiki-monaco-active","clientX":478,"clientY":275.6875}
+seen1={"type":"pointerup","pointerType":"touch","isPrimary":true,"targetClass":"shiki-monaco-block shiki-monaco-codeblock shiki-monaco-editable shiki-monaco-active","clientX":478,"clientY":275.6875}

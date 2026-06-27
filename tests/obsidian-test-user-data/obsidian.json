@@ -1,0 +1,10 @@
+{
+	"vaults": {
+		"shiki-repo-test-vault": {
+			"path": "/Users/rudironsoni/src/github/rudironsoni/obsidian-shiki-plugin/tests/obsidian-test-vault",
+			"ts": 1761000000000,
+			"open": true
+		}
+	},
+	"openSchemes": {}
+}

@@ -1,6 +1,11 @@
-name: Run Checks and Tests on PR
+name: Run Checks and Tests
 
-on: pull_request
+on:
+    workflow_dispatch:
+    pull_request:
+    push:
+        branches:
+            - '**'
 
 jobs:
     check:

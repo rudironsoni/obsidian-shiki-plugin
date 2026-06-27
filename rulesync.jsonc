@@ -1,0 +1,25 @@
+{
+	"$schema": "https://github.com/dyoshikawa/rulesync/releases/latest/download/config-schema.json",
+	"targets": ["copilot", "cursor", "claudecode", "codexcli", "opencode", "antigravity"],
+	"features": ["*"],
+	"sources": [
+		{
+			"source": "davidvkimball/obsidian-dev-skills:.",
+			"features": ["skills"],
+		},
+		{
+			"source": "https://github.com/Yungho/obsidian-plugin-dev",
+			"transport": "git",
+			"path": ".",
+		},
+	],
+	"outputRoots": ["."],
+	"delete": true,
+	"verbose": false,
+	"silent": false,
+	"global": false,
+	"simulateCommands": false,
+	"simulateSubagents": false,
+	"simulateSkills": false,
+	"gitignoreTargetsOnly": true,
+}

@@ -1,0 +1,15 @@
+[[mcp_servers]]
+name = "obsidian-cli"
+transport = "stdio"
+command = "npx"
+args = [ "-y", "github:Storks/obsidian-mcp" ]
+
+[mcp_servers.env]
+[[mcp_servers]]
+name = "electron-devtools"
+transport = "stdio"
+command = "npx"
+args = [ "-y", "github:sh3ll3x3c/native-devtools-mcp" ]
+
+[mcp_servers.env]
+[tools]

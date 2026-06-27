@@ -1,0 +1,3 @@
+$ bun run clean:dist && SHIKI_BUILD_ENTRY=modern-monaco vite build --mode=production && node scripts/inline-modern-monaco.mjs && bun run typecheck && SHIKI_BUILD_ENTRY=main vite build --mode=production && node scripts/embed-modern-monaco-fallback.mjs
+$ node -e "require('node:fs').rmSync('dist', { recursive: true, force: true })"
+$ tsc -noEmit -skipLibCheck

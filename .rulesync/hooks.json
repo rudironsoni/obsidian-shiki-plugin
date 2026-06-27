@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "command": "echo 'obsidian-shiki-plugin harness active | Desktop + Mobile emulation | MCPs: obsidian-cli, electron-devtools'"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "git diff --name-only | grep '\\.ts$' >/dev/null && bun run typecheck || true"
+      }
+    ],
+    "preToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "echo 'Executing bash command. Avoid destructive operations on dist/ and exampleVault/'"
+      }
+    ]
+  }
+}

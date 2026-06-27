@@ -1,0 +1,45 @@
+$ node tests/runtime/obsidian-real.mjs
+[obsidian-real 2026-06-24T06:31:32.964Z] main: start mode=reuse target=both
+[obsidian-real 2026-06-24T06:31:33.024Z] Runtime.evaluate#1: start (() => ({ hasApp: typeof window.app !== 'undefined', vaultPath: typeof window.app !== 'undefined' ? window.app?.vault?.adapter?.basePath ?? null : null, }))()
+[obsidian-real 2026-06-24T06:31:33.079Z] Runtime.evaluate#1: done 55ms (() => ({ hasApp: typeof window.app !== 'undefined', vaultPath: typeof window.app !== 'undefined' ? window.app?.vault?.adapter?.basePath ?? null : null, }))()
+[obsidian-real 2026-06-24T06:31:33.079Z] prepare vault: start
+[obsidian-real 2026-06-24T06:31:33.107Z] prepare vault: done 28ms
+[obsidian-real 2026-06-24T06:31:33.107Z] wait for app target: start
+[obsidian-real 2026-06-24T06:31:33.109Z] Runtime.evaluate#2: start (() => ({ hasApp: typeof window.app !== 'undefined' }))()
+[obsidian-real 2026-06-24T06:31:33.134Z] Runtime.evaluate#2: done 25ms (() => ({ hasApp: typeof window.app !== 'undefined' }))()
+[obsidian-real 2026-06-24T06:31:33.134Z] wait for app target: done 27ms
+[obsidian-real 2026-06-24T06:31:33.134Z] trust vault: start
+[obsidian-real 2026-06-24T06:31:34.137Z] Runtime.evaluate#3: start (async () => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const trust = [...document.querySelectorAll('button
+[obsidian-real 2026-06-24T06:31:34.439Z] Runtime.evaluate#3: done 302ms (async () => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const trust = [...document.querySelectorAll('button
+[obsidian-real 2026-06-24T06:31:34.691Z] trust vault: done 1557ms
+[obsidian-real 2026-06-24T06:31:34.691Z] set desktop emulation: start
+[obsidian-real 2026-06-24T06:31:34.692Z] Runtime.evaluate#4: start (async () => { for (let i = 0; i < 300 && !window.app; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (!app) throw new 
+[obsidian-real 2026-06-24T06:31:34.713Z] Runtime.evaluate#4: done 21ms (async () => { for (let i = 0; i < 300 && !window.app; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (!app) throw new 
+[obsidian-real 2026-06-24T06:31:34.713Z] set desktop emulation: done 22ms
+[obsidian-real 2026-06-24T06:31:34.713Z] verify desktop feature set: start
+[obsidian-real 2026-06-24T06:31:34.714Z] Runtime.evaluate#5: start (() => ({ hasApp: typeof window.app !== 'undefined', hasPlugins: !!window.app?.plugins?.manifests && !!window.app?.plugins?.plugins, vaultPath: window.app?.vaul
+[obsidian-real 2026-06-24T06:31:34.752Z] Runtime.evaluate#5: done 38ms (() => ({ hasApp: typeof window.app !== 'undefined', hasPlugins: !!window.app?.plugins?.manifests && !!window.app?.plugins?.plugins, vaultPath: window.app?.vaul
+[obsidian-real 2026-06-24T06:31:34.752Z] Runtime.evaluate#6: start (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:35.146Z] Runtime.evaluate#6: done 394ms (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:35.248Z] Runtime.evaluate#7: start (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:35.737Z] Runtime.evaluate#7: done 489ms (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:35.737Z] Runtime.evaluate#8: start (async () => { for (let i = 0; i < 300 && !window.app?.vault?.adapter; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (
+[obsidian-real 2026-06-24T06:31:45.959Z] Runtime.evaluate#8: done 10222ms (async () => { for (let i = 0; i < 300 && !window.app?.vault?.adapter; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (
+[obsidian-real 2026-06-24T06:31:45.961Z] Runtime.evaluate#9: start (async () => { const app = window.app; if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready'); const plugin = app.plugins?.plugins['shi
+[obsidian-real 2026-06-24T06:31:49.961Z] Runtime.evaluate#9: done 4000ms (async () => { const app = window.app; if (!app?.plugins || !app?.vault) throw new Error('Obsidian app was not ready'); const plugin = app.plugins?.plugins['shi
+[obsidian-real 2026-06-24T06:31:49.961Z] Runtime.evaluate#10: start (async () => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const state = globalThis.__shikiVerifyState; const 
+[obsidian-real 2026-06-24T06:31:54.966Z] Runtime.evaluate#10: done 5005ms (async () => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const state = globalThis.__shikiVerifyState; const 
+[obsidian-real 2026-06-24T06:31:54.966Z] Runtime.evaluate#11: start (async () => { const plugin = app.plugins.getPlugin?.("shiki-highlighter") ?? app.plugins?.plugins?.["shiki-highlighter"]; const readSourceTokenSignature = () =
+[obsidian-real 2026-06-24T06:31:57.967Z] Runtime.evaluate#11: done 3001ms (async () => { const plugin = app.plugins.getPlugin?.("shiki-highlighter") ?? app.plugins?.plugins?.["shiki-highlighter"]; const readSourceTokenSignature = () =
+[obsidian-real 2026-06-24T06:31:57.967Z] verify desktop feature set: done 23254ms
+[obsidian-real 2026-06-24T06:31:57.968Z] verify mobile feature set: start
+[obsidian-real 2026-06-24T06:31:57.968Z] Runtime.evaluate#12: start (() => ({ hasApp: typeof window.app !== 'undefined', hasPlugins: !!window.app?.plugins?.manifests && !!window.app?.plugins?.plugins, vaultPath: window.app?.vaul
+[obsidian-real 2026-06-24T06:31:58.775Z] Runtime.evaluate#12: done 807ms (() => ({ hasApp: typeof window.app !== 'undefined', hasPlugins: !!window.app?.plugins?.manifests && !!window.app?.plugins?.plugins, vaultPath: window.app?.vaul
+[obsidian-real 2026-06-24T06:31:58.775Z] Runtime.evaluate#13: start (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:58.780Z] Runtime.evaluate#13: done 5ms (() => ({ vaultPath: window.app?.vault?.adapter?.basePath ?? null }))()
+[obsidian-real 2026-06-24T06:31:58.780Z] Runtime.evaluate#14: start (async () => { for (let i = 0; i < 300 && !window.app; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (!app) throw new 
+[obsidian-real 2026-06-24T06:31:59.208Z] Runtime.evaluate#14: done 428ms (async () => { for (let i = 0; i < 300 && !window.app; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (!app) throw new 
+[obsidian-real 2026-06-24T06:31:59.211Z] Runtime.evaluate#15: start (async () => { for (let i = 0; i < 300 && !window.app?.vault?.adapter; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (
+[obsidian-real 2026-06-24T06:32:10.960Z] Runtime.evaluate#15: done 11749ms (async () => { for (let i = 0; i < 300 && !window.app?.vault?.adapter; i++) await new Promise(resolve => setTimeout(resolve, 100)); const app = window.app; if (
+[obsidian-real 2026-06-24T06:32:10.961Z] Runtime.evaluate#16: start (() => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const editorRoot = app.workspace.activeLeaf?.view?.conten
+[obsidian-real 2026-06-24T06:32:10.965Z] Runtime.evaluate#16: done 4ms (() => { const app = window.app; if (!app?.vault) throw new Error('Obsidian app vault was not ready'); const editorRoot = app.workspace.activeLeaf?.view?.conten
