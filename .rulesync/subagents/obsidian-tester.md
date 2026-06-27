@@ -74,6 +74,16 @@ Use `electron-devtools` MCP for screenshots:
 - Mobile emulation persists: Always run cleanup, even on failure
 - Performance regressions: Flag if startup > 50 ms
 
+## Focused Verifier Routes
+
+- Live Preview redraw loop: `rtk bun run verify:obsidian-live-preview-redraw-loop`
+- Live Preview interactions: `rtk bun run verify:obsidian-live-preview-interactions`
+- Monaco editing: `rtk bun run verify:obsidian-monaco-edit`
+- Mobile rendering: `rtk bun run verify:obsidian-monaco-mobile-rendering`
+- General runtime: `rtk bun run verify:obsidian-real`
+
+Run the focused verifier for the active bug class even when `rtk bun run check` passes.
+
 ## Report
 
 Write findings to `planning/test-reports/<YYYY-MM-DD-HH-MM>/TEST.md` with:

@@ -1,2 +1,0 @@
-description = "Review a pull request"
-prompt = "target_pr = {{args}}\n\nIf target_pr is not provided, use the PR of the current branch.\n\nExecute the following in parallel:\n\n1. Check code quality and style consistency\n2. Review test coverage\n3. Verify documentation updates\n4. Check for potential bugs or security issues\n\nThen provide a summary of findings and suggestions for improvement.\n"

@@ -65,10 +65,3 @@ Write findings to `planning/test-reports/<YYYY-MM-DD-HH-MM>/TEST.md` with:
 - Startup times.
 - Recommendation: ship / hold.
 '''
-
-[bug_class_routes]
-live_preview_redraw_loop = "rtk bun run verify:obsidian-live-preview-redraw-loop"
-live_preview_interactions = "rtk bun run verify:obsidian-live-preview-interactions"
-monaco_editing = "rtk bun run verify:obsidian-monaco-edit"
-mobile_rendering = "rtk bun run verify:obsidian-monaco-mobile-rendering"
-general_runtime = "rtk bun run verify:obsidian-real"
