@@ -1,6 +1,0 @@
-[
-	{
-		"blockId": "Editable code block runtime.md::live-preview::7::85::7::python::cdc0ede6",
-		"stack": "Error\n    at W.deactivateToReadonly (plugin:shiki-highlighter:21:21806)\n    at ke.syncVisibleBlocks (plugin:shiki-highlighter:22:9748)\n    at eval (plugin:shiki-highlighter:22:8557)"
-	}
-]

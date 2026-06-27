@@ -301,8 +301,11 @@ export class MonacoCodeBlockSurface {
 		const targetVisiblePosition = targetPosition ? geometryEditor.getScrolledVisiblePosition?.(targetPosition) : null;
 		const editorRect = this.editorEl?.getBoundingClientRect() ?? this.hostEl.getBoundingClientRect();
 		const targetClientLeft = targetVisiblePosition ? editorRect.left + targetVisiblePosition.left : undefined;
+		const targetVisibleTop = (targetVisiblePosition as { top?: number } | null)?.top;
+		const targetClientTop = typeof targetVisibleTop === 'number' ? editorRect.top + targetVisibleTop : undefined;
 		const targetLooksMisaligned = targetClientLeft !== undefined && Math.abs(clientX - targetClientLeft) > 32;
-		if (targetPosition && !targetLooksStaleNativeMobile && !targetLooksMisaligned) {
+		const targetLooksVerticallyMisaligned = targetClientTop !== undefined && Math.abs(clientY - targetClientTop) > 32;
+		if (targetPosition && !targetLooksStaleNativeMobile && !targetLooksMisaligned && !targetLooksVerticallyMisaligned) {
 			const lineNumber = Math.max(1, Math.min(getLineCount(), targetPosition.lineNumber));
 			this.editor.setPosition({
 				lineNumber,

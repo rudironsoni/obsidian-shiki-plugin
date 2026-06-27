@@ -50,7 +50,12 @@ export class LivePreviewAdapter {
 	private destroyed = false;
 	private missingLineRetryCount = 0;
 	private livePreviewActive = false;
+	private lastRootLivePreviewClass = false;
 	private readonly hiddenBlockIds = new Set<string>();
+	private readonly hydratingBlockIds = new Set<string>();
+	private readonly readinessRetryCounts = new Map<string, number>();
+	private readonly pendingWidgetRefreshBlockIds = new Set<string>();
+	private domMountRefreshPending = false;
 
 	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		window.addEventListener('resize', this.handleViewportModeChange);
@@ -58,11 +63,12 @@ export class LivePreviewAdapter {
 		this.mobileClassObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		this.plugin = plugin;
 		this.view = view;
-		this.modeClassObserver = new MutationObserver(() => this.refreshForModeChange());
-		this.modeClassObserver.observe(this.getSourceViewRoot(), { attributes: true, attributeFilter: ['class'] });
+		const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
+		this.lastRootLivePreviewClass = sourceViewRoot.classList.contains('is-live-preview');
+		this.modeClassObserver = new MutationObserver(this.handleModeClassChange);
+		this.modeClassObserver.observe(sourceViewRoot, { attributes: true, attributeFilter: ['class'] });
 		this.requestDecorationRefresh = requestDecorationRefresh;
 		if (this.plugin.isCurrentInstance()) {
-			const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
 			this.ownerRoot = sourceViewRoot;
@@ -114,12 +120,15 @@ export class LivePreviewAdapter {
 		}
 		this.livePreviewActive = true;
 		this.rebuildBlocks();
+		this.domMountRefreshPending = true;
 		this.requestDecorationRefresh();
 		this.scheduleSync(50);
 	}
 
 	refreshForModeChange(): void {
-		if (!this.getSourceViewRoot().classList.contains('is-live-preview')) {
+		const isLivePreview = this.getSourceViewRoot().classList.contains('is-live-preview');
+		this.lastRootLivePreviewClass = isLivePreview;
+		if (!isLivePreview) {
 			this.clearLivePreviewState();
 			return;
 		}
@@ -129,12 +138,17 @@ export class LivePreviewAdapter {
 	}
 
 	refreshDomMounts(): void {
+		if (!this.domMountRefreshPending && !this.hasPendingDomMountWork()) {
+			return;
+		}
+		this.domMountRefreshPending = false;
 		this.scheduleSync(50);
 	}
 
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
+		this.mobileClassObserver?.disconnect();
 		if (this.retrySyncTimer !== undefined) {
 			window.clearTimeout(this.retrySyncTimer);
 		}
@@ -142,7 +156,7 @@ export class LivePreviewAdapter {
 			window.clearTimeout(this.visibilityRefreshTimer);
 		}
 		this.view.scrollDOM.removeEventListener('scroll', this.handleScroll);
-		window.removeEventListener('resize', this.handleScroll);
+		window.removeEventListener('resize', this.handleViewportModeChange);
 		this.detachAll();
 		if (this.ownerRoot?.[LIVE_PREVIEW_ADAPTER_OWNER] === this) {
 			delete this.ownerRoot[LIVE_PREVIEW_ADAPTER_OWNER];
@@ -152,6 +166,27 @@ export class LivePreviewAdapter {
 	private readonly handleScroll = (): void => {
 		this.scheduleSync();
 	};
+
+	private readonly handleModeClassChange = (): void => {
+		const isLivePreview = this.getSourceViewRoot().classList.contains('is-live-preview');
+		if (isLivePreview === this.lastRootLivePreviewClass) {
+			return;
+		}
+		this.refreshForModeChange();
+	};
+
+	private hasPendingDomMountWork(): boolean {
+		if (!this.livePreviewActive || this.pendingWidgetRefreshBlockIds.size > 0) {
+			return this.pendingWidgetRefreshBlockIds.size > 0;
+		}
+		return this.blocks.some(block => {
+			const widget = this.view.contentDOM.querySelector(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget) {
+				return false;
+			}
+			return this.view.contentDOM.querySelector(`[data-shiki-editing-block-id="${block.id}"]:not(.shiki-editing-codeblock-line-hidden)`) !== null;
+		});
+	}
 
 	private rebuildBlocks(): void {
 		const parsed = this.parser.parseLivePreviewBlocks(this.collectLines());
@@ -241,22 +276,26 @@ export class LivePreviewAdapter {
 			this.clearLivePreviewState();
 			return;
 		}
-		this.resetNoteHorizontalScroll();
 		const visibleIds = new Set<string>();
 		const missingVisibleLines = false;
 		for (const block of this.blocks) {
 			if (block.codeTo === undefined || block.codeFrom === undefined) {
 				continue;
 			}
-			if (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to) {
+			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget && (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to)) {
 				continue;
 			}
 			const lineElements = [
 				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
 			] as HTMLElement[];
-			const widget =
-				this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`) ??
-				this.createFallbackLiveWidget(block, lineElements[0] ?? this.view.contentDOM);
+			if (!widget) {
+				visibleIds.add(block.id);
+				this.setBlockHidden(block.id, false);
+				this.requestWidgetRefresh(block.id);
+				continue;
+			}
+			this.pendingWidgetRefreshBlockIds.delete(block.id);
 			this.missingLineRetryCount = 0;
 			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			surface.setNoteScrollerProvider(() => this.getNoteScroller());
@@ -293,41 +332,30 @@ export class LivePreviewAdapter {
 				const touch = event.changedTouches[0];
 				void this.activateBlock(block.id, { clientX: touch?.clientX ?? 0, clientY: touch?.clientY ?? 0 });
 			};
-			surface.setActivationHandler(point => void this.activateBlock(block.id, point));
-			surface.hostEl.style.position = 'relative';
-			surface.hostEl.style.left = '';
-			surface.hostEl.style.top = '';
-			surface.hostEl.style.width = '100%';
-			const estimatedHeight = Math.max(120, Math.min(420, block.code.split('\n').length * 20 + 24));
-			const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight, estimatedHeight);
-			if (rawHeight > 0) {
-				surface.hostEl.style.height = `${rawHeight}px`;
+		surface.setActivationHandler(point => void this.activateBlock(block.id, point));
+		const fallbackHostWidth = Math.max(this.view.contentDOM.clientWidth || 0, 1);
+		const widgetWidth = first.getBoundingClientRect().width;
+		const lineWidth = Math.max(...lineElements.map(line => line.getBoundingClientRect().width), 0);
+		const measuredHostWidth = Math.max(firstRect.width, lastRect.width, widgetWidth, lineWidth, fallbackHostWidth);
+		surface.hostEl.style.width = `${measuredHostWidth}px`;
+		surface.hostEl.style.maxWidth = `${measuredHostWidth}px`;
+		surface.hostEl.style.minWidth = `${fallbackHostWidth}px`;
+		surface.hostEl.style.position = 'relative';
+		surface.hostEl.style.left = '';
+		surface.hostEl.style.top = '';
+			const isReady = surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements);
+			if (!isReady) {
+				const estimatedHeight = Math.max(120, Math.min(420, block.code.split('\n').length * 20 + 24));
+				const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight, estimatedHeight);
+				if (rawHeight > 0) {
+					surface.hostEl.style.height = `${rawHeight}px`;
+				}
 			}
-			if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
+			if (isReady) {
+				this.readinessRetryCounts.delete(block.id);
 				this.setBlockHidden(block.id, true);
 			} else {
-				void surface
-					.hydrateReadonly()
-					.then(() => {
-						window.requestAnimationFrame(() => {
-							window.requestAnimationFrame(() => {
-								if (!this.blocks.some(candidate => candidate.id === block.id)) {
-									return;
-								}
-								if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
-									this.setBlockHidden(block.id, true);
-									return;
-								}
-								this.setBlockHidden(block.id, false);
-								this.scheduleSync(50);
-							});
-						});
-					})
-					.catch(() => {
-						if (this.blocks.some(candidate => candidate.id === block.id)) {
-							this.setBlockHidden(block.id, false);
-						}
-					});
+				this.hydrateSurface(block, surface, lineElements);
 			}
 		}
 
@@ -348,23 +376,12 @@ export class LivePreviewAdapter {
 		}
 	}
 
-	private createFallbackLiveWidget(block: CodeBlockModel, anchor: HTMLElement): HTMLElement {
-		let widget = this.getCleanupRoot().querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
-		if (!widget) {
-			widget = document.createElement('div');
-			widget.className = 'shiki-monaco-live-widget';
-			widget.dataset.shikiBlockId = block.id;
-		}
-		const parent = anchor.parentElement ?? this.view.scrollDOM;
-		if (widget.parentElement !== parent) {
-			parent.insertBefore(widget, anchor === parent ? parent.firstChild : anchor);
-		}
-		return widget;
-	}
-
 	private detachAll(): void {
 		for (const block of this.blocks) {
 			this.hiddenBlockIds.delete(block.id);
+			this.hydratingBlockIds.delete(block.id);
+			this.readinessRetryCounts.delete(block.id);
+			this.pendingWidgetRefreshBlockIds.delete(block.id);
 			this.plugin.surfaceRegistry.release(block.id);
 			this.plugin.codeBlockRegistry.delete(block.id);
 		}
@@ -377,6 +394,9 @@ export class LivePreviewAdapter {
 		this.lastViewportKey = '';
 		this.detachAll();
 		this.hiddenBlockIds.clear();
+		this.hydratingBlockIds.clear();
+		this.readinessRetryCounts.clear();
+		this.pendingWidgetRefreshBlockIds.clear();
 		this.blocks = [];
 	}
 
@@ -411,6 +431,60 @@ export class LivePreviewAdapter {
 		if (changed) {
 			this.scheduleVisibilityRefresh();
 		}
+	}
+
+	private hydrateSurface(block: CodeBlockModel, surface: ReturnType<ShikiPlugin['surfaceRegistry']['getOrCreate']>, lineElements: HTMLElement[]): void {
+		if (this.hydratingBlockIds.has(block.id)) {
+			return;
+		}
+		this.hydratingBlockIds.add(block.id);
+		void surface
+			.hydrateReadonly()
+			.then(() => {
+				window.requestAnimationFrame(() => {
+					window.requestAnimationFrame(() => {
+						this.hydratingBlockIds.delete(block.id);
+						if (!this.blocks.some(candidate => candidate.id === block.id)) {
+							this.readinessRetryCounts.delete(block.id);
+							return;
+						}
+						if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
+							this.readinessRetryCounts.delete(block.id);
+							this.setBlockHidden(block.id, true);
+							return;
+						}
+						this.setBlockHidden(block.id, false);
+						const retryCount = this.readinessRetryCounts.get(block.id) ?? 0;
+						if (retryCount < 8) {
+							this.readinessRetryCounts.set(block.id, retryCount + 1);
+							this.scheduleSync(75);
+						}
+					});
+				});
+			})
+			.catch(() => {
+				this.hydratingBlockIds.delete(block.id);
+				this.readinessRetryCounts.delete(block.id);
+				if (this.blocks.some(candidate => candidate.id === block.id)) {
+					this.setBlockHidden(block.id, false);
+				}
+			});
+	}
+
+	private requestWidgetRefresh(blockId: string): void {
+		if (this.pendingWidgetRefreshBlockIds.has(blockId)) {
+			return;
+		}
+		this.pendingWidgetRefreshBlockIds.add(blockId);
+		this.domMountRefreshPending = true;
+		this.requestDecorationRefresh();
+		this.scheduleSync(50);
+		window.setTimeout(() => {
+			this.pendingWidgetRefreshBlockIds.delete(blockId);
+			if (!this.destroyed && this.blocks.some(block => block.id === blockId)) {
+				this.scheduleSync(0);
+			}
+		}, 250);
 	}
 	private surfaceMatchesCodeLines(surfaceHost: HTMLElement, lineElements: HTMLElement[]): boolean {
 		const surfaceRect = surfaceHost.getBoundingClientRect();
@@ -513,9 +587,11 @@ export class LivePreviewAdapter {
 	private removeStaleSurfaceChildren(visibleIds: Set<string>): void {
 		for (const element of Array.from(this.getCleanupRoot().querySelectorAll<HTMLElement>('.shiki-monaco-block, .shiki-monaco-codeblock'))) {
 			const id = element.getAttribute('data-shiki-block-id');
-			if (id !== null && !visibleIds.has(id)) {
+			if (element.closest('.shiki-monaco-live-widget') === null || (id !== null && !visibleIds.has(id))) {
 				element.remove();
-				this.plugin.surfaceRegistry.release(id);
+				if (id !== null) {
+					this.plugin.surfaceRegistry.release(id);
+				}
 			}
 		}
 	}
@@ -526,7 +602,9 @@ export class LivePreviewAdapter {
 		}
 		this.visibilityRefreshTimer = window.setTimeout(() => {
 			this.visibilityRefreshTimer = undefined;
-			this.rebuildBlocks();
+			if (this.livePreviewActive && this.getSourceViewRoot().classList.contains('is-live-preview')) {
+				this.rebuildBlocks();
+			}
 			this.requestDecorationRefresh();
 		}, 0);
 	}
@@ -695,14 +773,6 @@ export class LivePreviewAdapter {
 			return viewContent;
 		}
 		return this.view.scrollDOM;
-	}
-
-	private resetNoteHorizontalScroll(): void {
-		for (const element of [this.view.scrollDOM, this.view.dom, this.view.dom.closest<HTMLElement>('.view-content')]) {
-			if (element && element.scrollLeft !== 0) {
-				element.scrollLeft = 0;
-			}
-		}
 	}
 
 	private isMobile(): boolean {

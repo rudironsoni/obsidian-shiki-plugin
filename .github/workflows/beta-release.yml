@@ -61,17 +61,47 @@ jobs:
 
             - name: Compute beta SemVer
               id: beta-version
-              uses: anothrNick/github-tag-action@1.75.0
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  DRY_RUN: true
-                  PRERELEASE: true
-                  PRERELEASE_SUFFIX: beta
-                  TAG_PREFIX: ''
-                  TAG_CONTEXT: repo
-                  DEFAULT_BRANCH: master
-                  DEFAULT_BUMP: ${{ (startsWith(github.ref_name, 'feature/') || startsWith(github.ref_name, 'feature-') || startsWith(github.ref_name, 'feat/') || startsWith(github.ref_name, 'feat-')) && 'minor' || 'patch' }}
-                  FORCE_WITHOUT_CHANGES_PRE: true
+              run: |
+                  git fetch --tags --force
+                  node <<'NODE'
+                  const { execSync } = require("node:child_process");
+
+                  const tags = execSync("git tag --list", { encoding: "utf8" })
+                    .split(/\r?\n/)
+                    .map((tag) => tag.trim())
+                    .filter(Boolean);
+
+                  const betaTags = tags
+                    .map((tag) => {
+                      const match = tag.match(/^v?(\d+)\.(\d+)\.(\d+)-beta\.(\d+)$/);
+                      if (!match) return null;
+                      const [, major, minor, patch, beta] = match;
+                      return {
+                        tag,
+                        major: Number(major),
+                        minor: Number(minor),
+                        patch: Number(patch),
+                        beta: Number(beta),
+                      };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => {
+                      for (const key of ["major", "minor", "patch", "beta"]) {
+                        if (a[key] !== b[key]) return b[key] - a[key];
+                      }
+                      return 0;
+                    });
+
+                  if (betaTags.length === 0) {
+                    throw new Error("No existing beta tags found. Create the first beta tag manually.");
+                  }
+
+                  const latest = betaTags[0];
+                  const next = `${latest.major}.${latest.minor}.${latest.patch}-beta.${latest.beta + 1}`;
+                  console.log(`Latest beta tag: ${latest.tag}`);
+                  console.log(`Next beta tag: ${next}`);
+                  require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, `new_tag=${next}\n`);
+                  NODE
 
             - name: Apply beta version to plugin manifests
               env:
@@ -80,7 +110,7 @@ jobs:
                   node -e '
                   const fs = require("node:fs");
                   const version = process.env.BETA_VERSION;
-                  if (!version) throw new Error("Missing beta version from github-tag-action");
+                      if (!version) throw new Error("Missing beta version from Compute beta SemVer step");
                   for (const file of ["package.json", "manifest.json", "manifest-beta.json"]) {
                     const data = JSON.parse(fs.readFileSync(file, "utf8"));
                     data.version = version;

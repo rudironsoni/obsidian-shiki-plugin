@@ -1,17 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "obsidian-cli": {
-      "type": "local",
-      "command": [
-        "uvx",
-        "--from",
-        "git+https://github.com/Storks/obsidian-mcp",
-        "obsidian-mcp"
-      ],
-      "enabled": true,
-      "environment": {}
-    },
     "electron-devtools": {
       "type": "local",
       "command": [

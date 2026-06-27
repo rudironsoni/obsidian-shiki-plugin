@@ -1,6 +1,0 @@
-{
-	"devBranch": "master",
-	"releaseBranch": "release",
-	"github": "https://github.com/mProjectsCode/obsidian-shiki-plugin",
-	"preconditions": ["bun run format", "bun run build", "bun run lint:fix", "bun run test", "bun run bench:startup", "bun run bench:startup:mobile"]
-}

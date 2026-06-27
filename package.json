@@ -1,6 +1,6 @@
 {
 	"name": "shiki-highlighter",
-	"version": "0.8.0-beta.181",
+	"version": "0.8.0-beta.186",
 	"description": "Highlight code blocks with Shiki.",
 	"main": "main.js",
 	"scripts": {
@@ -15,6 +15,7 @@
 		"verify:obsidian-real": "node tests/runtime/obsidian-real.mjs",
 		"verify:obsidian-monaco-edit": "node tests/runtime/obsidian-monaco-edit.mjs",
 		"verify:obsidian-live-preview-interactions": "node tests/runtime/obsidian-live-preview-interactions.mjs",
+		"verify:obsidian-live-preview-redraw-loop": "node tests/runtime/obsidian-live-preview-redraw-loop.mjs",
 		"verify:obsidian-monaco-mobile-rendering": "node tests/runtime/obsidian-monaco-mobile-rendering.mjs",
 		"verify:obsidian-monaco-scroll-flicker": "node tests/runtime/obsidian-monaco-mobile-rendering.mjs",
 		"format": "prettier --write .",

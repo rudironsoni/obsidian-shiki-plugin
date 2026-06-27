@@ -83,10 +83,10 @@ describe('startup bundle', () => {
 		expect(workflow).toContain("'bug/**'");
 		expect(workflow).toContain("'chore/**'");
 		expect(workflow).toContain("'deps/**'");
-		expect(workflow).toContain('uses: anothrNick/github-tag-action@1.75.0');
-		expect(workflow).toContain('DRY_RUN: true');
-		expect(workflow).toContain('PRERELEASE: true');
-		expect(workflow).toContain('DEFAULT_BUMP: ${{ (startsWith(github.ref_name,');
+		expect(workflow).toContain('git fetch --tags --force');
+		expect(workflow).toContain('git tag --list');
+		expect(workflow).toContain('-beta\\.(\\d+)');
+		expect(workflow).toContain('latest.beta + 1');
 		expect(workflow).toContain('Apply beta version to plugin manifests');
 		expect(workflow).toContain('BETA_VERSION: ${{ steps.beta-version.outputs.new_tag }}');
 		expect(workflow).toContain('Commit beta version for BRAT');

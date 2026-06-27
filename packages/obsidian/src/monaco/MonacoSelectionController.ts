@@ -111,7 +111,7 @@ export class MonacoSelectionController {
 	selectWordAt(clientX: number, clientY: number): void {
 		const editor = this.editor;
 		const position =
-			(editor ? this.positionFromClientPoint(clientX, clientY, editor) : undefined) ?? editor?.getTargetAtClientPoint?.(clientX, clientY)?.position;
+			editor?.getTargetAtClientPoint?.(clientX, clientY)?.position ?? (editor ? this.positionFromClientPoint(clientX, clientY, editor) : undefined);
 		const model = editor?.getModel();
 		if (!editor || !position || !model) {
 			return;

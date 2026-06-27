@@ -1,9 +1,0 @@
-STEP ready
-RESULT ready {"ready":true,"leaves":1,"file":"codex-source-theme-parity.md"}
-STEP plugin-settings
-RESULT plugin-settings {"plugin":true,"dark":"github-dark","light":"github-light"}
-STEP write-note
-RESULT write-note {"exists":true}
-STEP open-source
-RESULT open-source {"view":"markdown","mode":"source","file":"codex-source-theme-parity.md"}
-STEP source-dom

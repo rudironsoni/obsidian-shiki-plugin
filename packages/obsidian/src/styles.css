@@ -96,7 +96,8 @@ span.shiki-ul {
 	width: 100%;
 	max-width: 100%;
 	min-width: 0;
-	overflow: hidden;
+	overflow-x: auto;
+	overflow-y: hidden;
 	background-color: var(--code-background);
 	border-radius: var(--code-radius);
 	font-family: var(--font-monospace);
@@ -108,14 +109,16 @@ span.shiki-ul {
 	width: 100%;
 	max-width: 100%;
 	min-width: 0;
-	overflow: hidden;
+	overflow-x: auto;
+	overflow-y: hidden;
 	position: relative;
 	background-color: var(--code-background);
 }
 
 .shiki-monaco-readonly .shiki-monaco-editor .monaco-editor,
 .shiki-monaco-readonly .shiki-monaco-editor .monaco-editor .overflow-guard {
-	overflow: hidden !important;
+	overflow-x: auto !important;
+	overflow-y: hidden !important;
 }
 
 .shiki-monaco-readonly .shiki-monaco-editor .monaco-editor .view-line {
@@ -134,7 +137,14 @@ span.shiki-ul {
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)),
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)) {
-	display: none !important;
+	height: 0 !important;
+	min-height: 0 !important;
+	line-height: 0 !important;
+	padding-block: 0 !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-lineNumbers .cm-gutterElement[style*='height: 0px'] {
+	visibility: hidden;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden,
@@ -168,12 +178,17 @@ span.shiki-ul {
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
 	display: block !important;
+	width: 100%;
 	max-width: 100%;
 	min-width: 0;
 	overflow: visible;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) {
+	display: block !important;
+	width: 100% !important;
+	max-width: 100%;
+	min-width: 0;
 	pointer-events: auto !important;
 }
 
@@ -188,7 +203,8 @@ span.shiki-ul {
 	min-width: 0;
 	background-color: var(--code-background);
 	border-radius: var(--code-radius);
-	overflow: hidden;
+	overflow-x: auto;
+	overflow-y: hidden;
 	pointer-events: auto;
 	/* Let Obsidian own vertical scrolling. Horizontal code movement is handled
 	   by the wrapper so the note still scrolls vertically like normal. */
@@ -225,6 +241,7 @@ span.shiki-ul {
 
 .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element {
 	top: 0 !important;
+	overflow-x: auto !important;
 	overflow-y: hidden !important;
 }
 

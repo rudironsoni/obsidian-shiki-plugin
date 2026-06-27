@@ -1,14 +1,5 @@
 {
   "mcpServers": {
-    "obsidian-cli": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "github:Storks/obsidian-mcp"
-      ],
-      "env": {}
-    },
     "electron-devtools": {
       "type": "stdio",
       "command": "npx",

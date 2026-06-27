@@ -200,7 +200,16 @@ export default class ShikiPlugin extends Plugin {
 				return;
 			}
 
-			const codeElements = el.querySelectorAll('pre > code[class*="language-"]');
+			const codeElements = el.querySelectorAll<HTMLElement>('pre > code[class*="language-"]');
+			const processedPre = new Set<HTMLElement>();
+			const sourceFromSectionInfo = (pre: HTMLElement): string => {
+				const sectionInfo = ctx.getSectionInfo(pre);
+				if (!sectionInfo) {
+					return pre.textContent ?? '';
+				}
+				const lines = sectionInfo.text.split('\n');
+				return lines.slice(sectionInfo.lineStart + 1, sectionInfo.lineEnd).join('\n');
+			};
 			for (const codeElement of codeElements) {
 				const className = [...codeElement.classList].find(value => value.startsWith('language-'));
 				const language = className?.slice('language-'.length) ?? '';
@@ -212,13 +221,36 @@ export default class ShikiPlugin extends Plugin {
 				if (!(pre instanceof HTMLElement)) {
 					continue;
 				}
+				if (processedPre.has(pre)) {
+					continue;
+				}
 
 				// Keep the frontmatter preview hidden.
 				if (pre.parentElement?.classList.contains('mod-frontmatter')) {
 					continue;
 				}
 
-				const codeBlock = new CodeBlock(this, pre, codeElement.textContent ?? '', language, ctx);
+				processedPre.add(pre);
+				const codeBlock = new CodeBlock(
+					this,
+					pre,
+					codeElement.textContent?.trim() ? codeElement.textContent : sourceFromSectionInfo(pre),
+					language,
+					ctx,
+				);
+				ctx.addChild(codeBlock);
+			}
+			for (const pre of el.querySelectorAll<HTMLElement>('pre[class*="language-"]')) {
+				const className = [...pre.classList].find(value => value.startsWith('language-'));
+				const language = className?.slice('language-'.length) ?? '';
+				if (language === '' || !languages.has(language) || processedPre.has(pre)) {
+					continue;
+				}
+				if (pre.parentElement?.classList.contains('mod-frontmatter')) {
+					continue;
+				}
+				processedPre.add(pre);
+				const codeBlock = new CodeBlock(this, pre, pre.textContent?.trim() ? pre.textContent : sourceFromSectionInfo(pre), language, ctx);
 				ctx.addChild(codeBlock);
 			}
 		}, 1000);

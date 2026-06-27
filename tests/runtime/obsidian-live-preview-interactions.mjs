@@ -144,7 +144,27 @@ async function openProbeNote(client) {
 	);
 }
 
+async function applyPluginSettings(client, settings) {
+	await evaluate(
+		client,
+		`(async () => {
+			const plugin = window.app?.plugins?.plugins?.['shiki-highlighter'];
+			if (!plugin) throw new Error('shiki-highlighter is not loaded');
+			if (${JSON.stringify(Object.hasOwn(settings, 'wrap'))}) {
+				plugin.settings.ecDefaultWrap = ${JSON.stringify(settings.wrap)};
+			}
+			if (${JSON.stringify(Object.hasOwn(settings, 'lineNumbers'))}) {
+				plugin.settings.ecDefaultShowLineNumbers = ${JSON.stringify(settings.lineNumbers)};
+			}
+			plugin.loadedSettings = structuredClone(plugin.settings);
+			await plugin.saveData(plugin.settings);
+			return true;
+		})()`,
+	);
+}
+
 async function normalizeDesktopViewport(client) {
+	await evaluate(client, `globalThis.app?.emulateMobile?.(false); true`);
 	await client.send('Emulation.setDeviceMetricsOverride', {
 		width: 1200,
 		height: 900,
@@ -152,6 +172,17 @@ async function normalizeDesktopViewport(client) {
 		mobile: false,
 	});
 	await delay(500);
+}
+
+async function normalizeMobileViewport(client) {
+	await client.send('Emulation.setDeviceMetricsOverride', {
+		width: 390,
+		height: 844,
+		deviceScaleFactor: 3,
+		mobile: true,
+	});
+	await evaluate(client, `globalThis.app?.emulateMobile?.(true); true`);
+	await delay(900);
 }
 
 async function getInteractionState(client) {
@@ -365,8 +396,8 @@ async function main() {
 		before = await waitForUsableInteractionState(client);
 		assert(before.rect && before.rect.width > 80, 'Monaco surface did not have a usable layout rectangle after rerender stability probe', before);
 
-		const insideX = Math.round(before.rect.left + Math.min(before.rect.width - 20, 230));
-		const insideY = Math.round(before.rect.top + Math.min(before.rect.height - 8, 30));
+		let insideX = Math.round(before.rect.left + Math.min(before.rect.width - 20, 230));
+		let insideY = Math.round(before.rect.top + Math.min(before.rect.height - 8, 30));
 
 		await click(client, insideX, insideY);
 		const afterClick = await getInteractionState(client);
@@ -378,6 +409,14 @@ async function main() {
 			before,
 			afterClick,
 		});
+
+		await normalizeMobileViewport(client);
+		const mobileSetup = await openProbeNote(client);
+		assert(mobileSetup.activeFile === 'codex-live-preview-interactions.md', 'Mobile probe note did not become active', mobileSetup);
+		before = await waitForUsableInteractionState(client);
+		assert(before.rect && before.rect.width > 80, 'Mobile Monaco surface did not have usable layout rectangle', before);
+		insideX = Math.round(before.rect.left + Math.min(before.rect.width - 20, 120));
+		insideY = Math.round(before.rect.top + Math.min(before.rect.height - 8, 30));
 
 		await longPress(client, insideX, insideY);
 		const afterLongPress = await getSelectionToolbarState(client);
@@ -409,6 +448,16 @@ async function main() {
 			copiedText,
 			beforeCopy,
 		});
+
+		await normalizeDesktopViewport(client);
+		await applyPluginSettings(client, { wrap: false, lineNumbers: false });
+		const scrollSetup = await openProbeNote(client);
+		assert(scrollSetup.activeFile === 'codex-live-preview-interactions.md', 'Desktop scroll probe note did not become active', scrollSetup);
+		await setNoteScrollTop(client, 0);
+		before = await waitForUsableInteractionState(client);
+		assert(before.rect && before.rect.width > 80, 'Desktop scroll Monaco surface did not have usable layout rectangle', before);
+		insideX = Math.round(before.rect.left + Math.min(before.rect.width - 20, 230));
+		insideY = Math.round(before.rect.top + Math.min(before.rect.height - 8, 30));
 
 		await dispatchWheel(client, insideX, insideY, 900, 0);
 		const afterHorizontal = await getInteractionState(client);
@@ -464,6 +513,7 @@ async function main() {
 			}),
 		);
 	} finally {
+		await normalizeDesktopViewport(client).catch(() => undefined);
 		client.close();
 	}
 }

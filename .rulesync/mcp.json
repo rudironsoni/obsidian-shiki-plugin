@@ -10,14 +10,14 @@
       ],
       "env": {}
     },
-    "electron-devtools": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "github:sh3ll3x3c/native-devtools-mcp"
-      ],
-      "env": {}
-    }
-  }
+		"electron-devtools": {
+			"type": "stdio",
+			"command": "npx",
+			"args": [
+				"-y",
+				"native-devtools-mcp"
+			],
+			"env": {}
+		}
+	}
 }

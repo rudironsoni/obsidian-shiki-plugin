@@ -23,7 +23,7 @@ export function buildReadonlyEditorOptions(plugin: ShikiPlugin, metrics: MonacoB
 		renderLineHighlight: 'none',
 		minimap: { enabled: false },
 		scrollbar: {
-			horizontal: 'hidden',
+			horizontal: 'auto',
 			vertical: 'hidden',
 			handleMouseWheel: false,
 			alwaysConsumeMouseWheel: false,

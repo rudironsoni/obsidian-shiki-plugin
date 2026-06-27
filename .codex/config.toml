@@ -1,14 +1,10 @@
 default_permissions = "rulesync"
 
-[mcp_servers.obsidian-cli]
-type = "stdio"
-command = "npx"
-args = [ "-y", "github:Storks/obsidian-mcp" ]
-
 [mcp_servers.electron-devtools]
 type = "stdio"
 command = "npx"
 args = [ "-y", "github:sh3ll3x3c/native-devtools-mcp" ]
+args = [ "-y", "native-devtools-mcp" ]
 
 [features]
 hooks = true
