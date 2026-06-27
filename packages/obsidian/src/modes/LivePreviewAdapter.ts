@@ -50,10 +50,12 @@ export class LivePreviewAdapter {
 	private destroyed = false;
 	private missingLineRetryCount = 0;
 	private livePreviewActive = false;
+	private lastRootLivePreviewClass = false;
 	private readonly hiddenBlockIds = new Set<string>();
 	private readonly hydratingBlockIds = new Set<string>();
 	private readonly readinessRetryCounts = new Map<string, number>();
 	private readonly pendingWidgetRefreshBlockIds = new Set<string>();
+	private domMountRefreshPending = false;
 
 	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		window.addEventListener('resize', this.handleViewportModeChange);
@@ -61,11 +63,12 @@ export class LivePreviewAdapter {
 		this.mobileClassObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 		this.plugin = plugin;
 		this.view = view;
-		this.modeClassObserver = new MutationObserver(() => this.refreshForModeChange());
-		this.modeClassObserver.observe(this.getSourceViewRoot(), { attributes: true, attributeFilter: ['class'] });
+		const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
+		this.lastRootLivePreviewClass = sourceViewRoot.classList.contains('is-live-preview');
+		this.modeClassObserver = new MutationObserver(this.handleModeClassChange);
+		this.modeClassObserver.observe(sourceViewRoot, { attributes: true, attributeFilter: ['class'] });
 		this.requestDecorationRefresh = requestDecorationRefresh;
 		if (this.plugin.isCurrentInstance()) {
-			const sourceViewRoot = (this.view.dom.closest('.markdown-source-view.mod-cm6') ?? this.view.dom) as LivePreviewOwnerElement;
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
 			this.ownerRoot = sourceViewRoot;
@@ -117,12 +120,15 @@ export class LivePreviewAdapter {
 		}
 		this.livePreviewActive = true;
 		this.rebuildBlocks();
+		this.domMountRefreshPending = true;
 		this.requestDecorationRefresh();
 		this.scheduleSync(50);
 	}
 
 	refreshForModeChange(): void {
-		if (!this.getSourceViewRoot().classList.contains('is-live-preview')) {
+		const isLivePreview = this.getSourceViewRoot().classList.contains('is-live-preview');
+		this.lastRootLivePreviewClass = isLivePreview;
+		if (!isLivePreview) {
 			this.clearLivePreviewState();
 			return;
 		}
@@ -132,12 +138,17 @@ export class LivePreviewAdapter {
 	}
 
 	refreshDomMounts(): void {
+		if (!this.domMountRefreshPending && !this.hasPendingDomMountWork()) {
+			return;
+		}
+		this.domMountRefreshPending = false;
 		this.scheduleSync(50);
 	}
 
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
+		this.mobileClassObserver?.disconnect();
 		if (this.retrySyncTimer !== undefined) {
 			window.clearTimeout(this.retrySyncTimer);
 		}
@@ -145,7 +156,7 @@ export class LivePreviewAdapter {
 			window.clearTimeout(this.visibilityRefreshTimer);
 		}
 		this.view.scrollDOM.removeEventListener('scroll', this.handleScroll);
-		window.removeEventListener('resize', this.handleScroll);
+		window.removeEventListener('resize', this.handleViewportModeChange);
 		this.detachAll();
 		if (this.ownerRoot?.[LIVE_PREVIEW_ADAPTER_OWNER] === this) {
 			delete this.ownerRoot[LIVE_PREVIEW_ADAPTER_OWNER];
@@ -155,6 +166,27 @@ export class LivePreviewAdapter {
 	private readonly handleScroll = (): void => {
 		this.scheduleSync();
 	};
+
+	private readonly handleModeClassChange = (): void => {
+		const isLivePreview = this.getSourceViewRoot().classList.contains('is-live-preview');
+		if (isLivePreview === this.lastRootLivePreviewClass) {
+			return;
+		}
+		this.refreshForModeChange();
+	};
+
+	private hasPendingDomMountWork(): boolean {
+		if (!this.livePreviewActive || this.pendingWidgetRefreshBlockIds.size > 0) {
+			return this.pendingWidgetRefreshBlockIds.size > 0;
+		}
+		return this.blocks.some(block => {
+			const widget = this.view.contentDOM.querySelector(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget) {
+				return false;
+			}
+			return this.view.contentDOM.querySelector(`[data-shiki-editing-block-id="${block.id}"]:not(.shiki-editing-codeblock-line-hidden)`) !== null;
+		});
+	}
 
 	private rebuildBlocks(): void {
 		const parsed = this.parser.parseLivePreviewBlocks(this.collectLines());
@@ -251,13 +283,13 @@ export class LivePreviewAdapter {
 			if (block.codeTo === undefined || block.codeFrom === undefined) {
 				continue;
 			}
-			if (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to) {
+			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget && (block.codeTo < this.view.viewport.from || block.codeFrom > this.view.viewport.to)) {
 				continue;
 			}
 			const lineElements = [
 				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
 			] as HTMLElement[];
-			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
 			if (!widget) {
 				visibleIds.add(block.id);
 				this.setBlockHidden(block.id, false);
@@ -439,6 +471,7 @@ export class LivePreviewAdapter {
 			return;
 		}
 		this.pendingWidgetRefreshBlockIds.add(blockId);
+		this.domMountRefreshPending = true;
 		this.requestDecorationRefresh();
 		this.scheduleSync(50);
 		window.setTimeout(() => {
@@ -562,6 +595,9 @@ export class LivePreviewAdapter {
 		}
 		this.visibilityRefreshTimer = window.setTimeout(() => {
 			this.visibilityRefreshTimer = undefined;
+			if (this.livePreviewActive && this.getSourceViewRoot().classList.contains('is-live-preview')) {
+				this.rebuildBlocks();
+			}
 			this.requestDecorationRefresh();
 		}, 0);
 	}

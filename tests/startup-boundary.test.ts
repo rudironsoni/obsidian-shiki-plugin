@@ -274,8 +274,8 @@ test('Monaco gesture routing uses explicit horizontal intent and Obsidian note s
 	expect(livePreview).toContain('surface.attach(widget);');
 	expect(livePreview).toContain("line.classList.toggle('shiki-editing-codeblock-line-hidden', hidden);");
 	expect(livePreview).toContain('this.rebuildBlocks();');
-	expect(livePreview).toContain("window.addEventListener('resize', this.handleScroll, { passive: true });");
-	expect(livePreview).toContain("window.removeEventListener('resize', this.handleScroll);");
+	expect(livePreview).toContain("window.addEventListener('resize', this.handleViewportModeChange);");
+	expect(livePreview).toContain("window.removeEventListener('resize', this.handleViewportModeChange);");
 	expect(readingView).toContain('surface.setNoteScrollerProvider(');
 	expect(readingView).toContain("container.closest<HTMLElement>('.markdown-preview-view, .view-content')");
 
@@ -291,10 +291,12 @@ test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
 	const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
 
 	expect(livePreview).toContain('refreshForModeChange(): void');
+	expect(livePreview).toContain('private readonly handleModeClassChange = (): void => {');
+	expect(livePreview).toContain('if (isLivePreview === this.lastRootLivePreviewClass)');
 	expect(livePreview).toContain('this.rebuildBlocks();');
 	expect(livePreview).toContain('this.scheduleSync(0);');
 	expect(livePreview).toContain('private readonly modeClassObserver: MutationObserver;');
-	expect(livePreview).toContain('new MutationObserver(() => this.refreshForModeChange())');
+	expect(livePreview).toContain('new MutationObserver(this.handleModeClassChange)');
 	expect(livePreview).toContain('this.modeClassObserver.disconnect();');
 	expect(cm6).toContain('this.livePreviewAdapter.refreshForModeChange();');
 	expect(cm6).toContain("this.view.dom.closest('.markdown-source-view.mod-cm6.is-live-preview') !== null");
