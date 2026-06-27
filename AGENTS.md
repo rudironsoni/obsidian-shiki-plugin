@@ -2,9 +2,7 @@
 
 # RTK (Rust Token Killer) - Token-Optimized Commands
 
-When running shell commands, **always prefix with `rtk`**. This reduces context
-usage by 60-90% with zero behavior change. If rtk has no filter for a command,
-it passes through unchanged — so it is always safe to use.
+When running shell commands, **always prefix `rtk`**. reduces context usage 60-90% zero behavior change. If rtk no filter command, passes through unchanged, so always safe use.
 
 ## Key Commands
 
@@ -16,10 +14,10 @@ rtk git status          rtk git diff            rtk git log
 rtk ls <path>           rtk read <file>         rtk grep <pattern>
 rtk find <pattern>      rtk diff <file>
 
-# Test (90-99% savings) — shows failures only
+# Test (90-99% savings), shows failures only
 rtk pytest tests/       rtk cargo test          rtk test <cmd>
 
-# Build & Lint (80-90% savings) — shows errors only
+# Build & Lint (80-90% savings), shows errors only
 rtk tsc                 rtk lint                rtk cargo build
 rtk prettier --check    rtk mypy                rtk ruff check
 
@@ -39,18 +37,17 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 
 ## Rules
 
-- In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
+- In command chains, prefix segment: `rtk git add . && rtk git commit -m "msg"`
 - For debugging, use raw command without rtk prefix
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
 
 ## Resource Rules
 
-- **One Obsidian instance only.** Never spawn a second. Before launching, check `lsof -i :9230` or the helper's `isObsidianRunning()` check.
-- If an instance is already running, reuse it: reload the plugin, re-copy plugin files into the existing vault, reload the test note. Do not create a new vault, user-data-dir, or `--user-data-dir`.
-- If you accidentally launch twice, kill the duplicate. Never leave orphan processes.
-- `plugin:reload` is cheap and idempotent. Prefer it over relaunching Obsidian.
-- Visual-test scripts must probe the CDP port first and skip `spawn()` when a target is alive.
-- Only use the Obsidian CLI MCP after confirming CLI support is enabled in the reused test vault. If no test vault exists yet, create one under `tests/` and enable it there instead of creating ad hoc vaults elsewhere.
-- Reuse the same test vault and the same Obsidian instance across setup, debugging, and verification. Do not spin up extra instances just to enable CLI access.
-- Always use the model's vision capabilities with screenshots from real Obsidian to verify what is actually rendered before concluding a UI bug is fixed or understood.
-  <!-- /headroom:rtk-instructions -->
+- **One Obsidian instance only.** Never spawn second. Before launching, check `lsof -i :9230` or helper's `isObsidianRunning()` check.
+- If instance already running, reuse it: reload plugin, re-copy plugin files into existing vault, reload test note. Do not create new vault, user-data-dir, or `--user-data-dir`.
+- If you accidentally launch twice, kill duplicate. Never leave orphan processes.
+- Runtime reload is cheap and idempotent. Prefer it over relaunching Obsidian.
+- Visual-test scripts must probe CDP port first skip `spawn()` when target alive.
+- Reuse same test vault same Obsidian instance across setup, debugging, verification. Do not spin up extra instances.
+- Always use model's vision capabilities screenshots from real Obsidian to verify actually rendered before concluding UI bug fixed or understood.
+<!-- /headroom:rtk-instructions -->
