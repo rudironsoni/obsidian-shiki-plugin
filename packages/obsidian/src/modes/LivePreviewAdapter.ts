@@ -51,6 +51,9 @@ export class LivePreviewAdapter {
 	private missingLineRetryCount = 0;
 	private livePreviewActive = false;
 	private readonly hiddenBlockIds = new Set<string>();
+	private readonly hydratingBlockIds = new Set<string>();
+	private readonly readinessRetryCounts = new Map<string, number>();
+	private readonly pendingWidgetRefreshBlockIds = new Set<string>();
 
 	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		window.addEventListener('resize', this.handleViewportModeChange);
@@ -254,9 +257,14 @@ export class LivePreviewAdapter {
 			const lineElements = [
 				...this.view.contentDOM.querySelectorAll(`.shiki-editing-codeblock-line[data-shiki-editing-block-id="${block.id}"]`),
 			] as HTMLElement[];
-			const widget =
-				this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`) ??
-				this.createFallbackLiveWidget(block, lineElements[0] ?? this.view.contentDOM);
+			const widget = this.view.contentDOM.querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
+			if (!widget) {
+				visibleIds.add(block.id);
+				this.setBlockHidden(block.id, false);
+				this.requestWidgetRefresh(block.id);
+				continue;
+			}
+			this.pendingWidgetRefreshBlockIds.delete(block.id);
 			this.missingLineRetryCount = 0;
 			const surface = this.plugin.surfaceRegistry.getOrCreate(block);
 			surface.setNoteScrollerProvider(() => this.getNoteScroller());
@@ -298,36 +306,19 @@ export class LivePreviewAdapter {
 			surface.hostEl.style.left = '';
 			surface.hostEl.style.top = '';
 			surface.hostEl.style.width = '100%';
-			const estimatedHeight = Math.max(120, Math.min(420, block.code.split('\n').length * 20 + 24));
-			const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight, estimatedHeight);
-			if (rawHeight > 0) {
-				surface.hostEl.style.height = `${rawHeight}px`;
+			const isReady = surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements);
+			if (!isReady) {
+				const estimatedHeight = Math.max(120, Math.min(420, block.code.split('\n').length * 20 + 24));
+				const rawHeight = Math.max(lastRect.bottom - firstRect.top, first.offsetHeight, estimatedHeight);
+				if (rawHeight > 0) {
+					surface.hostEl.style.height = `${rawHeight}px`;
+				}
 			}
-			if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
+			if (isReady) {
+				this.readinessRetryCounts.delete(block.id);
 				this.setBlockHidden(block.id, true);
 			} else {
-				void surface
-					.hydrateReadonly()
-					.then(() => {
-						window.requestAnimationFrame(() => {
-							window.requestAnimationFrame(() => {
-								if (!this.blocks.some(candidate => candidate.id === block.id)) {
-									return;
-								}
-								if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
-									this.setBlockHidden(block.id, true);
-									return;
-								}
-								this.setBlockHidden(block.id, false);
-								this.scheduleSync(50);
-							});
-						});
-					})
-					.catch(() => {
-						if (this.blocks.some(candidate => candidate.id === block.id)) {
-							this.setBlockHidden(block.id, false);
-						}
-					});
+				this.hydrateSurface(block, surface, lineElements);
 			}
 		}
 
@@ -348,23 +339,12 @@ export class LivePreviewAdapter {
 		}
 	}
 
-	private createFallbackLiveWidget(block: CodeBlockModel, anchor: HTMLElement): HTMLElement {
-		let widget = this.getCleanupRoot().querySelector<HTMLElement>(`.shiki-monaco-live-widget[data-shiki-block-id="${block.id}"]`);
-		if (!widget) {
-			widget = document.createElement('div');
-			widget.className = 'shiki-monaco-live-widget';
-			widget.dataset.shikiBlockId = block.id;
-		}
-		const parent = anchor.parentElement ?? this.view.scrollDOM;
-		if (widget.parentElement !== parent) {
-			parent.insertBefore(widget, anchor === parent ? parent.firstChild : anchor);
-		}
-		return widget;
-	}
-
 	private detachAll(): void {
 		for (const block of this.blocks) {
 			this.hiddenBlockIds.delete(block.id);
+			this.hydratingBlockIds.delete(block.id);
+			this.readinessRetryCounts.delete(block.id);
+			this.pendingWidgetRefreshBlockIds.delete(block.id);
 			this.plugin.surfaceRegistry.release(block.id);
 			this.plugin.codeBlockRegistry.delete(block.id);
 		}
@@ -377,6 +357,9 @@ export class LivePreviewAdapter {
 		this.lastViewportKey = '';
 		this.detachAll();
 		this.hiddenBlockIds.clear();
+		this.hydratingBlockIds.clear();
+		this.readinessRetryCounts.clear();
+		this.pendingWidgetRefreshBlockIds.clear();
 		this.blocks = [];
 	}
 
@@ -411,6 +394,59 @@ export class LivePreviewAdapter {
 		if (changed) {
 			this.scheduleVisibilityRefresh();
 		}
+	}
+
+	private hydrateSurface(block: CodeBlockModel, surface: ReturnType<ShikiPlugin['surfaceRegistry']['getOrCreate']>, lineElements: HTMLElement[]): void {
+		if (this.hydratingBlockIds.has(block.id)) {
+			return;
+		}
+		this.hydratingBlockIds.add(block.id);
+		void surface
+			.hydrateReadonly()
+			.then(() => {
+				window.requestAnimationFrame(() => {
+					window.requestAnimationFrame(() => {
+						this.hydratingBlockIds.delete(block.id);
+						if (!this.blocks.some(candidate => candidate.id === block.id)) {
+							this.readinessRetryCounts.delete(block.id);
+							return;
+						}
+						if (surface.isVisiblyReady() && this.surfaceMatchesCodeLines(surface.hostEl, lineElements)) {
+							this.readinessRetryCounts.delete(block.id);
+							this.setBlockHidden(block.id, true);
+							return;
+						}
+						this.setBlockHidden(block.id, false);
+						const retryCount = this.readinessRetryCounts.get(block.id) ?? 0;
+						if (retryCount < 8) {
+							this.readinessRetryCounts.set(block.id, retryCount + 1);
+							this.scheduleSync(75);
+						}
+					});
+				});
+			})
+			.catch(() => {
+				this.hydratingBlockIds.delete(block.id);
+				this.readinessRetryCounts.delete(block.id);
+				if (this.blocks.some(candidate => candidate.id === block.id)) {
+					this.setBlockHidden(block.id, false);
+				}
+			});
+	}
+
+	private requestWidgetRefresh(blockId: string): void {
+		if (this.pendingWidgetRefreshBlockIds.has(blockId)) {
+			return;
+		}
+		this.pendingWidgetRefreshBlockIds.add(blockId);
+		this.requestDecorationRefresh();
+		this.scheduleSync(50);
+		window.setTimeout(() => {
+			this.pendingWidgetRefreshBlockIds.delete(blockId);
+			if (!this.destroyed && this.blocks.some(block => block.id === blockId)) {
+				this.scheduleSync(0);
+			}
+		}, 250);
 	}
 	private surfaceMatchesCodeLines(surfaceHost: HTMLElement, lineElements: HTMLElement[]): boolean {
 		const surfaceRect = surfaceHost.getBoundingClientRect();
@@ -526,7 +562,6 @@ export class LivePreviewAdapter {
 		}
 		this.visibilityRefreshTimer = window.setTimeout(() => {
 			this.visibilityRefreshTimer = undefined;
-			this.rebuildBlocks();
 			this.requestDecorationRefresh();
 		}, 0);
 	}

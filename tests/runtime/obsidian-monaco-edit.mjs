@@ -408,15 +408,18 @@ async function getEditableCodeLine(client) {
 			if (!model) return null;
 			const text = model.getValue();
 			const match = text.includes('runtimeEditableCodeBlockMarker');
-			const targetLine = [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('very_long_runtime_scroll_line'))
-				?? [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('runtimeEditableCodeBlockMarker'))
-				?? container;
-			const rect = targetLine.getBoundingClientRect();
-			return match ? {
+const targetLine = [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('very_long_runtime_scroll_line'))
+?? [...container.querySelectorAll('.view-line')].find(line => line.textContent?.includes('runtimeEditableCodeBlockMarker'))
+?? container;
+container.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+const rect = targetLine.getBoundingClientRect();
+if (rect.width < 1 || rect.height < 1) return null;
+return match ? {
 				text,
 				className: container.className,
 				x: Math.floor(rect.left + Math.min(Math.max(24, rect.width * 0.25), Math.max(24, rect.width - 8))),
 				y: Math.floor(rect.top + rect.height / 2),
+				lineWidth: rect.width,
 				clientWidth: container.clientWidth,
 				scrollWidth: editor?.getScrollWidth?.() ?? container.clientWidth,
 				visibleWidth: container.clientWidth,
@@ -690,7 +693,7 @@ async function assertEditableCursorPlacement(client, modeName) {
 			const column = Math.max(1, Math.min(model.getLineMaxColumn(1), 5));
 			const visible = editor.getScrolledVisiblePosition?.({ lineNumber: 1, column });
 			const x = Math.max(editorRect.left + 8, Math.min(editorRect.right - 8, editorRect.left + (visible?.left ?? 34) + 2));
-			const y = Math.max(editorRect.top + 8, Math.min(editorRect.bottom - 8, editorRect.top + (visible?.top ?? 8) + Math.max(4, (visible?.height ?? 20) / 2)));
+	const y = Math.max(editorRect.top + 8, Math.min(editorRect.bottom - 8, editorRect.top + (visible?.top ?? 8) + 4));
 			return { ok: Number.isFinite(x) && Number.isFinite(y), x, y, expectedLine: 1, expectedColumn: column, rect: { left: editorRect.left, top: editorRect.top, right: editorRect.right, bottom: editorRect.bottom } };
 		})()`,
 	);
@@ -1023,7 +1026,14 @@ async function waitForMonaco(client, modeName, activeOnly = true) {
 					.some(line => line.textContent.includes('runtimeEditableCodeBlockMarker')),
 			};
 			if (editorHosts.length === 0) return null;
-			if (${activeOnly ? 'true' : 'false'} && activeHosts.length === 0) return detail;
+			if (${activeOnly ? 'true' : 'false'} && activeHosts.length === 0) return null;
+			const targetHost = (${activeOnly ? 'true' : 'false'} ? activeHosts[0] : editorHosts[0]) ?? editorHosts[0];
+			targetHost?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+			const readyHostRect = targetHost?.getBoundingClientRect?.();
+			const readyEditorRect = targetHost?.querySelector?.('.monaco-editor')?.getBoundingClientRect?.();
+			detail.width = Math.max(readyHostRect?.width ?? 0, readyEditorRect?.width ?? 0);
+			detail.height = Math.max(readyHostRect?.height ?? 0, readyEditorRect?.height ?? 0);
+			if (detail.width < 1 || detail.height < 1) return null;
 			return detail;
 		})()`,
 		15_000,
@@ -1123,7 +1133,7 @@ async function verifyMode(client, modeName, livePreview, marker) {
 	}
 	const line = await getEditableCodeLine(client);
 	assert(line.text.includes('runtimeEditableCodeBlockMarker'), `${modeName}: visible code line text is wrong`, line);
-	assert(line.clientWidth > 0, `${modeName}: code line has no visible width`, line);
+	assert(line.lineWidth > 0, `${modeName}: code line has no visible width`, line);
 
 	await evaluate(
 		client,

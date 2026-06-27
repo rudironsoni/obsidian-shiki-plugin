@@ -56,7 +56,16 @@ export class MonacoGestureRouter {
 	private lastTouchTime = 0;
 	private longPressTimer: ReturnType<typeof setTimeout> | null = null;
 	private longPressActivated = false;
-	private pointerTouchStart: { pointerId: number; clientX: number; clientY: number; lastY: number; scrollLeft: number; axis: GestureAxis } | null = null;
+	private recentPointerTouchStart: { clientX: number; clientY: number; startedAt: number } | null = null;
+	private pointerTouchStart: {
+		pointerId: number;
+		clientX: number;
+		clientY: number;
+		lastY: number;
+		startedAt: number;
+		scrollLeft: number;
+		axis: GestureAxis;
+	} | null = null;
 
 	constructor(options: MonacoGestureRouterOptions) {
 		this.host = options.host;
@@ -179,9 +188,11 @@ export class MonacoGestureRouter {
 			clientX: event.clientX,
 			clientY: event.clientY,
 			lastY: event.clientY,
+			startedAt: Date.now(),
 			scrollLeft: this.editor.getScrollLeft(),
 			axis: 'pending',
 		};
+		this.recentPointerTouchStart = { clientX: event.clientX, clientY: event.clientY, startedAt: this.pointerTouchStart.startedAt };
 		this.clearLongPressTimer();
 		this.longPressTimer = setTimeout(() => {
 			this.longPressActivated = true;
@@ -227,19 +238,43 @@ export class MonacoGestureRouter {
 			hasStart: Boolean(this.pointerTouchStart),
 			startPointerId: this.pointerTouchStart?.pointerId,
 		});
-		if (event.pointerId !== this.pointerTouchStart?.pointerId) {
+		const start = this.pointerTouchStart;
+		if (!start) {
+			const recentStart = this.recentPointerTouchStart;
+			if (
+				recentStart &&
+				Date.now() - recentStart.startedAt >= 450 &&
+				Date.now() - recentStart.startedAt < 2000 &&
+				Math.abs(event.clientX - recentStart.clientX) <= 6 &&
+				Math.abs(event.clientY - recentStart.clientY) <= 6
+			) {
+				this.recentPointerTouchStart = null;
+				this.selectionController.selectWordAt(recentStart.clientX, recentStart.clientY);
+				this.longPressActivated = false;
+				return;
+			}
+			this.traceGesture('pointerup:ignored-no-start', { pointerId: event.pointerId });
+			return;
+		}
+		const dx = event.clientX - start.clientX;
+		const dy = event.clientY - start.clientY;
+		if (event.pointerId !== start.pointerId && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
 			this.traceGesture('pointerup:ignored-no-start', { pointerId: event.pointerId });
 			return;
 		}
 		this.clearLongPressTimer();
-		const start = this.pointerTouchStart;
 		this.pointerTouchStart = null;
-		if (this.longPressActivated) {
+		const isLongPressRelease = start.axis === 'pending' && Date.now() - start.startedAt >= 450 && Math.abs(dx) <= 6 && Math.abs(dy) <= 6;
+		if (this.longPressActivated || isLongPressRelease) {
+			if (isLongPressRelease) {
+				this.selectionController.selectWordAt(start.clientX, start.clientY);
+			}
+			this.recentPointerTouchStart = null;
 			this.longPressActivated = false;
 			return;
 		}
-		if (Math.abs(event.clientX - start.clientX) > 6 || Math.abs(event.clientY - start.clientY) > 6) {
-			this.traceGesture('pointerup:ignored-moved', { dx: event.clientX - start.clientX, dy: event.clientY - start.clientY });
+		if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+			this.traceGesture('pointerup:ignored-moved', { dx, dy });
 			return;
 		}
 		if (!this.isEditable()) {
@@ -269,6 +304,7 @@ export class MonacoGestureRouter {
 		}
 		this.clearLongPressTimer();
 		this.pointerTouchStart = null;
+		this.recentPointerTouchStart = null;
 		this.longPressActivated = false;
 	};
 

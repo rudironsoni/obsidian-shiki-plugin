@@ -168,12 +168,17 @@ span.shiki-ul {
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
 	display: block !important;
+	width: 100%;
 	max-width: 100%;
 	min-width: 0;
 	overflow: visible;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) {
+	display: block !important;
+	width: 100% !important;
+	max-width: 100%;
+	min-width: 0;
 	pointer-events: auto !important;
 }
 
