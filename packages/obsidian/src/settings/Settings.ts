@@ -14,6 +14,7 @@ export interface Settings {
 	inlineHighlighting: boolean;
 	showLineNumbers: boolean;
 	wrapLines: boolean;
+	useEditorFontSize: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -27,4 +28,5 @@ export const DEFAULT_SETTINGS: Settings = {
 	inlineHighlighting: true,
 	showLineNumbers: true,
 	wrapLines: false,
+	useEditorFontSize: true,
 };

@@ -38,6 +38,7 @@ export default class ShikiPlugin extends Plugin {
 		(window as ShikiWindow)[SHIKI_INSTANCE_KEY] = this.instanceId;
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
+		this.applyFontSizeClass();
 		this.highlighter = new ShikiHighlighter(this);
 		this.codeBlockRegistry = new CodeBlockRegistry();
 		this.readingViewAdapter = undefined as never;
@@ -139,6 +140,8 @@ export default class ShikiPlugin extends Plugin {
 	async reloadHighlighter(): Promise<void> {
 		await this.ensureSettingsLoaded();
 		this.loadedSettings = structuredClone(this.settings);
+
+		this.applyFontSizeClass();
 
 		await this.highlighter.reload();
 		this.sourceModeTokenizationCache.clear();
@@ -283,6 +286,14 @@ export default class ShikiPlugin extends Plugin {
 
 	getActiveTheme(): string {
 		return getActiveTheme(this);
+	}
+
+	applyFontSizeClass(): void {
+		if (this.loadedSettings.useEditorFontSize) {
+			document.body.classList.add('shiki-use-editor-font-size');
+		} else {
+			document.body.classList.remove('shiki-use-editor-font-size');
+		}
 	}
 
 	addActiveCodeBlock(codeBlock: CodeBlock | InlineCodeBlock): void {

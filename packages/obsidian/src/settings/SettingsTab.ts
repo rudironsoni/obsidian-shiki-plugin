@@ -54,6 +54,16 @@ export class ShikiSettingsTab extends PluginSettingTab {
 				});
 			});
 
+		new Setting(this.containerEl)
+			.setName('Use editor font size')
+			.setDesc('When enabled, code blocks in Live Preview and Reading mode use the same font size as the editor. When disabled, they use Obsidian\'s smaller code block font size.')
+			.addToggle(toggle => {
+				toggle.setValue(this.plugin.settings.useEditorFontSize).onChange(async value => {
+					this.plugin.settings.useEditorFontSize = value;
+					await this.plugin.saveSettingsAndReloadHighlighter();
+				});
+			});
+
 		new Setting(this.containerEl).setName('Theme').setHeading();
 
 		new Setting(this.containerEl)

@@ -235,6 +235,18 @@ span.shiki-ul {
 	line-height: var(--line-height-normal);
 }
 
+/* Use editor font size for code blocks when setting is enabled */
+body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body,
+body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body pre,
+body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body code,
+body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-line-numbers,
+body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block,
+body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block code,
+body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-line-numbers,
+body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-code-scroll pre {
+	font-size: var(--font-text-size);
+}
+
 /* Hide raw code lines and closing fence; widget renders the full block */
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-closing-fence {
