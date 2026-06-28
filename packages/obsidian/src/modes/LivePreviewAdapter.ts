@@ -20,48 +20,64 @@ class ShikiLivePreviewWidget extends WidgetType {
 		return other.block.id === this.block.id;
 	}
 
-	toDOM(): HTMLElement {
-		const container = document.createElement('div');
-		container.className = 'shiki-live-preview-block';
-		container.dataset.shikiBlockId = this.block.id;
-		container.dataset.lang = this.block.language;
+		toDOM(): HTMLElement {
+			const container = document.createElement('div');
+			container.className = 'shiki-live-preview-block';
+			container.dataset.shikiBlockId = this.block.id;
+			container.dataset.lang = this.block.language;
 
-		if (this.plugin.loadedSettings.wrapLines) {
-			container.classList.add('wrap-lines');
+			if (this.plugin.loadedSettings.wrapLines) {
+				container.classList.add('wrap-lines');
+			}
+
+			// Click to focus editor at code block start
+			container.addEventListener('click', (e) => {
+				if ((e.target as HTMLElement).closest('.shiki-copy-button')) {
+					return;
+				}
+				const leaf = this.plugin.app.workspace.activeLeaf;
+				const view = leaf?.view;
+				if (view && (view as any).editor) {
+					(view as any).editor.focus();
+					if (this.block.codeFrom !== undefined) {
+						(view as any).editor.setCursor((view as any).editor.offsetToPos(this.block.codeFrom));
+					}
+				}
+			});
+
+			// Header
+			const header = container.createDiv({ cls: 'shiki-block-header' });
+			const left = header.createDiv({ cls: 'shiki-header-left' });
+			left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
+			const right = header.createDiv({ cls: 'shiki-header-right' });
+			const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
+			copyBtn.onclick = (e): void => {
+				e.stopPropagation();
+				navigator.clipboard.writeText(this.block.code).catch(() => {});
+			};
+
+			// Body
+			const body = container.createDiv({ cls: 'shiki-block-body' });
+			const scrollContainer = body.createDiv({ cls: 'shiki-code-scroll' });
+			scrollContainer.style.overflowX = 'auto';
+			const pre = scrollContainer.createEl('pre');
+			pre.style.margin = '0';
+			const codeEl = pre.createEl('code');
+
+			if (this.plugin.loadedSettings.wrapLines) {
+				pre.style.whiteSpace = 'pre-wrap';
+				codeEl.style.whiteSpace = 'pre-wrap';
+				codeEl.style.wordBreak = 'break-word';
+			} else {
+				pre.style.whiteSpace = 'pre';
+				codeEl.style.whiteSpace = 'pre';
+			}
+
+			// Render tokens asynchronously (with line numbers)
+			void this.renderTokens(codeEl, body);
+
+			return container;
 		}
-
-		// Header
-		const header = container.createDiv({ cls: 'shiki-block-header' });
-		const left = header.createDiv({ cls: 'shiki-header-left' });
-		left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
-		const right = header.createDiv({ cls: 'shiki-header-right' });
-		const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
-		copyBtn.onclick = (): void => {
-			navigator.clipboard.writeText(this.block.code).catch(() => {});
-		};
-
-		// Body
-		const body = container.createDiv({ cls: 'shiki-block-body' });
-		const scrollContainer = body.createDiv({ cls: 'shiki-code-scroll' });
-		scrollContainer.style.overflowX = 'auto';
-		const pre = scrollContainer.createEl('pre');
-		pre.style.margin = '0';
-		const codeEl = pre.createEl('code');
-
-		if (this.plugin.loadedSettings.wrapLines) {
-			pre.style.whiteSpace = 'pre-wrap';
-			codeEl.style.whiteSpace = 'pre-wrap';
-			codeEl.style.wordBreak = 'break-word';
-		} else {
-			pre.style.whiteSpace = 'pre';
-			codeEl.style.whiteSpace = 'pre';
-		}
-
-		// Render tokens asynchronously (with line numbers)
-		void this.renderTokens(codeEl, body);
-
-		return container;
-	}
 
 	private async renderTokens(codeEl: HTMLElement, bodyEl: HTMLElement): Promise<void> {
 		const highlight = await this.plugin.highlighter.getHighlightTokens(this.block.code, this.block.language);
