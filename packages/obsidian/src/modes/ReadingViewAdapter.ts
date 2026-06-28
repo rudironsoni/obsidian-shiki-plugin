@@ -83,11 +83,13 @@ export class ReadingViewAdapter {
 			return;
 		}
 
-		if (container.querySelector('.shiki-block-header')) {
+		const wrapper = container.parentElement ?? container;
+
+		// Guard: already enhanced (header is a direct child of wrapper, not container)
+		if (wrapper.querySelector(':scope > .shiki-block-header')) {
 			return;
 		}
 
-		const wrapper = container.parentElement ?? container;
 		wrapper.classList.add('shiki-reading-block');
 		if (this.plugin.loadedSettings.wrapLines) {
 			wrapper.classList.add('wrap-lines');
@@ -170,15 +172,9 @@ export class ReadingViewAdapter {
 			}
 			this.enhanceBlock(state);
 		};
-		const observerRoot = state.container.closest<HTMLElement>('.markdown-preview-view, .markdown-preview-section, .view-content');
-		const observer = new MutationObserver(() => {
-			window.requestAnimationFrame(attach);
-		});
-		observer.observe(observerRoot ?? state.container, { childList: true, subtree: true });
-		state.observer = observer;
-		for (const delayMs of [0, 50, 250, 1000, 2000, 4000]) {
-			window.setTimeout(attach, delayMs);
-		}
+		// Single delayed check; the post-processor already calls us at the right time,
+		// but give the DOM a moment to settle before enhancing.
+		window.setTimeout(attach, 50);
 	}
 
 	private buildBlockModel(container: HTMLElement, source: string, language: string, ctx: MarkdownPostProcessorContext): CodeBlockModel | undefined {
