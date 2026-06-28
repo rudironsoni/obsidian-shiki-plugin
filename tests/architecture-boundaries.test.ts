@@ -52,22 +52,10 @@ function extractBlock(source: string, needle: string): string {
 }
 
 describe('architecture boundaries', () => {
-	test('only MonacoCodeBlockSurface creates Monaco editors', () => {
-		const sourceFiles = [
-			'packages/obsidian/src/LazyHighlighter.ts',
-			'packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts',
-			'packages/obsidian/src/main.ts',
-			'packages/obsidian/src/modes/LivePreviewAdapter.ts',
-			'packages/obsidian/src/modes/ReadingViewAdapter.ts',
-			'packages/obsidian/src/modes/SourceModeAdapter.ts',
-			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
-			'packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts',
-		];
-		const creators = sourceFiles.filter(path => readSource(path).includes('monaco.editor.create'));
-
-		expect(creators.map(path => relative(repoRoot.pathname, new URL(path, repoRoot).pathname))).toEqual([
-			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
-		]);
+	test('no Monaco files exist in production source', () => {
+		const sources = readProductionSources();
+		const monacoFiles = sources.filter(({ path }) => path.includes('monaco') || path.includes('Monaco'));
+		expect(monacoFiles).toEqual([]);
 	});
 
 	test('code block processor registration uses static language metadata', () => {
@@ -81,38 +69,12 @@ describe('architecture boundaries', () => {
 		expect(registerProcessors).not.toContain('loadModernMonacoRuntime');
 	});
 
-	test('cheap language listing does not import or load modern Monaco runtime', () => {
-		const runtimeSource = readSource('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
-		const obsidianSafeLanguageNames = extractBlock(runtimeSource, 'async obsidianSafeLanguageNames');
-
-		expect(obsidianSafeLanguageNames).toContain('getObsidianSafeLanguageNames()');
-		expect(obsidianSafeLanguageNames).not.toContain('ModernMonacoLoader');
-		expect(obsidianSafeLanguageNames).not.toContain('loadModernMonacoRuntime');
-		expect(obsidianSafeLanguageNames).not.toContain('this.load');
-	});
-
-	test('surface registry creates cheap persistent surfaces without hydrating Monaco', () => {
-		const registrySource = readSource('packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts');
-		const getOrCreate = extractBlock(registrySource, 'getOrCreate(block');
-
-		expect(getOrCreate).toContain('new MonacoCodeBlockSurface');
-		expect(getOrCreate).not.toContain('hydrateReadonly');
-		expect(getOrCreate).not.toContain('activateEditable');
-		expect(getOrCreate).not.toContain('loadModernMonacoRuntime');
-		expect(getOrCreate).not.toContain('.load(');
-	});
-
-	test('runtime reload clears the modern Monaco module promise before reloading', () => {
-		const loaderSource = readSource('packages/obsidian/src/ModernMonacoLoader.ts');
-		const runtimeSource = readSource('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
-		const unload = extractBlock(runtimeSource, 'async unload');
-		const reload = extractBlock(runtimeSource, 'async reload');
-
-		expect(loaderSource).toContain('export function resetModernMonacoModule');
-		expect(unload).toContain('resetModernMonacoModule()');
-		expect(unload).toContain('this.runtime = undefined');
-		expect(unload).toContain('this.loading = undefined');
-		expect(reload).toContain('await this.unload()');
+	test('ShikiHighlighter is the only highlighter and does not depend on Monaco', () => {
+		const highlighterSource = readSource('packages/obsidian/src/ShikiHighlighter.ts');
+		expect(highlighterSource).toContain('createHighlighter');
+		expect(highlighterSource).not.toContain('monaco');
+		expect(highlighterSource).not.toContain('Monaco');
+		expect(highlighterSource).not.toContain('modern-monaco');
 	});
 
 	test('Source mode adapter owns CodeMirror decorations only', () => {
@@ -123,9 +85,10 @@ describe('architecture boundaries', () => {
 		expect(sourceMode).not.toContain('MonacoCodeBlockSurface');
 		expect(sourceMode).not.toContain('MonacoSurfaceRegistry');
 		expect(sourceMode).not.toContain('monaco.editor.create');
-		expect(sourceMode).toContain('removeMonacoArtifacts');
-		expect(sourceMode).toContain('.shiki-monaco-block, .shiki-monaco-codeblock');
+		expect(sourceMode).not.toContain('removeMonacoArtifacts');
+		expect(sourceMode).not.toContain('.shiki-monaco-block, .shiki-monaco-codeblock');
 	});
+
 	test('production source has no console spam or unguarded debug globals', () => {
 		const matches = readProductionSources().flatMap(({ path, source }) => {
 			const disallowed = [...source.matchAll(/console\.(?:log|debug|info)\s*\(|(?:globalThis|window)\.__shiki[A-Za-z0-9_]*|debugger\b/g)];
@@ -135,15 +98,17 @@ describe('architecture boundaries', () => {
 		expect(matches).toEqual([]);
 	});
 
-	test('Monaco CSS does not globally hide editable mobile input or selection internals', () => {
+	test('styles do not contain Monaco-specific selectors', () => {
 		const styles = readSource('packages/obsidian/src/styles.css');
 
-		expect(styles).not.toContain('textarea');
-		expect(styles).not.toContain('inputarea');
-		expect(styles).not.toContain('body.is-mobile .shiki-monaco-selection-toolbar');
-		expect(styles).not.toContain('body.is-mobile .shiki-monaco-selection-handle');
-		expect(styles).not.toContain('pointer-events:none!important;resize:none');
-		expect(styles).toContain('.shiki-editing-codeblock-line-hidden');
-		expect(styles).toContain('pointer-events: none !important');
+		expect(styles).not.toContain('.shiki-monaco-block');
+		expect(styles).not.toContain('.shiki-monaco-editor');
+		expect(styles).not.toContain('.shiki-monaco-live-widget');
+		expect(styles).not.toContain('.shiki-monaco-codeblock');
+		expect(styles).not.toContain('.shiki-monaco-overlay-root');
+		expect(styles).not.toContain('.shiki-monaco-selection-toolbar');
+		expect(styles).not.toContain('.shiki-monaco-selection-handle');
+		expect(styles).not.toContain('monaco-editor');
+		expect(styles).not.toContain('monaco-scrollable-element');
 	});
 });

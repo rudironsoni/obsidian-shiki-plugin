@@ -38,30 +38,18 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.setName('Show line numbers')
 			.setDesc('Controls whether line numbers are shown by default.')
 			.addToggle(toggle => {
-				toggle.setValue(this.plugin.settings.ecDefaultShowLineNumbers).onChange(async value => {
-					this.plugin.settings.ecDefaultShowLineNumbers = value;
+				toggle.setValue(this.plugin.settings.showLineNumbers).onChange(async value => {
+					this.plugin.settings.showLineNumbers = value;
 					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});
 
 		new Setting(this.containerEl)
-			.setName('Wrap')
+			.setName('Wrap lines')
 			.setDesc('Controls whether code block lines wrap by default.')
 			.addToggle(toggle => {
-				toggle.setValue(this.plugin.settings.ecDefaultWrap).onChange(async value => {
-					this.plugin.settings.ecDefaultWrap = value;
-					await this.plugin.saveSettingsAndReloadHighlighter();
-				});
-			});
-
-		new Setting(this.containerEl).setName('Editor').setHeading();
-
-		new Setting(this.containerEl)
-			.setName('Font family')
-			.setDesc('Font family for the inline code block editor. Use CSS font-family syntax.')
-			.addText(text => {
-				text.setValue(this.plugin.settings.ecEditorFontFamily).onChange(async value => {
-					this.plugin.settings.ecEditorFontFamily = value || 'var(--font-monospace)';
+				toggle.setValue(this.plugin.settings.wrapLines).onChange(async value => {
+					this.plugin.settings.wrapLines = value;
 					await this.plugin.saveSettingsAndReloadHighlighter();
 				});
 			});

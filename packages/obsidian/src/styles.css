@@ -10,11 +10,9 @@ body {
 	--shiki-code-string: var(--color-yellow);
 	--shiki-code-value: var(--color-purple);
 
-	/*--shiki-code-border-color: var(--background-modifier-border);*/
 	--shiki-code-block-border-color: transparent;
 	--shiki-code-block-border-radius: var(--code-radius);
-	--shiki-code-block-border-width: 0px; /* this has to have a unit */
-
+	--shiki-code-block-border-width: 0px;
 	--shiki-code-block-spacing: var(--p-spacing);
 
 	--shiki-highlight-red: rgba(var(--color-red-rgb), 0.5);
@@ -24,58 +22,10 @@ body {
 	--shiki-highlight-green-background: rgba(var(--color-green-rgb), 0.1);
 	--shiki-highlight-neutral-background: rgba(var(--mono-rgb-100), 0.05);
 
-	--shiki-terminal-dots-color: var(--text-faint);
-
-	--shiki-tooltip-background: var(--background-modifier-message);
-	--shiki-tooltip-text-color: #fafafa;
-
 	--shiki-gutter-border-color: var(--background-modifier-border);
 	--shiki-gutter-border-width: var(--border-width);
 	--shiki-gutter-text-color: var(--text-faint);
 	--shiki-gutter-text-color-highlight: var(--shiki-code-normal);
-
-	--shiki-active-tab-border-width: 2px;
-	--shiki-active-tab-border-color: var(--shiki-highlight-neutral);
-}
-
-.edit-block-button {
-	pointer-events: all;
-
-	& > svg {
-		pointer-events: all;
-	}
-}
-
-.markdown-preview-view,
-.markdown-preview-sizer,
-.markdown-preview-section,
-.markdown-source-view.mod-cm6 .cm-content {
-	max-width: 100%;
-	min-width: 0;
-}
-
-.markdown-rendered button.copy-code-button {
-	background-color: var(--code-background);
-	border: 1px solid var(--code-border-color);
-	cursor: pointer;
-	transition:
-		background-color 0.2s ease,
-		border-color 0.2s ease;
-}
-
-.theme-light .markdown-rendered button.copy-code-button:hover {
-	background-color: rgba(0, 0, 0, 0.03);
-	border-color: rgba(0, 0, 0, 0.12);
-}
-
-.theme-dark .markdown-rendered button.copy-code-button:hover {
-	background-color: rgba(255, 255, 255, 0.08);
-	border-color: rgba(255, 255, 255, 0.15);
-}
-
-/* Hide the frontmatter code block in reading view again */
-div.markdown-preview-view > div > div.mod-header + div > div.block-language-yaml.shiki-hide-in-reading-mode {
-	display: none;
 }
 
 span.shiki-bold {
@@ -88,340 +38,174 @@ span.shiki-ul {
 	text-decoration: underline;
 }
 
-/* Monaco read-only blocks in reading mode */
-.shiki-monaco-block {
-	position: relative;
-	box-sizing: border-box;
-	contain: layout paint style;
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
+/* Reading Mode Shiki Blocks */
+.markdown-rendered pre.shiki-reading-block {
 	overflow-x: auto;
-	overflow-y: hidden;
-	background-color: var(--code-background);
 	border-radius: var(--code-radius);
+	background: var(--code-background);
+	margin: var(--p-spacing) 0;
+	position: relative;
+}
+
+.markdown-rendered pre.shiki-reading-block code {
+	display: block;
 	font-family: var(--font-monospace);
-	font-size: var(--code-size, var(--font-text-size));
+	font-size: var(--code-size);
+}
+
+.markdown-rendered pre.shiki-reading-block:not(.wrap-lines) code {
+	white-space: pre;
+}
+
+.markdown-rendered pre.shiki-reading-block.wrap-lines code {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+/* Line numbers in reading mode */
+.markdown-rendered pre.shiki-reading-block .shiki-line-numbers {
+	display: flex;
+	flex-direction: column;
+	text-align: right;
+	padding-right: 12px;
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
+	user-select: none;
+	min-width: 2ch;
+	flex-shrink: 0;
+	border-right: 1px solid var(--background-modifier-border);
+	margin-right: 12px;
+}
+
+.markdown-rendered pre.shiki-reading-block .shiki-line-numbers span {
+	display: block;
+}
+
+/* Live Preview Shiki Widgets */
+.shiki-live-preview-block {
+	border-radius: var(--code-radius);
+	background: var(--code-background);
+	margin: var(--p-spacing) 0;
+	border: 1px solid var(--background-modifier-border);
+	overflow: hidden;
+}
+
+/* Force nowrap on the widget itself so it doesn't inherit CM6 line wrapping */
+.shiki-live-preview-block:not(.wrap-lines) {
+	white-space: pre;
+}
+
+.shiki-live-preview-block.wrap-lines {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.shiki-block-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 12px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+	background: var(--background-modifier-form-field);
+	border-radius: var(--code-radius) var(--code-radius) 0 0;
+}
+
+.shiki-header-left {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.shiki-lang-name {
+	text-transform: uppercase;
+	font-weight: 600;
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.5px;
+}
+
+.shiki-copy-button {
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	padding: 2px 8px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.shiki-copy-button:hover {
+	background: var(--background-modifier-hover);
+}
+
+.shiki-block-body {
+	padding: var(--code-padding);
+	overflow-x: auto;
+	display: flex;
+}
+
+.shiki-line-numbers {
+	display: flex;
+	flex-direction: column;
+	text-align: right;
+	padding-right: 12px;
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
+	user-select: none;
+	min-width: 2ch;
+	flex-shrink: 0;
+	border-right: 1px solid var(--background-modifier-border);
+	margin-right: 12px;
+}
+
+.shiki-line-numbers span {
+	display: block;
+}
+
+.shiki-code-scroll {
+	flex: 1;
+	overflow-x: auto;
+}
+
+.shiki-live-preview-block:not(.wrap-lines) .shiki-block-body,
+.shiki-live-preview-block:not(.wrap-lines) .shiki-block-body pre,
+.shiki-live-preview-block:not(.wrap-lines) .shiki-block-body code {
+	white-space: pre;
+}
+
+.shiki-live-preview-block.wrap-lines .shiki-block-body,
+.shiki-live-preview-block.wrap-lines .shiki-block-body pre,
+.shiki-live-preview-block.wrap-lines .shiki-block-body code {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.shiki-block-body pre {
+	margin: 0;
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
+	overflow-x: auto;
+}
+
+.shiki-block-body code {
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
 	line-height: var(--line-height-normal);
 }
 
-.shiki-monaco-editor {
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
-	overflow-x: auto;
-	overflow-y: hidden;
-	position: relative;
-	background-color: var(--code-background);
-}
-
-.shiki-monaco-readonly .shiki-monaco-editor .monaco-editor,
-.shiki-monaco-readonly .shiki-monaco-editor .monaco-editor .overflow-guard {
-	overflow-x: auto !important;
-	overflow-y: hidden !important;
-}
-
-.shiki-monaco-readonly .shiki-monaco-editor .monaco-editor .view-line {
-	white-space: pre !important;
-}
-
-/* Live preview: keep the native Obsidian note lines and gutter alive, then mount
-   Monaco over the code content column only. */
+/* Live Preview: keep native Obsidian lines visible behind widget */
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence {
 	max-width: 100%;
 	position: relative;
 	overflow: hidden;
-	white-space: pre !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)),
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)) {
-	height: 0 !important;
-	min-height: 0 !important;
-	line-height: 0 !important;
-	padding-block: 0 !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-lineNumbers .cm-gutterElement[style*='height: 0px'] {
-	visibility: hidden;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden {
-	color: transparent !important;
-	caret-color: transparent !important;
-	-webkit-text-fill-color: transparent !important;
-	text-shadow: none !important;
-	background: transparent !important;
-	border-color: transparent !important;
-	opacity: 1 !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget)) *,
-.markdown-source-view.mod-cm6.is-live-preview
-	.cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden:not(:has(.shiki-monaco-live-widget))
-	* {
-	pointer-events: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
-	color: var(--text-normal) !important;
-	-webkit-text-fill-color: initial !important;
-	pointer-events: auto !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget * {
-	-webkit-text-fill-color: initial !important;
-	pointer-events: auto !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden .shiki-monaco-live-widget {
-	display: block !important;
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
-	overflow: visible;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) {
-	display: block !important;
-	width: 100% !important;
-	max-width: 100%;
-	min-width: 0;
-	pointer-events: auto !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line-hidden:has(.shiki-monaco-live-widget) .shiki-monaco-live-widget {
-	pointer-events: auto !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
-	box-sizing: border-box;
-	contain: layout paint style;
-	max-width: 100%;
-	min-width: 0;
-	background-color: var(--code-background);
-	border-radius: var(--code-radius);
-	overflow-x: auto;
-	overflow-y: hidden;
-	pointer-events: auto;
-	/* Let Obsidian own vertical scrolling. Horizontal code movement is handled
-	   by the wrapper so the note still scrolls vertically like normal. */
-	touch-action: none;
-	overscroll-behavior-x: contain;
-	overscroll-behavior-y: auto;
-	-webkit-tap-highlight-color: transparent;
-	isolation: isolate;
-	touch-action: none;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	z-index: 3;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-overlay-root .shiki-monaco-codeblock {
-	pointer-events: auto;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-editor,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .overflow-guard,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-lines {
-	background-color: var(--code-background) !important;
-}
-
-.markdown-rendered .shiki-monaco-block .monaco-editor,
-.markdown-rendered .shiki-monaco-block .overflow-guard,
-.markdown-rendered .shiki-monaco-block .view-lines {
-	background-color: var(--code-background) !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element {
-	top: 0 !important;
-	overflow-x: auto !important;
-	overflow-y: hidden !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .monaco-scrollable-element > .scrollbar.vertical {
-	display: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin {
-	display: block !important;
-	visibility: visible !important;
-	contain: layout style !important;
-	user-select: none !important;
-	-webkit-user-select: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays {
-	top: 0 !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .line-numbers {
-	display: block !important;
-	visibility: visible !important;
-	color: var(--text-faint) !important;
-	background: transparent !important;
-	text-align: right !important;
-	white-space: nowrap !important;
-	user-select: none !important;
-	-webkit-user-select: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .line-numbers.active-line-number,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .current-line,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .current-line-margin,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .selected-text {
-	background: transparent !important;
-	border: 0 !important;
-	box-shadow: none !important;
-}
-
-.shiki-monaco-readonly .ime-text-area,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock.shiki-monaco-readonly .ime-text-area {
-	background: transparent !important;
-	border: 0 !important;
-	border-radius: 0 !important;
-	box-shadow: none !important;
-	caret-color: transparent !important;
-	clip-path: inset(50%) !important;
-	color: transparent !important;
-	height: 1px !important;
-	margin: 0 !important;
-	opacity: 0 !important;
-	border: 0 !important;
-	outline: 0 !important;
-	overflow: hidden !important;
-	padding: 0 !important;
-	resize: none !important;
-	width: 1px !important;
-	min-width: 1px !important;
-	min-height: 1px !important;
-	max-width: 1px !important;
-	max-height: 1px !important;
-	-webkit-appearance: none !important;
-	appearance: none !important;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .margin-view-overlays .cldr {
-	display: none !important;
-}
-
-/* Ensure Monaco editor inherits the background ONLY on the content area,
-   not on .margin which extends into Obsidian's gutter in live preview. */
-.shiki-monaco-editor .monaco-editor .view-lines {
-	background-color: var(--code-background) !important;
-}
-
-.shiki-monaco-readonly .monaco-hover,
-.shiki-monaco-readonly .suggest-widget,
-.shiki-monaco-readonly .parameter-hints-widget,
-.shiki-monaco-readonly .current-line,
-.shiki-monaco-readonly .current-line-margin,
-.shiki-monaco-readonly .line-numbers.active-line-number {
-	display: none !important;
-	background: transparent !important;
-	border: 0 !important;
-	box-shadow: none !important;
-}
-
-.shiki-monaco-selection-toolbar {
-	position: absolute;
-	z-index: 10;
-	display: flex;
-	gap: 4px;
-	transform: translateX(-50%);
-	padding: 4px;
-	border-radius: var(--radius-s);
-	background: var(--background-primary);
-	box-shadow: var(--shadow-s);
-}
-
-.shiki-monaco-selection-toolbar[hidden],
-.shiki-monaco-selection-handle[hidden] {
-	display: none !important;
-}
-
-.shiki-monaco-selection-toolbar button {
-	font-size: var(--font-ui-smaller);
-}
-
-.shiki-monaco-selection-handle {
-	position: absolute;
-	z-index: 9;
-	width: 14px;
-	height: 14px;
-	border-radius: 50%;
-	background: var(--interactive-accent);
-	touch-action: none;
-	transform: translate(-50%, -2px);
-}
-
-/* Mobile: allow vertical page scroll to pass through Monaco (prevent scroll trapping). */
-.shiki-monaco-editor {
-	touch-action: none;
-	overscroll-behavior-x: contain;
-	overscroll-behavior-y: auto;
-}
-
-/* Prevent Monaco from creating internal vertical scroll - let Obsidian handle it */
-.shiki-monaco-editor .monaco-scrollable-element {
-	overflow-y: hidden !important;
-}
-
-/* Hide vertical scrollbar even if Monaco creates it */
-.shiki-monaco-editor .monaco-scrollable-element > .scrollbar.vertical {
-	display: none !important;
-}
-
-/* Ensure horizontal scroll still works */
-.shiki-monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
-	pointer-events: auto;
-}
-
-/* Force Monaco line numbers to be visible on all viewports including mobile */
-.shiki-monaco-editor .monaco-editor .margin {
-	display: block !important;
-	visibility: visible !important;
-	/* Monaco sets `contain: strict` which clips children on some mobile browsers
-	   (notably Safari/WKWebView). The margin-view-overlays sit at the bottom edge
-	   of the margin and can be clipped out. Disable paint containment only. */
-	contain: layout style !important;
-}
-
-/* Monaco places margin-view-overlays after a 126px .glyph-margin sibling,
-   pushing it to the bottom edge of .margin. On iOS this gets clipped.
-   Force it to the top of .margin where it belongs. */
-.shiki-monaco-editor .monaco-editor .margin-view-overlays {
-	top: 0 !important;
-}
-
-.shiki-monaco-editor .monaco-editor .line-numbers {
-	display: block !important;
-	visibility: visible !important;
-	color: var(--text-faint) !important;
-	/* Right-align line numbers so they stay away from Obsidian's gutter
-	   and align with the right edge of the margin. */
-	text-align: right !important;
-	white-space: nowrap !important;
-}
-
-/* Ensure the editor content is offset to the right of the margin so it
-   doesn't overlap with line numbers, especially on iOS where font metrics
-   can cause the margin width to be calculated differently. */
-.shiki-monaco-editor .monaco-editor .lines-content {
-	left: auto !important;
-}
-
-/* Monaco folding controls use a custom icon font (codicon) that often
-   fails to load on iOS, showing as fallback characters (◻, ⊘, etc.).
-   Hide them entirely in read-only blocks where they're not useful. */
-.shiki-monaco-editor .monaco-editor .margin-view-overlays .cldr {
-	display: none !important;
 }
 
 /* Settings tab */
@@ -429,29 +213,7 @@ span.shiki-ul {
 	min-width: 250px;
 }
 
-body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock {
-	width: 100%;
-	max-width: 100%;
-	overscroll-behavior-x: contain;
-	touch-action: none;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-live-widget {
-	display: block;
-	width: 100%;
-	max-width: 100%;
-	min-width: 0;
-	overflow: hidden;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock *,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor * {
-	-webkit-text-fill-color: initial;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock .view-line span,
-.markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-editor .view-line span {
-	-webkit-text-fill-color: currentColor;
+/* Hide the frontmatter code block in reading view again */
+div.markdown-preview-view > div > div.mod-header + div > div.block-language-yaml.shiki-hide-in-reading-mode {
+	display: none;
 }

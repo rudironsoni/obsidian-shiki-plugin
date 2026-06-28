@@ -1,12 +1,9 @@
 import { debounce, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
-import { LazyHighlighter } from 'packages/obsidian/src/LazyHighlighter';
+import { ShikiHighlighter } from 'packages/obsidian/src/ShikiHighlighter';
 import type { CodeBlock } from 'packages/obsidian/src/CodeBlock';
 import type { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
 import { CodeBlockRegistry } from 'packages/obsidian/src/codeblocks/CodeBlockRegistry';
-import { LazyMonacoRuntime } from 'packages/obsidian/src/monaco/LazyMonacoRuntime';
-import { MonacoSurfaceRegistry } from 'packages/obsidian/src/monaco/MonacoSurfaceRegistry';
-import { HydrationQueue } from 'packages/obsidian/src/monaco/HydrationQueue';
 import { SourceModeTokenizationCache } from 'packages/obsidian/src/runtime/SourceModeTokenizationCache';
 import { getObsidianSafeLanguageNames } from 'packages/obsidian/src/runtime/LanguageMetadata';
 import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
@@ -20,11 +17,8 @@ const SHIKI_INSTANCE_KEY = '__shikiHighlighterInstanceId';
 type ShikiWindow = Window & { [SHIKI_INSTANCE_KEY]?: number };
 
 export default class ShikiPlugin extends Plugin {
-	highlighter!: LazyHighlighter;
-	monacoRuntime!: LazyMonacoRuntime;
+	highlighter!: ShikiHighlighter;
 	codeBlockRegistry!: CodeBlockRegistry;
-	surfaceRegistry!: MonacoSurfaceRegistry;
-	hydrationQueue!: HydrationQueue;
 	readingViewAdapter!: ReadingViewAdapter;
 	sourceModeTokenizationCache!: SourceModeTokenizationCache;
 	activeCodeBlocks!: Map<string, (CodeBlock | InlineCodeBlock)[]>;
@@ -44,11 +38,8 @@ export default class ShikiPlugin extends Plugin {
 		(window as ShikiWindow)[SHIKI_INSTANCE_KEY] = this.instanceId;
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		this.loadedSettings = structuredClone(this.settings);
-		this.monacoRuntime = new LazyMonacoRuntime(this);
-		this.highlighter = new LazyHighlighter(this);
+		this.highlighter = new ShikiHighlighter(this);
 		this.codeBlockRegistry = new CodeBlockRegistry();
-		this.surfaceRegistry = new MonacoSurfaceRegistry(this);
-		this.hydrationQueue = new HydrationQueue();
 		this.readingViewAdapter = undefined as never;
 		this.sourceModeTokenizationCache = new SourceModeTokenizationCache();
 		this.activeCodeBlocks = new Map();
@@ -151,7 +142,6 @@ export default class ShikiPlugin extends Plugin {
 
 		await this.highlighter.reload();
 		this.sourceModeTokenizationCache.clear();
-		this.surfaceRegistry.updateThemes();
 
 		for (const [_, codeBlocks] of this.activeCodeBlocks) {
 			for (const codeBlock of codeBlocks) {
@@ -284,8 +274,6 @@ export default class ShikiPlugin extends Plugin {
 	onunload(): void {
 		this.unloaded = true;
 		void this.highlighter?.unload();
-		this.surfaceRegistry.clear();
-		this.hydrationQueue.clear();
 		this.codeBlockRegistry.clear();
 	}
 

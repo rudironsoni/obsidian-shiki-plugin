@@ -1,31 +1,58 @@
-import type { CodeToTokensOptions, ThemedToken, TokensResult } from 'shiki';
+import { createHighlighter, type Highlighter, type TokensResult, type ThemedToken } from 'shiki';
+import { getConfiguredThemes } from 'packages/obsidian/src/runtime/ThemeBridge';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 
-export class LazyHighlighter {
+export class ShikiHighlighter {
+	private highlighter: Highlighter | undefined;
 	private readonly plugin: ShikiPlugin;
+	private loadedLanguages = new Set<string>();
 
 	constructor(plugin: ShikiPlugin) {
 		this.plugin = plugin;
 	}
 
-	async unload(): Promise<void> {
-		await this.plugin.monacoRuntime.unload();
+	async init(): Promise<void> {
+		const themes = getConfiguredThemes(this.plugin);
+		this.highlighter = await createHighlighter({
+			themes: themes.length > 0 ? themes : ['github-dark', 'github-light'],
+			langs: [],
+		});
 	}
 
 	async reload(): Promise<void> {
-		await this.plugin.monacoRuntime.reload();
+		await this.unload();
+		await this.init();
 	}
 
-	async obsidianSafeLanguageNames(): Promise<string[]> {
-		return this.plugin.monacoRuntime.obsidianSafeLanguageNames();
+	async unload(): Promise<void> {
+		this.highlighter = undefined;
+		this.loadedLanguages.clear();
 	}
 
-	async supportedLanguages(): Promise<string[]> {
-		return this.obsidianSafeLanguageNames();
+	obsidianSafeLanguageNames(): string[] {
+		// Import dynamically to avoid loading Shiki langs eagerly
+		const { getObsidianSafeLanguageNames } = require('packages/obsidian/src/runtime/LanguageMetadata');
+		return getObsidianSafeLanguageNames();
 	}
 
 	resolveLanguageAlias(lang: string): string | undefined {
-		return this.plugin.monacoRuntime.resolveLanguageAlias(lang);
+		const { resolveLanguageAliasFromMetadata } = require('packages/obsidian/src/runtime/LanguageMetadata');
+		return resolveLanguageAliasFromMetadata(lang);
+	}
+
+	async ensureLanguage(lang: string): Promise<void> {
+		if (!this.highlighter || this.loadedLanguages.has(lang)) {
+			return;
+		}
+		const canonical = this.resolveLanguageAlias(lang) ?? lang;
+		try {
+			// Shiki 3.x: load language dynamically
+			await this.highlighter.loadLanguage(canonical as never);
+			this.loadedLanguages.add(lang);
+			this.loadedLanguages.add(canonical);
+		} catch {
+			// Language not available in Shiki
+		}
 	}
 
 	async getHighlightTokens(code: string, lang: string): Promise<TokensResult | undefined> {
@@ -33,20 +60,22 @@ export class LazyHighlighter {
 		if (this.plugin.loadedSettings.disabledLanguages.includes(normalized)) {
 			return undefined;
 		}
-		const runtime = await this.plugin.monacoRuntime.load();
+		if (!this.highlighter) {
+			await this.init();
+		}
 		const theme = this.plugin.getActiveTheme();
+		const canonical = this.resolveLanguageAlias(normalized) ?? normalized;
 		try {
-			await runtime.registerLanguage(normalized);
-			const canonical = this.resolveLanguageAlias(normalized) ?? normalized;
-			return runtime.highlighter.codeToTokens(code, { lang: canonical, theme } satisfies CodeToTokensOptions) as TokensResult;
+			await this.ensureLanguage(canonical);
+			return this.highlighter!.codeToTokens(code, { lang: canonical as never, theme });
 		} catch {
 			return undefined;
 		}
 	}
 
-	async renderWithEc(code: string, lang: string, meta: string, container: HTMLElement): Promise<void> {
+	async renderWithShiki(code: string, lang: string, meta: string, container: HTMLElement): Promise<void> {
 		container.empty();
-		container.classList.add('shiki-ec-fallback');
+		container.classList.add('shiki-rendered-block');
 		if (meta) {
 			container.createDiv({ text: meta, cls: 'shiki-ec-meta' });
 		}

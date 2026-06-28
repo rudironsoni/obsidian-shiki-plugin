@@ -12,9 +12,8 @@ export interface Settings {
 	lightTheme: string;
 	preferThemeColors: boolean;
 	inlineHighlighting: boolean;
-	ecDefaultShowLineNumbers: boolean;
-	ecDefaultWrap: boolean;
-	ecEditorFontFamily: string;
+	showLineNumbers: boolean;
+	wrapLines: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -26,7 +25,6 @@ export const DEFAULT_SETTINGS: Settings = {
 	lightTheme: OBSIDIAN_THEME_IDENTIFIER,
 	preferThemeColors: true,
 	inlineHighlighting: true,
-	ecDefaultShowLineNumbers: false,
-	ecDefaultWrap: false,
-	ecEditorFontFamily: 'var(--font-monospace)',
+	showLineNumbers: true,
+	wrapLines: false,
 };

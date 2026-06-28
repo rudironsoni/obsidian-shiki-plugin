@@ -51,7 +51,6 @@ test('plugin reload clears source mode tokenization cache before CM6 refresh', a
 	const cacheClearCalls: string[] = [];
 	const rerenderCalls: string[] = [];
 	const updateCalls: string[] = [];
-	const surfaceThemeCalls: string[] = [];
 	const reloadCalls: string[] = [];
 	type ReloadHarness = {
 		reloadHighlighter: () => Promise<void>;
@@ -59,7 +58,6 @@ test('plugin reload clears source mode tokenization cache before CM6 refresh', a
 		highlighter: { reload: () => Promise<void> };
 		activeCodeBlocks: Map<string, Array<{ forceRerender: () => Promise<void> }>>;
 		updateCm6Plugin: () => Promise<void>;
-		surfaceRegistry: { updateThemes: () => void };
 		ensureSettingsLoaded: () => Promise<void>;
 		settings: Record<string, never>;
 		loadedSettings: Record<string, never>;
@@ -77,11 +75,6 @@ test('plugin reload clears source mode tokenization cache before CM6 refresh', a
 	plugin.highlighter = {
 		reload: async () => {
 			reloadCalls.push('reload');
-		},
-	};
-	plugin.surfaceRegistry = {
-		updateThemes: () => {
-			surfaceThemeCalls.push('update-surfaces');
 		},
 	};
 	plugin.activeCodeBlocks = new Map([
@@ -104,7 +97,6 @@ test('plugin reload clears source mode tokenization cache before CM6 refresh', a
 
 	expect(cacheClearCalls).toEqual(['clear']);
 	expect(reloadCalls).toEqual(['reload']);
-	expect(surfaceThemeCalls).toEqual(['update-surfaces']);
 	expect(rerenderCalls).toEqual(['rerender']);
 	expect(updateCalls).toEqual(['update-cm6']);
 });

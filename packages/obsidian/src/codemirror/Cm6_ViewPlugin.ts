@@ -93,7 +93,7 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					});
 				}
 				this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
-				this.livePreviewAdapter.refreshDomMounts();
+				this.livePreviewAdapter.refreshDomMounts?.();
 			}
 
 			private readonly scheduleDecorationRefresh = (): void => {
@@ -173,7 +173,6 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 	);
 
 	plugin.updateCm6Plugin = async (): Promise<void> => {
-		plugin.surfaceRegistry.updateThemes();
 		plugin.sourceModeTokenizationCache.clear();
 		for (const viewPlugin of activeViewPlugins) {
 			viewPlugin.retokenizeSourceMode();

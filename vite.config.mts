@@ -9,17 +9,15 @@ import manifest from './manifest.json' with { type: 'json' };
 const externalNodeBuiltins = builtinModules;
 
 const entryFile = 'packages/obsidian/src/main.ts';
-const modernMonacoEntryFile = 'packages/obsidian/src/modern-monaco-entry.ts';
 
-function getBuildEntryFile(buildEntry: string): string {
-	if (buildEntry === 'modern-monaco') return modernMonacoEntryFile;
+function getBuildEntryFile(): string {
 	return entryFile;
 }
 
 export default defineConfig(({ mode }) => {
 	const prod = mode === 'production';
 	const outDir = prod ? 'dist/' : `exampleVault/.obsidian/plugins/${manifest.id}/`;
-	const buildEntry = process.env.SHIKI_BUILD_ENTRY === 'modern-monaco' ? 'modern-monaco' : 'main';
+	const buildEntry = 'main';
 
 	const external = [
 		'obsidian',
@@ -44,7 +42,7 @@ export default defineConfig(({ mode }) => {
 				outDir,
 				content: getBuildBanner(prod ? 'Release Build' : 'Dev Build', version => version),
 			}),
-			...(buildEntry === 'main'
+			...(true
 				? [
 						viteStaticCopy({
 							targets: [{ src: 'manifest.json', dest: '' }],
@@ -55,13 +53,12 @@ export default defineConfig(({ mode }) => {
 		resolve: {
 			alias: {
 				packages: path.resolve(__dirname, './packages'),
-				'shiki-wasm': path.resolve(__dirname, './node_modules/modern-monaco/dist/shiki-wasm.mjs'),
 			},
 		},
 		build: {
 			lib: {
-				entry: path.resolve(__dirname, getBuildEntryFile(buildEntry)),
-				name: buildEntry,
+				entry: path.resolve(__dirname, getBuildEntryFile()),
+				name: 'main',
 				fileName: () => `${buildEntry}.js`,
 				formats: ['cjs'],
 			},
@@ -77,7 +74,7 @@ export default defineConfig(({ mode }) => {
 				},
 				output: {
 					dir: outDir,
-					entryFileNames: `${buildEntry}.js`,
+						entryFileNames: 'main.js',
 					assetFileNames: 'styles.css',
 					codeSplitting: false,
 					exports: 'named',

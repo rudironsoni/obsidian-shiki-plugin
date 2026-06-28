@@ -5,7 +5,8 @@ describe('startup bundle', () => {
 	test('startup JavaScript stays small enough for fast Obsidian activation', () => {
 		const bytes = statSync(new URL('../dist/main.js', import.meta.url)).size;
 
-		expect(bytes).toBeLessThanOrEqual(12 * 1024 * 1024);
+		// Shiki is bundled directly, so the bundle is larger than the old Monaco-split architecture
+		expect(bytes).toBeLessThanOrEqual(16 * 1024 * 1024);
 	});
 
 	test('startup JavaScript is a standalone Obsidian plugin entrypoint', () => {
@@ -16,47 +17,24 @@ describe('startup bundle', () => {
 		expect(startupBundle).not.toContain('require("./');
 	});
 
-	test('heavy renderer is emitted as an explicit mobile-sync artifact', () => {
-		expect(existsSync(new URL('../dist/modern-monaco.js', import.meta.url))).toBe(true);
-	});
-
-	test('startup bundle keeps Monaco fallback out of startup JavaScript', () => {
+	test('startup bundle contains Shiki highlighter, not Monaco', () => {
 		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 		const manifest = readFileSync(new URL('../dist/manifest.json', import.meta.url), 'utf8');
 
-		expect(startupBundle.length).toBeLessThan(256 * 1024);
-		expect(manifest).toContain('shikiModernMonacoFallback');
+		// Check first 1MB for Shiki references (avoid searching entire 9.5MB bundle)
+		const head = startupBundle.slice(0, 1024 * 1024);
+		expect(head).toContain('codeToTokens');
+		expect(startupBundle).not.toContain('monaco.editor.create');
+		expect(startupBundle).not.toContain('modern-monaco');
+		expect(manifest).not.toContain('shikiModernMonacoFallback');
 	});
 
-	test('Monaco code block CSS owns horizontal mobile pan gestures', () => {
+	test('Shiki code block CSS owns horizontal scroll inside blocks', () => {
 		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
 
-		expect(styles).toContain('.shiki-monaco-block');
-		expect(styles).toContain('.shiki-monaco-editor');
-		expect(styles).toContain('touch-action:none');
-		expect(styles).toContain('overscroll-behavior-x:contain');
-		expect(styles).toContain('.markdown-preview-sizer');
-		expect(styles).toContain('.markdown-preview-section');
-	});
-
-	test('Monaco CSS does not disable mobile selection or input internals', () => {
-		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
-
-		expect(styles).not.toContain('body.is-mobile .shiki-monaco-selection-toolbar');
-		expect(styles).not.toContain('body.is-mobile .shiki-monaco-selection-handle');
-		expect(styles).not.toContain('.shiki-monaco-readonly .shiki-monaco-selection-toolbar');
-		expect(styles).not.toContain('.shiki-monaco-readonly .shiki-monaco-selection-handle');
-		expect(styles).not.toContain('.shiki-monaco-readonly .selected-text');
-		expect(styles).not.toContain('pointer-events:none!important;resize:none');
-	});
-
-	test('Monaco code block CSS contains horizontal overflow inside the block', () => {
-		const styles = readFileSync(new URL('../dist/styles.css', import.meta.url), 'utf8');
-
-		expect(styles).toContain('max-width:100%');
-		expect(styles).toContain('min-width:0');
-		expect(styles).toContain('overflow:hidden');
-		expect(styles).toContain('.shiki-monaco-block .overflow-guard');
+		expect(styles).toContain('.shiki-reading-block');
+		expect(styles).toContain('.shiki-live-preview-block');
+		expect(styles).toContain('overflow-x:auto');
 	});
 
 	test('release workflow uploads every generated JavaScript sidecar', () => {

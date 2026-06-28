@@ -36,16 +36,6 @@ describe('startup module boundary', () => {
 		expect(source).not.toContain("from 'virtual:ec-runtime'");
 	});
 
-	test('modern monaco loader falls back without Node require', () => {
-		const source = read('packages/obsidian/src/ModernMonacoLoader.ts');
-
-		expect(source).toContain('loadBundledModernMonacoSource');
-		expect(source).toContain('native require is unavailable');
-		expect(source).toContain('plugin.app.vault.adapter.read(adapterPath)');
-		expect(source).toContain('source: await loadBundledModernMonacoSource(plugin, requireFn)');
-		expect(source).not.toContain('??\n\t\trequire');
-	});
-
 	test('async CM6 decoration producers do not dispatch directly', () => {
 		const cm6Plugin = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
@@ -57,21 +47,7 @@ describe('startup module boundary', () => {
 		expect(sourceMode).not.toContain('view.dispatch(this.view.state.update({}))');
 	});
 
-	test('mobile Monaco taps route through the native Obsidian editor', () => {
-		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-		const gestures = read('packages/obsidian/src/monaco/MonacoGestureRouter.ts');
-
-		expect(livePreview).toContain('setNativeMobileInteraction');
-		expect(livePreview).toContain('editor.setCursor(editorPosition)');
-		expect(livePreview).toContain('editor.focus()');
-		expect(livePreview).toContain('focusNativeEditor');
-		expect(gestures).toContain('nativeInteraction?.placeCursor');
-		expect(gestures).toContain('blurMonacoFocusTarget');
-		expect(gestures).toContain('selectionController.selectWordAt');
-		expect(gestures).toContain('this.selectionController.placeCursor(touch.clientX, touch.clientY)');
-	});
-
-	test('live preview adapter owns a single Monaco overlay root per editor view', () => {
+	test('live preview adapter owns a single widget overlay per editor view', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
 		const main = read('packages/obsidian/src/main.ts');
 
@@ -79,13 +55,9 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('this.plugin.isCurrentInstance()');
 		expect(livePreview).toContain('LIVE_PREVIEW_ADAPTER_OWNER');
 		expect(livePreview).toContain('destroyed || !this.plugin.isCurrentInstance()');
-		expect(livePreview).toContain('removeDuplicateBlockSurfaces');
-		expect(livePreview).toContain('missingLineRetryCount');
-		expect(livePreview).toContain('this.requestDecorationRefresh();');
 		expect(livePreview).toContain("closest('.markdown-source-view.mod-cm6')");
-		expect(livePreview).toContain("activeLeafView && 'contentEl' in activeLeafView");
-		expect(livePreview).toContain("querySelectorAll('.shiki-monaco-overlay-root')");
-		expect(livePreview).toContain('root.remove()');
+		expect(livePreview).toContain('this.requestDecorationRefresh();');
+		expect(livePreview).toContain('this.rebuildBlocks();');
 	});
 
 	test('source mode applies Shiki token offsets per source line', () => {
@@ -99,57 +71,26 @@ describe('startup module boundary', () => {
 	});
 
 	test('language listing is static and startup-safe', () => {
-		const lazyRuntime = read('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
+		const highlighter = read('packages/obsidian/src/ShikiHighlighter.ts');
 		const main = read('packages/obsidian/src/main.ts');
 		const metadata = read('packages/obsidian/src/runtime/LanguageMetadata.ts');
 
-		expect(lazyRuntime).toContain('getObsidianSafeLanguageNames');
+		expect(highlighter).toContain('getObsidianSafeLanguageNames');
 		expect(main).toContain('getObsidianSafeLanguageNames()');
 		expect(main).not.toContain('highlighter.obsidianSafeLanguageNames');
-		expect(lazyRuntime).toContain('resolveLanguageAliasFromMetadata');
-		expect(lazyRuntime).not.toContain('loadModernMonacoGrammars');
+		expect(highlighter).toContain('resolveLanguageAliasFromMetadata');
 		expect(metadata).toContain('LANGUAGE_METADATA');
 		expect(metadata).not.toContain('modern-monaco/shiki');
-	});
-
-	test('surface registry creates stable surfaces without loading Monaco runtime', () => {
-		const registry = read('packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts');
-		const surface = read('packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts');
-
-		expect(registry).toContain('getOrCreate(block: CodeBlockModel): MonacoCodeBlockSurface');
-		expect(registry).toContain('new MonacoCodeBlockSurface(this.plugin, block)');
-		expect(registry).not.toContain('monacoRuntime.load()');
-		expect(surface).toContain('const runtime = await this.plugin.monacoRuntime.load()');
-	});
-
-	test('Monaco editor creation is isolated to MonacoCodeBlockSurface', () => {
-		const files = [
-			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
-			'packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts',
-			'packages/obsidian/src/modes/ReadingViewAdapter.ts',
-			'packages/obsidian/src/modes/LivePreviewAdapter.ts',
-			'packages/obsidian/src/modes/SourceModeAdapter.ts',
-			'packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts',
-			'packages/obsidian/src/LazyHighlighter.ts',
-		];
-		const createOwners = files.filter(file => read(file).includes('monaco.editor.create'));
-
-		expect(createOwners).toEqual(['packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts']);
 	});
 
 	test('production source avoids console spam and unguarded debug globals', () => {
 		const sourceFiles = [
 			'packages/obsidian/src/main.ts',
-			'packages/obsidian/src/LazyHighlighter.ts',
-			'packages/obsidian/src/ModernMonacoLoader.ts',
+			'packages/obsidian/src/ShikiHighlighter.ts',
 			'packages/obsidian/src/modes/ReadingViewAdapter.ts',
 			'packages/obsidian/src/modes/LivePreviewAdapter.ts',
 			'packages/obsidian/src/modes/SourceModeAdapter.ts',
-			'packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts',
-			'packages/obsidian/src/monaco/MonacoGestureRouter.ts',
-			'packages/obsidian/src/monaco/MonacoSelectionController.ts',
-			'packages/obsidian/src/monaco/MonacoSurfaceRegistry.ts',
-			'packages/obsidian/src/monaco/LazyMonacoRuntime.ts',
+			'packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts',
 		];
 		const violations = sourceFiles.flatMap(file => {
 			const source = read(file);
@@ -158,57 +99,23 @@ describe('startup module boundary', () => {
 		});
 		expect(violations).toEqual([]);
 	});
+
 	test('live preview edit sync is scoped to fenced code content range', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
 		expect(livePreview).toContain('codeFrom: block.range.charFrom');
 		expect(livePreview).toContain('codeTo: block.range.charTo');
-		expect(livePreview).toContain('this.view.dispatch({ changes: { from: current.codeFrom, to: current.codeTo, insert: value } });');
-		expect(livePreview).not.toContain('from: block.range.openingFence');
-		expect(livePreview).not.toContain('to: block.range.closingFence');
-	});
-	test('desktop Live Preview activation routes through Monaco gesture router', () => {
-		const router = read('packages/obsidian/src/monaco/MonacoGestureRouter.ts');
-		const surface = read('packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts');
-		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-		expect(surface).toContain('setActivationHandler');
-		expect(livePreview).toContain('surface.setActivationHandler(point => void this.activateBlock(block.id, point));');
-		expect(router).toContain('event.button !== 0 || event.ctrlKey || event.metaKey || event.altKey');
-		expect(router).toContain('Date.now() - this.lastTouchTime < 700');
-		expect(router).toContain('this.onActivate?.({ clientX: event.clientX, clientY: event.clientY });');
-	});
-
-	test('editable Monaco input remains visible while readonly surfaces may hide IME textarea', () => {
-		const css = read('packages/obsidian/src/styles.css');
-		const imeRules = [...css.matchAll(/([^{}]*\.ime-text-area[^{}]*)\{/g)].map(match => match[1]);
-		const selectors = imeRules.flatMap(rule =>
-			rule
-				.split(',')
-				.map(selector => selector.trim())
-				.filter(Boolean),
-		);
-
-		expect(selectors.length).toBeGreaterThan(0);
-		expect(selectors.every(selector => selector.includes('.shiki-monaco-readonly'))).toBe(true);
-		expect(selectors.some(selector => selector.includes('.shiki-monaco-active'))).toBe(false);
-		expect(selectors.some(selector => selector === '.ime-text-area')).toBe(false);
-		expect(
-			selectors.some(selector => selector.includes('.markdown-source-view.mod-cm6.is-live-preview') && !selector.includes('.shiki-monaco-readonly')),
-		).toBe(false);
 	});
 
 	test('live preview adapter avoids selection-only rebuild churn', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-		expect(livePreview).toContain('private lastViewportKey');
-		expect(livePreview).toContain('const viewportActuallyChanged = update.viewportChanged && viewportKey !== this.lastViewportKey');
-		expect(livePreview).toContain('if (!update.docChanged && !viewportActuallyChanged)');
-		expect(livePreview).toContain('this.lastViewportKey = viewportKey');
+		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged)');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });
 
-test('settings language listing uses static metadata without loading modern Monaco', () => {
+test('settings language listing uses static metadata without loading heavy modules', () => {
 	const settingsTab = read('packages/obsidian/src/settings/SettingsTab.ts');
-	const lazyRuntime = read('packages/obsidian/src/monaco/LazyMonacoRuntime.ts');
+	const highlighter = read('packages/obsidian/src/ShikiHighlighter.ts');
 	const languageMetadata = read('packages/obsidian/src/runtime/LanguageMetadata.ts');
 
 	expect(settingsTab).toContain('obsidianSafeLanguageNames');
@@ -216,28 +123,13 @@ test('settings language listing uses static metadata without loading modern Mona
 	expect(settingsTab).not.toContain('loadModernMonacoRuntime');
 	expect(settingsTab).not.toContain('modern-monaco');
 
-	const methodStart = lazyRuntime.indexOf('async obsidianSafeLanguageNames()');
+	const methodStart = highlighter.indexOf('obsidianSafeLanguageNames()');
 	expect(methodStart).toBeGreaterThanOrEqual(0);
-	const methodEnd = lazyRuntime.indexOf('resolveLanguageAlias', methodStart);
-	const methodSource = lazyRuntime.slice(methodStart, methodEnd);
-	expect(methodSource).toContain('getObsidianSafeLanguageNames()');
-	expect(methodSource).not.toContain('import(');
-	expect(methodSource).not.toContain('ModernMonacoLoader');
-	expect(methodSource).not.toContain('loadModernMonacoRuntime');
+	expect(highlighter).toContain('getObsidianSafeLanguageNames()');
+	expect(highlighter).not.toContain('ModernMonacoLoader');
+	expect(highlighter).not.toContain('loadModernMonacoRuntime');
 	expect(languageMetadata).toContain('getObsidianSafeLanguageNames');
 	expect(languageMetadata).toContain('LANGUAGE_METADATA');
-});
-
-test('Monaco edit verifier uses Obsidian editor scroller API for outside note scroll', () => {
-	const source = read('tests/runtime/obsidian-monaco-edit.mjs');
-
-	expect(source).toContain('async function readObsidianNoteScrollState');
-	expect(source).toContain('async function scrollObsidianNoteByApi');
-	expect(source).toContain('app.workspace.activeEditor?.editor');
-	expect(source).toContain('cm?.scrollDOM');
-	expect(source).toContain('Obsidian editor scroller API did not scroll the note');
-	expect(source).not.toContain('readOutsideNoteWheelPoint');
-	expect(source).not.toContain('vertical wheel outside Monaco did not scroll the Obsidian note');
 });
 
 test('real Obsidian verifier bounds CDP evaluation waits', () => {
@@ -255,38 +147,7 @@ test('real Obsidian verifier bounds CDP evaluation waits', () => {
 	expect(evaluateSource).not.toContain('pending.set(id');
 });
 
-test('Monaco gesture routing uses explicit horizontal intent and Obsidian note scrollers', () => {
-	const router = read('packages/obsidian/src/monaco/MonacoGestureRouter.ts');
-	const surface = read('packages/obsidian/src/monaco/MonacoCodeBlockSurface.ts');
-	const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-	const readingView = read('packages/obsidian/src/modes/ReadingViewAdapter.ts');
-
-	expect(router).toContain('const isHorizontalIntent = event.shiftKey ? horizontalDelta !== 0 : Math.abs(horizontalDelta) > Math.abs(event.deltaY);');
-	expect(router).toContain('if (!isHorizontalIntent)');
-	expect(surface).toContain('setNoteScrollerProvider(noteScrollerProvider: (() => HTMLElement | null) | undefined): void');
-	expect(surface).toContain('this.noteScrollerProvider?.() ??');
-	expect(livePreview).toContain('surface.setNoteScrollerProvider(() => this.getNoteScroller());');
-	expect(livePreview).toContain('private getNoteScroller(): HTMLElement | null');
-	expect(livePreview).toContain('surface.hostEl.onclick = (event): void => {');
-	expect(livePreview).toContain('void this.activateBlock(block.id, { clientX: event.clientX, clientY: event.clientY });');
-	expect(livePreview).toContain('surface.hostEl.ontouchend = (event): void => {');
-	expect(livePreview).toContain('widget: new LivePreviewMonacoWidget(block.id),');
-	expect(livePreview).toContain('surface.attach(widget);');
-	expect(livePreview).toContain("line.classList.toggle('shiki-editing-codeblock-line-hidden', hidden);");
-	expect(livePreview).toContain('this.rebuildBlocks();');
-	expect(livePreview).toContain("window.addEventListener('resize', this.handleViewportModeChange);");
-	expect(livePreview).toContain("window.removeEventListener('resize', this.handleViewportModeChange);");
-	expect(readingView).toContain('surface.setNoteScrollerProvider(');
-	expect(readingView).toContain("container.closest<HTMLElement>('.markdown-preview-view, .view-content')");
-
-	const styles = read('packages/obsidian/src/styles.css');
-	expect(styles).toContain('-webkit-text-fill-color: transparent !important;');
-	expect(styles).toContain('touch-action: none;');
-	expect(styles).toContain('body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .shiki-monaco-codeblock');
-	expect(styles).toContain('overscroll-behavior-x: contain;');
-});
-
-test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
+test('Live Preview refreshes Shiki widgets when editor mode toggles', () => {
 	const cm6 = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
 	const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
 
@@ -294,7 +155,6 @@ test('Live Preview refreshes Monaco surfaces when editor mode toggles', () => {
 	expect(livePreview).toContain('private readonly handleModeClassChange = (): void => {');
 	expect(livePreview).toContain('if (isLivePreview === this.lastRootLivePreviewClass)');
 	expect(livePreview).toContain('this.rebuildBlocks();');
-	expect(livePreview).toContain('this.scheduleSync(0);');
 	expect(livePreview).toContain('private readonly modeClassObserver: MutationObserver;');
 	expect(livePreview).toContain('new MutationObserver(this.handleModeClassChange)');
 	expect(livePreview).toContain('this.modeClassObserver.disconnect();');
@@ -320,4 +180,24 @@ test('plugin refreshes editor integration after workspace mode/layout changes', 
 	expect(main).toContain('const startEditorIntegrationSettle = (): void =>');
 	expect(main).toContain('attempts >= 12');
 	expect(main).toContain('this.registerInterval(interval);');
+});
+
+test('ShikiHighlighter does not depend on Monaco runtime', () => {
+	const highlighter = read('packages/obsidian/src/ShikiHighlighter.ts');
+	expect(highlighter).not.toContain('monaco');
+	expect(highlighter).not.toContain('Monaco');
+	expect(highlighter).not.toContain('modern-monaco');
+	expect(highlighter).toContain('createHighlighter');
+	expect(highlighter).toContain('codeToTokens');
+});
+
+test('styles contain Shiki block styles and no Monaco styles', () => {
+	const styles = read('packages/obsidian/src/styles.css');
+	expect(styles).toContain('.shiki-live-preview-block');
+	expect(styles).toContain('.shiki-reading-block');
+	expect(styles).toContain('.shiki-block-header');
+	expect(styles).not.toContain('.shiki-monaco-block');
+	expect(styles).not.toContain('.shiki-monaco-editor');
+	expect(styles).not.toContain('.shiki-monaco-live-widget');
+	expect(styles).not.toContain('.shiki-monaco-codeblock');
 });
