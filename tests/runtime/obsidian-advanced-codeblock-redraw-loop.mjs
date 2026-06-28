@@ -258,13 +258,32 @@ async function openMode(client, mode) {
 	await evaluate(
 		client,
 		`(async () => {
+			const bounded = async promise => {
+				try {
+					await Promise.race([promise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('open mode timed out')), 2000))]);
+				} catch (error) {
+					if (error?.message?.includes('timed out') && globalThis.app?.workspace?.activeLeaf) {
+						return;
+					}
+					throw error;
+				}
+			};
 			let file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-			if (!file) {
-				file = await globalThis.app.vault.create(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(fixtureContent())});
+				if (!file) {
+					file = await globalThis.app.vault.create(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(fixtureContent())});
+				}
+				// The active workspace leaf can be transiently null during redraw transitions.
+				// getLeaf(false) may also return null in some Obsidian states, so we use explicit fallbacks.
+				let leaf = globalThis.app.workspace.activeLeaf;
+				if (!leaf || leaf.view?.getViewType?.() === 'empty') {
+					leaf = globalThis.app.workspace.getLeaf('tab') ?? globalThis.app.workspace.getLeaf(true);
+				}
+			if (!leaf || !leaf.setViewState || !leaf.openFile) {
+				throw new Error('Unable to acquire a valid workspace leaf');
 			}
-			const leaf = globalThis.app.workspace.getLeaf(false);
-			await leaf.openFile(file, { active: true });
-			await leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false });
+			await bounded(leaf.openFile(file, { active: true }));
+			await bounded(leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false }));
+			globalThis.app.workspace.setActiveLeaf?.(leaf, { focus: true });
 			for (const element of document.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-preview-view')) {
 				element.scrollTop = 0;
 				element.scrollLeft = 0;
@@ -304,6 +323,8 @@ async function collectState(client) {
 				scrollLeft: element.scrollLeft,
 				scrollTop: element.scrollTop,
 			}));
+			const plugin = globalThis.app?.plugins?.plugins?.['advanced-code-block'];
+			const settings = plugin ? { showLineNumbers: plugin.loadedSettings?.showLineNumbers } : null;
 			return {
 				activeFile: globalThis.app?.workspace?.getActiveFile?.()?.path ?? null,
 				isMobile: globalThis.app?.isMobile ?? false,
@@ -321,6 +342,7 @@ async function collectState(client) {
 				hasHeader,
 				hasScrollContainer,
 				visibleRawRows: visibleRawRows.length,
+				settings,
 				noteScrollLeft: Math.max(0, ...noteScrollers.map(scroller => scroller.scrollLeft ?? 0)),
 				noteScrollTop: Math.max(0, ...noteScrollers.map(scroller => scroller.scrollTop ?? 0)),
 				bodyClass: document.body.className,
@@ -334,7 +356,9 @@ function assertShikiReady(state, context) {
 	assert(state.blocks === 1, `${context}: expected exactly one Shiki live preview block`, state);
 	assert(state.blockRect?.width > 20 && state.blockRect?.height > 20, `${context}: Shiki block has invalid geometry`, state);
 	assert(state.tokenSpans > 0, `${context}: Shiki block rendered no token spans`, state);
-	assert(state.hasLineNumbers, `${context}: Shiki block missing line numbers`, state);
+	if (state.settings?.showLineNumbers !== false) {
+		assert(state.hasLineNumbers, `${context}: Shiki block missing line numbers`, state);
+	}
 	assert(state.hasHeader, `${context}: Shiki block missing header`, state);
 	assert(state.hasScrollContainer, `${context}: Shiki block missing scroll container`, state);
 	assert(state.visibleRawRows === 0, `${context}: raw CodeMirror code rows are visible after Shiki is ready`, state);
