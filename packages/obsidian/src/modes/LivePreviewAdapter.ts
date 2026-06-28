@@ -1,4 +1,5 @@
 import { Decoration, WidgetType, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
+import type { MarkdownView } from 'obsidian';
 import { RangeSetBuilder } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
@@ -9,75 +10,85 @@ const LIVE_PREVIEW_ADAPTER_OWNER = '__shikiLivePreviewAdapterOwner';
 type LivePreviewOwnerElement = HTMLElement & { [LIVE_PREVIEW_ADAPTER_OWNER]?: LivePreviewAdapter };
 
 class ShikiLivePreviewWidget extends WidgetType {
+	private readonly showLineNumbers: boolean;
+	private readonly wrapLines: boolean;
+
 	constructor(
 		private readonly block: CodeBlockModel,
 		private readonly plugin: ShikiPlugin,
 	) {
 		super();
+		this.showLineNumbers = this.plugin.loadedSettings.showLineNumbers;
+		this.wrapLines = this.plugin.loadedSettings.wrapLines;
 	}
 
 	eq(other: ShikiLivePreviewWidget): boolean {
-		return other.block.id === this.block.id;
+		return (
+			other.block.id === this.block.id &&
+			other.showLineNumbers === this.showLineNumbers &&
+			other.wrapLines === this.wrapLines
+		);
 	}
 
-		toDOM(): HTMLElement {
-			const container = document.createElement('div');
-			container.className = 'shiki-live-preview-block';
-			container.dataset.shikiBlockId = this.block.id;
-			container.dataset.lang = this.block.language;
+	toDOM(): HTMLElement {
+		const container = document.createElement('div');
+		container.className = 'shiki-live-preview-block';
+		container.dataset.shikiBlockId = this.block.id;
+		container.dataset.lang = this.block.language;
 
-			if (this.plugin.loadedSettings.wrapLines) {
-				container.classList.add('wrap-lines');
-			}
-
-			// Click to focus editor at code block start
-			container.addEventListener('click', (e) => {
-				if ((e.target as HTMLElement).closest('.shiki-copy-button')) {
-					return;
-				}
-				const leaf = this.plugin.app.workspace.activeLeaf;
-				const view = leaf?.view;
-				if (view && (view as any).editor) {
-					(view as any).editor.focus();
-					if (this.block.codeFrom !== undefined) {
-						(view as any).editor.setCursor((view as any).editor.offsetToPos(this.block.codeFrom));
-					}
-				}
-			});
-
-			// Header
-			const header = container.createDiv({ cls: 'shiki-block-header' });
-			const left = header.createDiv({ cls: 'shiki-header-left' });
-			left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
-			const right = header.createDiv({ cls: 'shiki-header-right' });
-			const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
-			copyBtn.onclick = (e): void => {
-				e.stopPropagation();
-				navigator.clipboard.writeText(this.block.code).catch(() => {});
-			};
-
-			// Body
-			const body = container.createDiv({ cls: 'shiki-block-body' });
-			const scrollContainer = body.createDiv({ cls: 'shiki-code-scroll' });
-			scrollContainer.style.overflowX = 'auto';
-			const pre = scrollContainer.createEl('pre');
-			pre.style.margin = '0';
-			const codeEl = pre.createEl('code');
-
-			if (this.plugin.loadedSettings.wrapLines) {
-				pre.style.whiteSpace = 'pre-wrap';
-				codeEl.style.whiteSpace = 'pre-wrap';
-				codeEl.style.wordBreak = 'break-word';
-			} else {
-				pre.style.whiteSpace = 'pre';
-				codeEl.style.whiteSpace = 'pre';
-			}
-
-			// Render tokens asynchronously (with line numbers)
-			void this.renderTokens(codeEl, body);
-
-			return container;
+		if (this.plugin.loadedSettings.wrapLines) {
+			container.classList.add('wrap-lines');
 		}
+
+		// Click to focus editor at code block start
+		container.addEventListener('click', e => {
+			if ((e.target as HTMLElement).closest('.shiki-copy-button')) {
+				return;
+			}
+			const leaf = this.plugin.app.workspace.activeLeaf;
+			const view = leaf?.view;
+			if (view && 'editor' in view) {
+				const mdView = view as MarkdownView;
+				mdView.editor.focus();
+				if (this.block.codeFrom !== undefined) {
+					mdView.editor.setCursor(mdView.editor.offsetToPos(this.block.codeFrom));
+				}
+			}
+		});
+
+		// Header
+		const header = container.createDiv({ cls: 'shiki-block-header' });
+		const left = header.createDiv({ cls: 'shiki-header-left' });
+		left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
+		const right = header.createDiv({ cls: 'shiki-header-right' });
+		const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
+		copyBtn.onclick = (e): void => {
+			e.stopPropagation();
+			navigator.clipboard.writeText(this.block.code).catch(() => {});
+		};
+
+		// Body
+		const body = container.createDiv({ cls: 'shiki-block-body' });
+		const scrollContainer = body.createDiv({ cls: 'shiki-code-scroll' });
+		scrollContainer.style.overflowX = 'auto';
+		const pre = scrollContainer.createEl('pre');
+		pre.style.margin = '0';
+		const codeEl = pre.createEl('code');
+
+		if (this.plugin.loadedSettings.wrapLines) {
+			pre.style.whiteSpace = 'pre-wrap';
+			codeEl.style.whiteSpace = 'pre-wrap';
+			codeEl.style.wordBreak = 'break-word';
+		} else {
+			pre.style.whiteSpace = 'pre';
+			codeEl.style.whiteSpace = 'pre';
+		}
+
+		// Render tokens asynchronously (with line numbers)
+		void this.renderTokens(codeEl, body);
+
+		return container;
+	}
 
 	private async renderTokens(codeEl: HTMLElement, bodyEl: HTMLElement): Promise<void> {
 		const highlight = await this.plugin.highlighter.getHighlightTokens(this.block.code, this.block.language);
@@ -87,6 +98,13 @@ class ShikiLivePreviewWidget extends WidgetType {
 		}
 
 		const lines = this.block.code.split('\n');
+
+		for (const lineNumbers of [...bodyEl.querySelectorAll('.shiki-line-numbers')]) {
+			lineNumbers.remove();
+		}
+		if (!this.plugin.loadedSettings.showLineNumbers) {
+			bodyEl.style.display = '';
+		}
 
 		// Add line numbers if enabled
 		if (this.plugin.loadedSettings.showLineNumbers) {
@@ -138,6 +156,8 @@ export class LivePreviewAdapter {
 	private livePreviewActive = false;
 	private lastRootLivePreviewClass = false;
 
+	private readonly gutterObserver: MutationObserver;
+
 	constructor(plugin: ShikiPlugin, view: EditorView, requestDecorationRefresh: () => void) {
 		this.plugin = plugin;
 		this.view = view;
@@ -146,6 +166,11 @@ export class LivePreviewAdapter {
 		this.lastRootLivePreviewClass = sourceViewRoot.classList.contains('is-live-preview');
 		this.modeClassObserver = new MutationObserver(this.handleModeClassChange);
 		this.modeClassObserver.observe(sourceViewRoot, { attributes: true, attributeFilter: ['class'] });
+		this.gutterObserver = new MutationObserver(() => this.syncGutterVisibility());
+		const gutterEl = this.view.dom.querySelector('.cm-lineNumbers');
+		if (gutterEl) {
+			this.gutterObserver.observe(gutterEl, { childList: true, subtree: true, attributes: true });
+		}
 		if (this.plugin.isCurrentInstance()) {
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
@@ -204,6 +229,7 @@ export class LivePreviewAdapter {
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
+		this.gutterObserver.disconnect();
 		this.clearLivePreviewState();
 	}
 
@@ -277,6 +303,36 @@ export class LivePreviewAdapter {
 		this.decorations = builder.finish();
 	}
 
+	public syncGutterVisibility(): void {
+		const lines = this.view.dom.querySelectorAll('.cm-line');
+		const gutters = this.view.dom.querySelectorAll('.cm-lineNumbers .cm-gutterElement');
+		// Find offset: first gutter element might not be a line number (e.g., fold indicator "99")
+		let gutterOffset = 0;
+		for (let i = 0; i < gutters.length; i++) {
+			const text = gutters[i].textContent?.trim() || '';
+			if (text === '1') {
+				gutterOffset = i;
+				break;
+			}
+		}
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const gutter = gutters[gutterOffset + i];
+			if (!gutter) continue;
+			if (line.classList.contains('shiki-editing-codeblock-line') || line.classList.contains('shiki-editing-codeblock-closing-fence')) {
+				(gutter as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
+				(gutter as HTMLElement).style.setProperty('height', '0px', 'important');
+				(gutter as HTMLElement).style.setProperty('line-height', '0px', 'important');
+				(gutter as HTMLElement).style.setProperty('font-size', '0px', 'important');
+			} else {
+				(gutter as HTMLElement).style.setProperty('visibility', '');
+				(gutter as HTMLElement).style.setProperty('height', '');
+				(gutter as HTMLElement).style.setProperty('line-height', '');
+				(gutter as HTMLElement).style.setProperty('font-size', '');
+			}
+		}
+	}
+
 	private collectLines(): CodeBlockLineInfo[] {
 		const lines: CodeBlockLineInfo[] = [];
 		for (let lineNumber = 1; lineNumber <= this.view.state.doc.lines; lineNumber++) {
@@ -290,6 +346,7 @@ export class LivePreviewAdapter {
 		this.livePreviewActive = false;
 		this.decorations = Decoration.none;
 		this.blocks = [];
+		window.requestAnimationFrame(() => this.syncGutterVisibility());
 	}
 
 	private getSourceViewRoot(): HTMLElement {

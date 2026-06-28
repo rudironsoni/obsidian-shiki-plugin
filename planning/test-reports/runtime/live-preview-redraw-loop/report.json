@@ -1,0 +1,3214 @@
+{
+  "checks": [
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "desktop-1200x900",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": false,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 438,
+          "top": 390.328125,
+          "width": 684,
+          "height": 333,
+          "bottom": 723.328125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 1,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 2,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 3,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 4,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": false
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 5,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 6,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 7,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 8,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 9,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": false,
+        "lineNumbers": true
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 10,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 11,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 12,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 13,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 14,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": false
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 15,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": false,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": false
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 1,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 16,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 2,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 17,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 3,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 18,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 4,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 19,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    },
+    {
+      "viewport": "mobile-390x844",
+      "settings": {
+        "wrap": true,
+        "lineNumbers": true
+      },
+      "iteration": 5,
+      "sourceState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "readingState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      },
+      "stableState": {
+        "activeFile": "codex-live-preview-redraw-loop.md",
+        "isMobile": true,
+        "blocks": 1,
+        "blockId": 20,
+        "blockRect": {
+          "left": 40,
+          "top": 594.125,
+          "width": 326,
+          "height": 347,
+          "bottom": 941.125
+        },
+        "tokenSpans": 96,
+        "hasLineNumbers": true,
+        "hasHeader": true,
+        "hasScrollContainer": true,
+        "visibleRawRows": 0,
+        "settings": {
+          "showLineNumbers": true
+        },
+        "noteScrollLeft": 0,
+        "noteScrollTop": 0,
+        "bodyClass": "mod-macos is-frameless is-hidden-frameless is-focused obsidian-app emulate-mobile is-phone is-mobile theme-light show-inline-title is-floating-nav auto-full-screen show-ribbon show-view-header shiki-use-editor-font-size"
+      }
+    }
+  ],
+  "screenshots": [
+    "planning/test-reports/runtime/live-preview-redraw-loop/desktop-1200x900-wrap-off-lines-off.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/desktop-1200x900-wrap-off-lines-on.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/desktop-1200x900-wrap-on-lines-off.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/desktop-1200x900-wrap-on-lines-on.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/mobile-390x844-wrap-off-lines-off.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/mobile-390x844-wrap-off-lines-on.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/mobile-390x844-wrap-on-lines-off.png",
+    "planning/test-reports/runtime/live-preview-redraw-loop/mobile-390x844-wrap-on-lines-on.png"
+  ]
+}

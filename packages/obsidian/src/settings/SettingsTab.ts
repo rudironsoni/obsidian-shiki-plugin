@@ -56,7 +56,9 @@ export class ShikiSettingsTab extends PluginSettingTab {
 
 		new Setting(this.containerEl)
 			.setName('Use editor font size')
-			.setDesc('When enabled, code blocks in Live Preview and Reading mode use the same font size as the editor. When disabled, they use Obsidian\'s smaller code block font size.')
+			.setDesc(
+				"When enabled, code blocks in Live Preview and Reading mode use the same font size as the editor. When disabled, they use Obsidian's smaller code block font size.",
+			)
 			.addToggle(toggle => {
 				toggle.setValue(this.plugin.settings.useEditorFontSize).onChange(async value => {
 					this.plugin.settings.useEditorFontSize = value;
@@ -136,7 +138,7 @@ export class ShikiSettingsTab extends PluginSettingTab {
 			.addButton(button => {
 				button.setButtonText('Add Language Rule').onClick(async () => {
 					button.setDisabled(true);
-					const languages = await this.plugin.highlighter.obsidianSafeLanguageNames();
+					const languages = this.plugin.highlighter.obsidianSafeLanguageNames();
 					button.setDisabled(false);
 
 					const modal = new StringSelectModal(this.plugin, languages, language => {

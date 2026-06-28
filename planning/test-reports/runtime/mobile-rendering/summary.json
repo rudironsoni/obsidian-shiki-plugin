@@ -1,0 +1,506 @@
+[
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-off-reading.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 387
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-off-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 440
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-off-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-on-reading.png",
+    "render": {
+      "blocks": 3,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 476
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-on-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 440
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-off-lines-on-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-off-reading.png",
+    "render": {
+      "blocks": 5,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 0,
+      "verticalNoteScrollTop": 437
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-off-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 440
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-off-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-on-reading.png",
+    "render": {
+      "blocks": 5,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 0,
+      "verticalNoteScrollTop": 537
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-on-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 440
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "iphone-390x844",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/iphone-390x844-wrap-on-lines-on-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-off-reading.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 308
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-off-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 361
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": false
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-off-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-on-reading.png",
+    "render": {
+      "blocks": 3,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 397
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-on-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 361
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": false,
+      "lineNumbers": true
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-off-lines-on-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-off-reading.png",
+    "render": {
+      "blocks": 5,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 0,
+      "verticalNoteScrollTop": 308
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-off-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 361
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": false
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-off-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "reading",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-on-reading.png",
+    "render": {
+      "blocks": 5,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 0,
+      "verticalNoteScrollTop": 317
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "live-preview",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-on-live-preview.png",
+    "render": {
+      "blocks": 1,
+      "tokens": 226,
+      "textLength": 1660,
+      "lineNumbers": 1,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": {
+      "horizontalCodeScrollLeft": 165,
+      "verticalNoteScrollTop": 361
+    },
+    "flickerSamples": 8
+  },
+  {
+    "viewport": "phone-430x932",
+    "settings": {
+      "wrap": true,
+      "lineNumbers": true
+    },
+    "mode": "source",
+    "screenshot": "planning/test-reports/runtime/mobile-rendering/phone-430x932-wrap-on-lines-on-source.png",
+    "render": {
+      "blocks": 0,
+      "tokens": 0,
+      "textLength": 0,
+      "lineNumbers": 0,
+      "visibleCmCodeLines": 0,
+      "bodyOverflow": 0
+    },
+    "scroll": null,
+    "flickerSamples": 0
+  }
+]

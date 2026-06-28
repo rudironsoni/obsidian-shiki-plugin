@@ -84,9 +84,11 @@ export class ReadingViewAdapter {
 		}
 
 		const wrapper = container.parentElement ?? container;
+		const alreadyEnhanced = !!wrapper.querySelector(':scope > .shiki-block-header');
 
 		// Guard: already enhanced (header is a direct child of wrapper, not container)
-		if (wrapper.querySelector(':scope > .shiki-block-header')) {
+		if (alreadyEnhanced) {
+			void this.applyShikiHighlight(state, codeElement);
 			return;
 		}
 
@@ -107,15 +109,15 @@ export class ReadingViewAdapter {
 
 		const scroll = wrapper.createDiv({ cls: 'shiki-code-scroll' });
 		scroll.style.overflowX = 'auto';
-		(pre as HTMLElement).remove();
+		pre.remove();
 		scroll.appendChild(pre);
 
 		if (!this.plugin.loadedSettings.wrapLines) {
-			(pre as HTMLElement).style.whiteSpace = 'pre';
-			(codeElement as HTMLElement).style.whiteSpace = 'pre';
+			pre.style.whiteSpace = 'pre';
+			codeElement.style.whiteSpace = 'pre';
 		}
 
-		void this.applyShikiHighlight(state, codeElement as HTMLElement);
+		void this.applyShikiHighlight(state, codeElement);
 	}
 
 	private async applyShikiHighlight(state: ReadingBlockState, codeElement: HTMLElement): Promise<void> {
@@ -151,8 +153,19 @@ export class ReadingViewAdapter {
 		}
 
 		// Add line numbers if enabled
+		const blockRoot = codeElement.closest<HTMLElement>('.shiki-reading-block');
+		if (blockRoot) {
+			for (const lineNumbers of [...blockRoot.querySelectorAll('.shiki-line-numbers')]) {
+				lineNumbers.remove();
+			}
+		}
+		const scrollContainer = codeElement.closest<HTMLElement>('.shiki-code-scroll');
+		if (scrollContainer) {
+			if (!this.plugin.loadedSettings.showLineNumbers) {
+				scrollContainer.style.display = '';
+			}
+		}
 		if (this.plugin.loadedSettings.showLineNumbers) {
-			const scrollContainer = codeElement.closest<HTMLElement>('.shiki-code-scroll');
 			if (scrollContainer && !scrollContainer.querySelector('.shiki-line-numbers')) {
 				scrollContainer.style.display = 'flex';
 				const lineNumbers = document.createElement('div');

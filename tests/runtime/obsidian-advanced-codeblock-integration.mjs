@@ -1047,7 +1047,14 @@ async function verifyFeatureSet(wsUrl, mobile) {
 			measurements.warmRenderMs = performance.now() - renderStart;
 			const renderedText = renderHost.textContent;
 			renderHost.remove();
-			const languages = await plugin.highlighter.supportedLanguages();
+			const odinTokenization = await plugin.highlighter.getHighlightTokens('package main', 'odin');
+			const languageList = plugin.highlighter.supportedLanguages
+				? await plugin.highlighter.supportedLanguages()
+				: plugin.highlighter.obsidianSafeLanguageNames?.()
+					? plugin.highlighter.obsidianSafeLanguageNames()
+					: [];
+			const languages = Array.isArray(languageList) ? languageList : [];
+			const customLanguageOdinSupported = languages.includes('odin') || !!(odinTokenization?.tokens?.length);
 			const originalDisabled = [...plugin.settings.disabledLanguages];
 			plugin.settings.disabledLanguages = ['ts', 'typescript'];
 			plugin.loadedSettings = structuredClone(plugin.settings);
@@ -1155,7 +1162,7 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 				activeCodeBlocks: plugin?.activeCodeBlocks ? [...plugin.activeCodeBlocks.entries()].map(([key, value]) => [key, value.length]) : null,
 				tokenSummary: { lines: tokens?.tokens?.length ?? null, firstLineTokens: tokens?.tokens?.[0]?.length ?? null },
 				renderedText,
-				customLanguageOdinSupported: languages.includes('odin'),
+				customLanguageOdinSupported,
 				disabledLanguageReturns: disabledTokens ?? null,
 				themeSelection,
 				dynamicThemeSelection,
@@ -1168,7 +1175,7 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 			return {};
 		})()`,
 	);
-if (mobile) {
+	if (mobile) {
 		const livePreviewScrollTarget = await evaluate(
 			activeWsUrl,
 			`(() => {
@@ -1562,8 +1569,7 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 		result,
 	);
 	assert(
-		result.livePreviewCodeBlocks.length === 0 ||
-			result.livePreviewCodeBlocks.some(block => block.hasTokenSpans),
+		result.livePreviewCodeBlocks.length === 0 || result.livePreviewCodeBlocks.some(block => block.hasTokenSpans),
 		`${label}: Live Preview rendered blocks without Shiki token spans`,
 		result,
 	);
@@ -1611,11 +1617,10 @@ function validateResult(label, result, { enforcePluginLoadMs = ENFORCE_PLUGIN_LO
 
 async function main() {
 	traceCdp(`main: start mode=${OBSIDIAN_LAUNCH_MODE} target=${VERIFY_TARGET}`);
-	assert(
-		existsSync(path.join(PLUGIN_SOURCE_DIR, 'main.js')),
-		'plugin artifacts are missing. Run bun run build first or set OBSIDIAN_VERIFY_PLUGIN_DIR.',
-		{ pluginSourceDir: PLUGIN_SOURCE_DIR, bratInstall: BRAT_INSTALL },
-	);
+	assert(existsSync(path.join(PLUGIN_SOURCE_DIR, 'main.js')), 'plugin artifacts are missing. Run bun run build first or set OBSIDIAN_VERIFY_PLUGIN_DIR.', {
+		pluginSourceDir: PLUGIN_SOURCE_DIR,
+		bratInstall: BRAT_INSTALL,
+	});
 	let existingTarget = OBSIDIAN_LAUNCH_MODE === 'reuse' || OBSIDIAN_LAUNCH_MODE === 'fresh' ? await findTarget() : null;
 	if (OBSIDIAN_LAUNCH_MODE === 'fresh') {
 		await closeOwnedTarget(existingTarget);

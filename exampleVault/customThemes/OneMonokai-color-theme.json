@@ -1,0 +1,17 @@
+{
+  "name": "OneMonokai",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#272822",
+    "editor.foreground": "#f8f8f2"
+  },
+  "tokenColors": [
+    {
+      "name": "Function",
+      "scope": ["entity.name.function"],
+      "settings": {
+        "foreground": "#66d9ef"
+      }
+    }
+  ]
+}

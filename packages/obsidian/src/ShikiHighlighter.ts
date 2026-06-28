@@ -1,6 +1,7 @@
 import { createHighlighter, type Highlighter, type TokensResult, type ThemedToken } from 'shiki';
 import { getConfiguredThemes } from 'packages/obsidian/src/runtime/ThemeBridge';
 import type ShikiPlugin from 'packages/obsidian/src/main';
+import { getObsidianSafeLanguageNames, resolveLanguageAliasFromMetadata } from 'packages/obsidian/src/runtime/LanguageMetadata';
 
 export class ShikiHighlighter {
 	private highlighter: Highlighter | undefined;
@@ -30,14 +31,15 @@ export class ShikiHighlighter {
 	}
 
 	obsidianSafeLanguageNames(): string[] {
-		// Import dynamically to avoid loading Shiki langs eagerly
-		const { getObsidianSafeLanguageNames } = require('packages/obsidian/src/runtime/LanguageMetadata');
 		return getObsidianSafeLanguageNames();
 	}
 
 	resolveLanguageAlias(lang: string): string | undefined {
-		const { resolveLanguageAliasFromMetadata } = require('packages/obsidian/src/runtime/LanguageMetadata');
 		return resolveLanguageAliasFromMetadata(lang);
+	}
+
+	supportedLanguages(): string[] {
+		return this.obsidianSafeLanguageNames();
 	}
 
 	async ensureLanguage(lang: string): Promise<void> {
@@ -71,6 +73,10 @@ export class ShikiHighlighter {
 		} catch {
 			return undefined;
 		}
+	}
+
+	async render(code: string, lang: string, container: HTMLElement, meta = ''): Promise<void> {
+		return this.renderWithShiki(code, lang, meta, container);
 	}
 
 	async renderWithShiki(code: string, lang: string, meta: string, container: HTMLElement): Promise<void> {

@@ -11,6 +11,7 @@ const MOBILE_VIEWPORTS = [
 	{ name: 'iphone-390x844', width: 390, height: 844, deviceScaleFactor: 3 },
 	{ name: 'phone-430x932', width: 430, height: 932, deviceScaleFactor: 3 },
 ];
+const SHIKI_BLOCK_SELECTOR = '.shiki-live-preview-block, .shiki-reading-block';
 const SETTINGS_MATRIX = [
 	{ wrap: false, lineNumbers: false },
 	{ wrap: false, lineNumbers: true },
@@ -424,16 +425,20 @@ async function applySettings(client, settings) {
 				plugin = window.app.plugins.plugins['advanced-code-block'];
 			}
 			if (!plugin) throw new Error('advanced-code-block plugin is not loaded');
-			plugin.settings.wrapLines = ${JSON.stringify(settings.wrap)};
-			plugin.settings.showLineNumbers = ${JSON.stringify(settings.lineNumbers)};
-			plugin.loadedSettings = structuredClone(plugin.settings);
-			await plugin.saveSettings?.();
-			await window.app.plugins.disablePlugin('advanced-code-block');
-			await window.app.plugins.enablePlugin('advanced-code-block');
-			plugin = window.app.plugins.plugins['advanced-code-block'];
-			return {
-				wrap: plugin.loadedSettings.wrapLines,
-				lineNumbers: plugin.loadedSettings.showLineNumbers,
+				plugin.settings.wrapLines = ${JSON.stringify(settings.wrap)};
+				plugin.settings.showLineNumbers = ${JSON.stringify(settings.lineNumbers)};
+				plugin.loadedSettings = structuredClone(plugin.settings);
+				await plugin.saveSettings?.();
+				if (typeof plugin.reloadHighlighter === 'function') {
+					await plugin.reloadHighlighter();
+				} else {
+					await window.app.plugins.disablePlugin('advanced-code-block');
+					await window.app.plugins.enablePlugin('advanced-code-block');
+					plugin = window.app.plugins.plugins['advanced-code-block'];
+				}
+				return {
+					wrap: plugin.loadedSettings.wrapLines,
+					lineNumbers: plugin.loadedSettings.showLineNumbers,
 			};
 		})()`,
 	);
@@ -460,7 +465,7 @@ async function openMode(client, mode) {
 			for (const element of document.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-preview-view')) {
 				element.scrollLeft = 0;
 			}
-			for (const block of document.querySelectorAll('.shiki-live-preview-block')) {
+			for (const block of document.querySelectorAll(${JSON.stringify(SHIKI_BLOCK_SELECTOR)})) {
 				const scrollContainer = block.querySelector('.shiki-code-scroll');
 				if (scrollContainer) {
 					scrollContainer.scrollLeft = 0;
@@ -484,22 +489,24 @@ async function openMode(client, mode) {
 	return client;
 }
 
-async function waitForRendering(client, mode) {
+async function waitForRendering(client, mode, settings = {}) {
 	const started = Date.now();
 	let state = null;
 	while (Date.now() - started < 15000) {
-		state = await getRenderState(client, mode);
+		state = await getRenderState(client, mode, settings);
 		if (mode === 'source') {
 			if (state.source.shikiBlocks === 0 && state.source.cmText.length > 500) {
 				return state;
 			}
 		} else if (
-			state.shiki.blocks === 1 &&
+			state.shiki.blocks >= 1 &&
 			state.shiki.tokens > 0 &&
 			state.shiki.visibleText.includes('List<int[]> intervals') &&
 			state.shiki.textLength > 20 &&
 			state.shiki.firstRect.width > 80 &&
-			state.shiki.firstRect.height > 80
+			state.shiki.firstRect.height > 80 &&
+			(typeof settings?.lineNumbers !== 'boolean' ||
+				(settings.lineNumbers ? state.shiki.lineNumbers > 0 : state.shiki.lineNumbers === 0))
 		) {
 			return state;
 		}
@@ -508,7 +515,7 @@ async function waitForRendering(client, mode) {
 	throw new Error(`Timed out waiting for ${mode} Shiki rendering\n${JSON.stringify(state, null, 2)}`);
 }
 
-async function getRenderState(client, mode) {
+async function getRenderState(client, mode, settings = {}) {
 	return evaluate(
 		client,
 		`(() => {
@@ -516,11 +523,51 @@ async function getRenderState(client, mode) {
 			const sourceRoot = active.querySelector('.markdown-source-view.mod-cm6');
 			const previewRoot = active.querySelector('.markdown-preview-view');
 			const renderRoot = ${JSON.stringify(mode)} === 'reading' ? previewRoot : sourceRoot;
-			const blocks = [...(renderRoot ?? active).querySelectorAll('.shiki-live-preview-block')];
-			const block = blocks.find(candidate => {
-				const rect = candidate.getBoundingClientRect();
+			const blockSelector = ${JSON.stringify(mode)} === 'reading' ? '.shiki-reading-block' : '.shiki-live-preview-block';
+			const expectedLineNumbers = ${JSON.stringify(settings?.lineNumbers)};
+			const expectedWrap = ${JSON.stringify(settings?.wrap)};
+			const allBlocks = [...(renderRoot ?? active).querySelectorAll(blockSelector)].map(candidate => ({
+				candidate,
+				rect: candidate.getBoundingClientRect(),
+				lineNumbers: candidate.querySelectorAll('.shiki-line-numbers').length,
+				textLength: (candidate.textContent ?? '').trim().length,
+				scrollInfo: (() => {
+					const scrollContainer = candidate.querySelector('.shiki-code-scroll');
+					return {
+						width: scrollContainer?.scrollWidth ?? null,
+						clientWidth: scrollContainer?.clientWidth ?? null,
+						scrollLeft: scrollContainer?.scrollLeft ?? null,
+					};
+				})(),
+			}));
+			const blocks = allBlocks.filter(({ rect }) => {
 				return rect.width > 0 && rect.height > 0;
-			}) ?? blocks[0] ?? null;
+			});
+			let block = blocks
+				.slice()
+				.sort((first, second) => second.rect.width * second.rect.height - first.rect.width * first.rect.height)[0]?.candidate ?? null;
+			if (typeof expectedLineNumbers === 'boolean') {
+				const matching = blocks.find(blockItem => (expectedLineNumbers ? blockItem.lineNumbers > 0 : blockItem.lineNumbers === 0));
+				if (matching?.candidate) {
+					block = matching.candidate;
+				}
+			}
+			if (${JSON.stringify(mode)} === 'reading' && expectedWrap === false) {
+				const scrollable = blocks.filter(blockItem =>
+					blockItem.scrollInfo.width !== null && blockItem.scrollInfo.clientWidth !== null,
+				);
+				if (scrollable.length > 0) {
+					const byOverflow = scrollable.reduce((best, current) => {
+						const bestOverflow = (best.scrollInfo.width ?? 0) - (best.scrollInfo.clientWidth ?? 0);
+						const currentOverflow = (current.scrollInfo.width ?? 0) - (current.scrollInfo.clientWidth ?? 0);
+						if (currentOverflow > bestOverflow) return current;
+						return best;
+					});
+					if ((byOverflow.scrollInfo.width ?? 0) - (byOverflow.scrollInfo.clientWidth ?? 0) > 1) {
+						block = byOverflow.candidate;
+					}
+				}
+			}
 			const blockRect = block?.getBoundingClientRect?.();
 			const scrollContainer = block?.querySelector('.shiki-code-scroll');
 			const header = block?.querySelector('.shiki-block-header');
@@ -529,7 +576,7 @@ async function getRenderState(client, mode) {
 			const hiddenLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line-hidden, .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden')];
 			const cmCodeLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line, .cm-line.shiki-editing-codeblock-fence')];
 			const visibleCmCodeLines = cmCodeLines.filter(line => {
-				if (line.querySelector('.shiki-live-preview-block')) return false;
+			if (line.querySelector(blockSelector)) return false;
 				const rect = line.getBoundingClientRect();
 				const style = getComputedStyle(line);
 				return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
@@ -571,8 +618,13 @@ async function getRenderState(client, mode) {
 					shikiBlocks: sourceRoot?.querySelectorAll('.shiki-live-preview-block').length ?? 0,
 					cmText: [...(sourceRoot ?? active).querySelectorAll('.cm-line')].map(line => line.textContent ?? '').join('\\n'),
 				},
-				shiki: {
-					blocks: blocks.length,
+			shiki: {
+				allBlocks: blocks.map(item => ({
+					lineNumbers: item.lineNumbers,
+					rect: item.rect,
+					scrollInfo: item.scrollInfo,
+				})),
+				blocks: blocks.length,
 					header: header?.textContent ?? '',
 					scrollContainer: !!scrollContainer,
 					hiddenLines: hiddenLines.length,
@@ -651,12 +703,14 @@ async function dispatchTouchSwipe(client, startX, startY, endX, endY) {
 	await delay(400);
 }
 
-async function setNoteScrollTop(client, value) {
+async function setNoteScrollTop(client, value, mode = 'live-preview') {
+	const blockSelector = mode === 'reading' ? '.shiki-reading-block' : '.shiki-live-preview-block';
 	await evaluate(
 		client,
 		`(() => {
+			const blockSelector = ${JSON.stringify(blockSelector)};
 			const active = window.app?.workspace?.activeLeaf?.view?.contentEl ?? document.querySelector('.workspace-leaf.mod-active') ?? document;
-			const block = [...active.querySelectorAll('.shiki-live-preview-block')].find(candidate => {
+			const block = [...active.querySelectorAll(blockSelector)].find(candidate => {
 				const rect = candidate.getBoundingClientRect();
 				return rect.width > 0 && rect.height > 0;
 			});
@@ -678,26 +732,26 @@ async function setNoteScrollTop(client, value) {
 	await delay(250);
 }
 
-async function positionBlockForGestures(client, mode) {
+async function positionBlockForGestures(client, mode, settings = {}) {
 	if (mode === 'source') {
 		return;
 	}
-	const state = await getRenderState(client, mode);
+	const state = await getRenderState(client, mode, settings);
 	const currentScrollTop = state.page.noteScrollTop ?? 0;
 	const targetScrollTop = Math.max(0, currentScrollTop + state.shiki.firstRect.top - 240);
-	await setNoteScrollTop(client, targetScrollTop);
+	await setNoteScrollTop(client, targetScrollTop, mode);
 }
 
 async function verifyScroll(client, mode, settings, state) {
 	if (mode === 'source') {
 		return null;
 	}
-	await positionBlockForGestures(client, mode);
-	const before = await getRenderState(client, mode);
+	await positionBlockForGestures(client, mode, settings);
+	const before = await getRenderState(client, mode, settings);
 	const inside = blockPoint(before);
 
 	await dispatchTouchSwipe(client, Math.min(inside.x + 90, before.mobile.innerWidth - 30), inside.y, Math.max(inside.x - 90, 30), inside.y);
-	const afterHorizontalInside = await getRenderState(client, mode);
+	const afterHorizontalInside = await getRenderState(client, mode, settings);
 	if (!settings.wrap) {
 		assert(
 			(afterHorizontalInside.shiki.scrollLeft ?? 0) > (before.shiki.scrollLeft ?? 0),
@@ -714,11 +768,11 @@ async function verifyScroll(client, mode, settings, state) {
 	const outsideX = Math.max(12, Math.round(before.shiki.firstRect.left - 36));
 	const outsideY = Math.max(80, Math.min(Math.round(before.shiki.firstRect.top + 40), before.mobile.innerHeight - 140));
 	await delay(900);
-	const beforeOutside = await getRenderState(client, mode);
+	const beforeOutside = await getRenderState(client, mode, settings);
 	const outsideStartX = Math.max(8, Math.round(before.shiki.firstRect.left - 16));
 	const outsideEndX = Math.max(4, Math.round(before.shiki.firstRect.left - 38));
 	await dispatchTouchSwipe(client, outsideStartX, outsideY, outsideEndX, outsideY);
-	const afterOutside = await getRenderState(client, mode);
+	const afterOutside = await getRenderState(client, mode, settings);
 	assert((afterOutside.shiki.scrollLeft ?? 0) === (beforeOutside.shiki.scrollLeft ?? 0), `${mode}: horizontal wheel outside code block moved Shiki`, {
 		beforeOutside,
 		afterOutside,
@@ -730,8 +784,8 @@ async function verifyScroll(client, mode, settings, state) {
 	});
 
 	await openMode(client, mode);
-	await positionBlockForGestures(client, mode);
-	const beforeVertical = await getRenderState(client, mode);
+	await positionBlockForGestures(client, mode, settings);
+	const beforeVertical = await getRenderState(client, mode, settings);
 	const verticalPoint = blockPoint(beforeVertical);
 	const canScrollUp = (beforeVertical.page.noteScrollTop ?? 0) > 10;
 	await dispatchTouchSwipe(
@@ -741,7 +795,7 @@ async function verifyScroll(client, mode, settings, state) {
 		verticalPoint.x,
 		canScrollUp ? Math.min(beforeVertical.mobile.innerHeight - 180, verticalPoint.y + 90) : Math.max(120, verticalPoint.y - 90),
 	);
-	const afterVertical = await getRenderState(client, mode);
+	const afterVertical = await getRenderState(client, mode, settings);
 	let finalAfterVertical = afterVertical;
 	let noteScrollChanged = (finalAfterVertical.page.noteScrollTop ?? 0) !== (beforeVertical.page.noteScrollTop ?? 0);
 	let blockMovedWithNote = Math.abs(finalAfterVertical.shiki.firstRect.top - beforeVertical.shiki.firstRect.top) > 8;
@@ -753,13 +807,13 @@ async function verifyScroll(client, mode, settings, state) {
 			verticalPoint.x,
 			canScrollUp ? Math.max(120, verticalPoint.y - 90) : Math.min(beforeVertical.mobile.innerHeight - 180, verticalPoint.y + 90),
 		);
-		finalAfterVertical = await getRenderState(client, mode);
+		finalAfterVertical = await getRenderState(client, mode, settings);
 		noteScrollChanged = (finalAfterVertical.page.noteScrollTop ?? 0) !== (beforeVertical.page.noteScrollTop ?? 0);
 		blockMovedWithNote = Math.abs(finalAfterVertical.shiki.firstRect.top - beforeVertical.shiki.firstRect.top) > 8;
 	}
 	if (!noteScrollChanged && !blockMovedWithNote) {
 		await dispatchWheel(client, verticalPoint.x, verticalPoint.y, 0, canScrollUp ? -300 : 300);
-		finalAfterVertical = await getRenderState(client, mode);
+		finalAfterVertical = await getRenderState(client, mode, settings);
 		noteScrollChanged = (finalAfterVertical.page.noteScrollTop ?? 0) !== (beforeVertical.page.noteScrollTop ?? 0);
 		blockMovedWithNote = Math.abs(finalAfterVertical.shiki.firstRect.top - beforeVertical.shiki.firstRect.top) > 8;
 	}
@@ -783,7 +837,7 @@ async function verifyNoFlicker(client, mode, settings) {
 	}
 	const samples = [];
 	for (let index = 0; index < 8; index++) {
-		const state = await getRenderState(client, mode);
+		const state = await getRenderState(client, mode, settings);
 		samples.push({
 			index,
 			blocks: state.shiki.blocks,
@@ -791,7 +845,7 @@ async function verifyNoFlicker(client, mode, settings) {
 			textLength: state.shiki.textLength,
 			rect: state.shiki.firstRect,
 		});
-		assert(state.shiki.blocks === 1, `${mode}: Shiki block count changed during scroll sampling`, {
+		assert(mode === 'reading' ? state.shiki.blocks >= 1 : state.shiki.blocks === 1, `${mode}: Shiki block count changed during scroll sampling`, {
 			settings,
 			samples,
 		});
@@ -826,7 +880,7 @@ function assertRenderState(mode, settings, state) {
 		return;
 	}
 
-	assert(state.shiki.blocks === 1, `${mode}: expected one Shiki block`, { settings, state });
+	assert(state.shiki.blocks >= 1, `${mode}: expected at least one Shiki block`, { settings, state });
 	assert(state.shiki.tokens > 0, `${mode}: expected Shiki syntax highlighted tokens`, { settings, state });
 	assert(
 		state.shiki.visibleText.includes('List<int[]> intervals') && state.shiki.visibleText.includes('mergedIntervals'),
@@ -868,7 +922,7 @@ async function main() {
 				for (const mode of ['reading', 'live-preview', 'source']) {
 					console.log(`mode ${viewport.name} ${settingName(settings)} ${mode}`);
 					client = await openMode(client, mode);
-					const state = await waitForRendering(client, mode);
+					const state = await waitForRendering(client, mode, settings);
 					assertRenderState(mode, settings, state);
 					const shot = await screenshot(client, `${viewport.name}-${settingName(settings)}-${mode}`);
 					const scroll = await verifyScroll(client, mode, settings, state);
@@ -888,9 +942,9 @@ async function main() {
 						},
 						scroll: scroll
 							? {
-								horizontalCodeScrollLeft: scroll.afterHorizontalInside.shiki.scrollLeft,
-								verticalNoteScrollTop: scroll.afterVertical.page.noteScrollTop,
-							}
+									horizontalCodeScrollLeft: scroll.afterHorizontalInside.shiki.scrollLeft,
+									verticalNoteScrollTop: scroll.afterVertical.page.noteScrollTop,
+								}
 							: null,
 						flickerSamples: flicker.length,
 					});

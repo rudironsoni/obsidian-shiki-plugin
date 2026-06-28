@@ -46,3 +46,6 @@ replit.md
 .github/copilot-instructions.md
 .github/skills/
 .github/agents/
+
+# Test vault (generated files)
+tests/obsidian-test-vault/

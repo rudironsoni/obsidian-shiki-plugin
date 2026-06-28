@@ -1,0 +1,13 @@
+{
+  "name": "Odin",
+  "scopeName": "source.odin",
+  "fileTypes": [
+    "odin"
+  ],
+  "patterns": [
+    {
+      "match": ".*",
+      "name": "source.odin"
+    }
+  ]
+}

@@ -10,8 +10,11 @@ import { SourceModeAdapter } from 'packages/obsidian/src/modes/SourceModeAdapter
 import { type ThemedToken } from 'shiki';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function createCm6Plugin(plugin: ShikiPlugin) {
-	const activeViewPlugins = new Set<{ retokenizeSourceMode(): void }>();
+	export function createCm6Plugin(plugin: ShikiPlugin) {
+	const activeViewPlugins = new Set<{
+		retokenizeSourceMode(): void;
+		refreshShikiContent(): void;
+	}>();
 	const cm6Plugin = ViewPlugin.fromClass(
 		class Cm6ViewPlugin {
 			decorations = Decoration.none;
@@ -59,6 +62,9 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					}
 				}
 				this.refreshDecorations();
+				if (isLivePreview) {
+					this.livePreviewAdapter.syncGutterVisibility();
+				}
 			}
 
 			retokenizeSourceMode(): void {
@@ -68,6 +74,18 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 
 				void this.sourceModeAdapter.retokenize();
 
+				this.scheduleDecorationRefresh();
+			}
+
+			refreshShikiContent(): void {
+				if (this.destroyed) {
+					return;
+				}
+				if (this.lastIsLivePreview) {
+					void this.livePreviewAdapter.forceRefresh();
+				} else {
+					void this.sourceModeAdapter.retokenize();
+				}
 				this.scheduleDecorationRefresh();
 			}
 
@@ -108,6 +126,11 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 					this.refreshDecorations();
 					try {
 						this.view.dispatch(this.view.state.update({}));
+						if (this.lastIsLivePreview) {
+							window.setTimeout(() => {
+								this.livePreviewAdapter.syncGutterVisibility();
+							}, 200);
+						}
 					} catch (error) {
 						if (String(error).includes('Calls to EditorView.update are not allowed while an update is in progress')) {
 							this.scheduleDecorationRefresh();
@@ -172,13 +195,13 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 		{ decorations: value => value.decorations },
 	);
 
-	plugin.updateCm6Plugin = async (): Promise<void> => {
-		plugin.sourceModeTokenizationCache.clear();
-		for (const viewPlugin of activeViewPlugins) {
-			viewPlugin.retokenizeSourceMode();
-		}
-		plugin.app.workspace.updateOptions();
-	};
+plugin.updateCm6Plugin = async (): Promise<void> => {
+	plugin.sourceModeTokenizationCache.clear();
+	for (const viewPlugin of activeViewPlugins) {
+		viewPlugin.refreshShikiContent();
+	}
+	plugin.app.workspace.updateOptions();
+};
 
 	return Prec.highest(cm6Plugin);
 }
