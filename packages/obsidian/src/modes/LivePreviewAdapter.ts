@@ -58,7 +58,6 @@ class ShikiLivePreviewWidget extends WidgetType {
 			});
 		};
 
-		container.addEventListener('pointerdown', focusCodeBlockEditor);
 		container.addEventListener('click', focusCodeBlockEditor);
 
 		// Header
@@ -168,6 +167,7 @@ export class LivePreviewAdapter {
 	private lastRootLivePreviewClass = false;
 	private tokenizationRequest = 0;
 	private readonly activeLineScrollHandlers = new Map<HTMLElement, EventListener>();
+	private activeLineScrollSyncing = false;
 
 	private readonly gutterObserver: MutationObserver;
 
@@ -419,11 +419,18 @@ export class LivePreviewAdapter {
 				continue;
 			}
 			const handler = (): void => {
+				if (this.activeLineScrollSyncing) {
+					return;
+				}
+				this.activeLineScrollSyncing = true;
 				for (const otherLine of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
 					if (otherLine !== line) {
 						otherLine.scrollLeft = line.scrollLeft;
 					}
 				}
+				window.requestAnimationFrame(() => {
+					this.activeLineScrollSyncing = false;
+				});
 			};
 			line.addEventListener('scroll', handler, { passive: true });
 			this.activeLineScrollHandlers.set(line, handler);
@@ -438,9 +445,13 @@ export class LivePreviewAdapter {
 			return;
 		}
 
+		const blockId = line.dataset.shikiEditingBlockId;
+		const block = blockId ? this.view.dom.querySelector<HTMLElement>(`.shiki-live-preview-block.is-editing[data-shiki-block-id="${CSS.escape(blockId)}"]`) : null;
+		const blockRight = block?.getBoundingClientRect().right;
 		const containerRect = container.getBoundingClientRect();
 		const lineRect = line.getBoundingClientRect();
-		const availableWidth = Math.floor(containerRect.right - lineRect.left);
+		const rightEdge = Math.min(containerRect.right, blockRight ?? containerRect.right);
+		const availableWidth = Math.floor(rightEdge - lineRect.left);
 		if (availableWidth <= 0) {
 			this.clearActiveLineWidth(line);
 			return;

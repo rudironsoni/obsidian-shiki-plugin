@@ -289,6 +289,7 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-c
 	max-width: 100%;
 	overflow-x: scroll;
 	overflow-y: hidden;
+	contain: paint;
 	overscroll-behavior-x: contain;
 	scrollbar-gutter: stable;
 	touch-action: pan-x pan-y;
