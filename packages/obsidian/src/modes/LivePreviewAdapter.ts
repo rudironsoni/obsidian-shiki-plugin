@@ -1,5 +1,4 @@
 import { Decoration, WidgetType, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
-import { EditorSelection } from '@codemirror/state';
 import { RangeSetBuilder } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
@@ -37,24 +36,24 @@ class ShikiLivePreviewWidget extends WidgetType {
 			container.classList.add('wrap-lines');
 		}
 
-		const focusCodeBlockEditor = (e: Event): void => {
+		const enterCodeBlockEditor = (e: Event): void => {
 			const clickedCopyButton = e.composedPath().some(node => (node as Element).closest?.('.shiki-copy-button'));
 			if (clickedCopyButton) {
 				return;
 			}
-			if (this.block.codeFrom === undefined) {
+			if (this.block.codeFrom === undefined || this.block.codeTo === undefined) {
 				return;
 			}
-			this.editorView.focus();
-			this.editorView.dispatch({
-				selection: EditorSelection.cursor(this.block.codeFrom),
-				scrollIntoView: true,
-			});
+			e.preventDefault();
+			e.stopPropagation();
+			container.classList.add('is-editing');
+			editor.value = this.block.code;
+			editor.style.height = `${Math.max(3, this.block.code.split('\n').length) * 1.5}em`;
+			editor.focus();
 		};
 
-		// Click and pointer interactions to focus the editor at code block start.
-		container.addEventListener('pointerdown', focusCodeBlockEditor);
-		container.addEventListener('click', focusCodeBlockEditor);
+		container.addEventListener('pointerdown', enterCodeBlockEditor);
+		container.addEventListener('click', enterCodeBlockEditor);
 
 		// Header
 		const header = container.createDiv({ cls: 'shiki-block-header' });
@@ -64,7 +63,7 @@ class ShikiLivePreviewWidget extends WidgetType {
 		const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
 		copyBtn.onclick = (e): void => {
 			e.stopPropagation();
-			navigator.clipboard.writeText(this.block.code).catch(() => {});
+			navigator.clipboard.writeText(container.classList.contains('is-editing') ? editor.value : this.block.code).catch(() => {});
 		};
 
 		// Body
@@ -74,6 +73,29 @@ class ShikiLivePreviewWidget extends WidgetType {
 		const pre = scrollContainer.createEl('pre');
 		pre.style.margin = '0';
 		const codeEl = pre.createEl('code');
+		const editor = body.createEl('textarea', { cls: 'shiki-code-editor' });
+		editor.value = this.block.code;
+		editor.spellcheck = false;
+		editor.addEventListener('pointerdown', e => e.stopPropagation());
+		editor.addEventListener('click', e => e.stopPropagation());
+		editor.addEventListener('keydown', e => {
+			if (e.key !== 'Tab') {
+				return;
+			}
+			e.preventDefault();
+			const start = editor.selectionStart;
+			const end = editor.selectionEnd;
+			editor.setRangeText('\t', start, end, 'end');
+		});
+		editor.addEventListener('blur', () => {
+			container.classList.remove('is-editing');
+			if (this.block.codeFrom === undefined || this.block.codeTo === undefined || editor.value === this.block.code) {
+				return;
+			}
+			this.editorView.dispatch({
+				changes: { from: this.block.codeFrom, to: this.block.codeTo, insert: editor.value },
+			});
+		});
 
 		if (this.plugin.loadedSettings.wrapLines) {
 			pre.style.whiteSpace = 'pre-wrap';
@@ -191,7 +213,7 @@ export class LivePreviewAdapter {
 
 		this.livePreviewActive = true;
 
-		if (!update.docChanged && !update.viewportChanged && !update.selectionSet) {
+		if (!update.docChanged && !update.viewportChanged) {
 			return;
 		}
 
@@ -266,18 +288,6 @@ export class LivePreviewAdapter {
 		const builder = new RangeSetBuilder<Decoration>();
 		for (const block of this.blocks) {
 			if (block.openingFenceLine === undefined) {
-				continue;
-			}
-			const blockFrom = block.fenceFrom ?? block.codeFrom;
-			const blockTo = block.fenceTo ?? block.codeTo;
-			const blockIsSelected =
-				blockFrom !== undefined &&
-				blockTo !== undefined &&
-				this.view.state.selection.ranges.some(range =>
-					range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom,
-				);
-			if (blockIsSelected) {
-				this.plugin.codeBlockRegistry.upsert(block);
 				continue;
 			}
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {

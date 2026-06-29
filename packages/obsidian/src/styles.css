@@ -217,6 +217,33 @@ span.shiki-ul {
 	overflow-x: auto;
 }
 
+.shiki-code-editor {
+	display: none;
+	flex: 1;
+	min-width: 0;
+	width: 100%;
+	resize: vertical;
+	border: 0;
+	outline: 0;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	color: var(--code-normal);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
+	white-space: pre;
+	tab-size: 4;
+}
+
+.shiki-live-preview-block.is-editing .shiki-code-scroll {
+	display: none;
+}
+
+.shiki-live-preview-block.is-editing .shiki-code-editor {
+	display: block;
+}
+
 .shiki-live-preview-block:not(.wrap-lines) .shiki-block-body,
 .shiki-live-preview-block:not(.wrap-lines) .shiki-block-body pre,
 .shiki-live-preview-block:not(.wrap-lines) .shiki-block-body code {
