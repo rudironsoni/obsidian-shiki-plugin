@@ -151,6 +151,7 @@ class ShikiLivePreviewWidget extends WidgetType {
 }
 
 export class LivePreviewAdapter {
+	private static readonly HIDDEN_GUTTER_CLASS = 'shiki-gutter-line-hidden';
 	decorations: DecorationSet = Decoration.none;
 	private readonly plugin: ShikiPlugin;
 	private readonly requestDecorationRefresh: () => void;
@@ -175,7 +176,7 @@ export class LivePreviewAdapter {
 		this.gutterObserver = new MutationObserver(() => this.syncGutterVisibility());
 		const gutterEl = this.view.dom.querySelector('.cm-lineNumbers');
 		if (gutterEl) {
-			this.gutterObserver.observe(gutterEl, { childList: true, subtree: true, attributes: true });
+			this.gutterObserver.observe(gutterEl, { childList: true, subtree: true });
 		}
 		if (this.plugin.isCurrentInstance()) {
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
@@ -310,31 +311,41 @@ export class LivePreviewAdapter {
 	}
 
 	public syncGutterVisibility(): void {
-		const lines = this.view.dom.querySelectorAll('.cm-line');
-		const gutters = this.view.dom.querySelectorAll('.cm-lineNumbers .cm-gutterElement');
-		// Find offset: first gutter element might not be a line number (e.g., fold indicator "99")
-		let gutterOffset = 0;
-		for (let i = 0; i < gutters.length; i++) {
-			const text = gutters[i].textContent?.trim() || '';
-			if (text === '1') {
-				gutterOffset = i;
-				break;
+		const lines = Array.from(this.view.dom.querySelectorAll('.cm-line'));
+		const gutters = Array.from(this.view.dom.querySelectorAll('.cm-lineNumbers .cm-gutterElement'));
+		if (!this.plugin.loadedSettings.showLineNumbers) {
+			for (const gutter of gutters) {
+				gutter.classList.remove(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
 			}
+			return;
 		}
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			const gutter = gutters[gutterOffset + i];
-			if (!gutter) continue;
+		for (const gutter of gutters) {
+			gutter.classList.remove(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
+		}
+		if (lines.length === 0 || gutters.length === 0) {
+			return;
+		}
+
+		const gutterLines = gutters.map(gutter => ({
+			element: gutter,
+			top: gutter.getBoundingClientRect().top,
+		}));
+
+		let gutterIndex = 0;
+		for (const line of lines) {
+			const lineTop = line.getBoundingClientRect().top;
+
+			while (gutterIndex + 1 < gutterLines.length && gutterLines[gutterIndex + 1].top <= lineTop) {
+				gutterIndex += 1;
+			}
+
+			const gutter = gutterLines[gutterIndex];
+			if (!gutter || Math.abs(gutter.top - lineTop) > 1) {
+				continue;
+			}
+
 			if (line.classList.contains('shiki-editing-codeblock-line') || line.classList.contains('shiki-editing-codeblock-closing-fence')) {
-				(gutter as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
-				(gutter as HTMLElement).style.setProperty('height', '0px', 'important');
-				(gutter as HTMLElement).style.setProperty('line-height', '0px', 'important');
-				(gutter as HTMLElement).style.setProperty('font-size', '0px', 'important');
-			} else {
-				(gutter as HTMLElement).style.setProperty('visibility', '');
-				(gutter as HTMLElement).style.setProperty('height', '');
-				(gutter as HTMLElement).style.setProperty('line-height', '');
-				(gutter as HTMLElement).style.setProperty('font-size', '');
+				gutter.element.classList.add(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
 			}
 		}
 	}

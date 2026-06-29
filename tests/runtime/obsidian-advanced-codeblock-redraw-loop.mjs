@@ -374,19 +374,21 @@ async function collectState(client) {
 	);
 }
 
-function assertShikiReady(state, context) {
-	assert(state.activeFile === NOTE_PATH, `${context}: fixture note is not active`, state);
-	assert(state.blocks === 1, `${context}: expected exactly one Shiki live preview block`, state);
-	assert(state.blockRect?.width > 20 && state.blockRect?.height > 20, `${context}: Shiki block has invalid geometry`, state);
-	assert(state.tokenSpans > 0, `${context}: Shiki block rendered no token spans`, state);
-	if (state.settings?.showLineNumbers !== false) {
-		assert(state.hasLineNumbers, `${context}: Shiki block missing line numbers`, state);
+	function assertShikiReady(state, context) {
+		assert(state.activeFile === NOTE_PATH, `${context}: fixture note is not active`, state);
+		assert(state.blocks === 1, `${context}: expected exactly one Shiki live preview block`, state);
+		assert(state.blockRect?.width > 20 && state.blockRect?.height > 20, `${context}: Shiki block has invalid geometry`, state);
+		assert(state.tokenSpans > 0, `${context}: Shiki block rendered no token spans`, state);
+		if (state.settings?.showLineNumbers === true) {
+			assert(state.hasLineNumbers, `${context}: Shiki block missing line numbers`, state);
+		} else if (state.settings?.showLineNumbers === false) {
+			assert(!state.hasLineNumbers, `${context}: Shiki block unexpectedly rendered line numbers`, state);
+		}
+		assert(state.hasHeader, `${context}: Shiki block missing header`, state);
+		assert(state.hasScrollContainer, `${context}: Shiki block missing scroll container`, state);
+		assert(state.visibleRawRows === 0, `${context}: raw CodeMirror code rows are visible after Shiki is ready`, state);
+		assert(state.noteScrollLeft === 0, `${context}: note scroller moved horizontally`, state);
 	}
-	assert(state.hasHeader, `${context}: Shiki block missing header`, state);
-	assert(state.hasScrollContainer, `${context}: Shiki block missing scroll container`, state);
-	assert(state.visibleRawRows === 0, `${context}: raw CodeMirror code rows are visible after Shiki is ready`, state);
-	assert(state.noteScrollLeft === 0, `${context}: note scroller moved horizontally`, state);
-}
 
 async function waitForShikiReady(client, context) {
 	const deadline = Date.now() + 12_000;

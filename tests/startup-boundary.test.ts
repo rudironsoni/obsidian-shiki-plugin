@@ -132,8 +132,8 @@ test('settings language listing uses static metadata without loading heavy modul
 	expect(languageMetadata).toContain('LANGUAGE_METADATA');
 });
 
-test('real Obsidian verifier bounds CDP evaluation waits', () => {
-	const source = read('tests/runtime/obsidian-advanced-codeblock-integration.mjs');
+	test('real Obsidian verifier bounds CDP evaluation waits', () => {
+		const source = read('tests/runtime/obsidian-advanced-codeblock-integration.mjs');
 
 	expect(source).toContain('Timed out opening CDP socket');
 	expect(source).toContain('CDP_EVALUATE_TIMEOUT_MS');
@@ -145,7 +145,19 @@ test('real Obsidian verifier bounds CDP evaluation waits', () => {
 
 	expect(evaluateSource).not.toContain('const pending = new Map');
 	expect(evaluateSource).not.toContain('pending.set(id');
-});
+	});
+
+	test('redraw loop verifier covers both line-number states', () => {
+		const source = read('tests/runtime/obsidian-advanced-codeblock-redraw-loop.mjs');
+		const settingsMatrixStart = source.indexOf('const SETTINGS_MATRIX');
+		const settingsMatrixEnd = source.indexOf('\n]\n', settingsMatrixStart);
+		const settingsMatrixSource = source.slice(settingsMatrixStart, settingsMatrixEnd);
+
+		expect(settingsMatrixSource).toContain('{ wrap: false, lineNumbers: false }');
+		expect(settingsMatrixSource).toContain('{ wrap: true, lineNumbers: true }');
+		expect(source).toContain('state.settings?.showLineNumbers === true');
+		expect(source).toContain('state.settings?.showLineNumbers === false');
+	});
 
 test('Live Preview refreshes Shiki widgets when editor mode toggles', () => {
 	const cm6 = read('packages/obsidian/src/codemirror/Cm6_ViewPlugin.ts');
