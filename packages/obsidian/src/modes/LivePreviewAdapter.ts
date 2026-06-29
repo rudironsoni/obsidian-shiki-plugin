@@ -35,6 +35,14 @@ class ShikiLivePreviewWidget extends WidgetType {
 		if (this.plugin.loadedSettings.wrapLines) {
 			container.classList.add('wrap-lines');
 		}
+		let renderRequest = 0;
+		const syncEditorHeight = (): void => {
+			editor.style.height = `${Math.max(3, editor.value.split('\n').length) * 1.5}em`;
+		};
+		const renderEditorTokens = (): void => {
+			const request = ++renderRequest;
+			void this.renderTokens(codeEl, body, editor.value, () => request === renderRequest).then(syncEditorHeight);
+		};
 
 		const enterCodeBlockEditor = (e: Event): void => {
 			const clickedCopyButton = e.composedPath().some(node => (node as Element).closest?.('.shiki-copy-button'));
@@ -48,7 +56,7 @@ class ShikiLivePreviewWidget extends WidgetType {
 			e.stopPropagation();
 			container.classList.add('is-editing');
 			editor.value = this.block.code;
-			editor.style.height = `${Math.max(3, this.block.code.split('\n').length) * 1.5}em`;
+			syncEditorHeight();
 			editor.focus();
 		};
 
@@ -73,11 +81,19 @@ class ShikiLivePreviewWidget extends WidgetType {
 		const pre = scrollContainer.createEl('pre');
 		pre.style.margin = '0';
 		const codeEl = pre.createEl('code');
-		const editor = body.createEl('textarea', { cls: 'shiki-code-editor' });
+		const editor = scrollContainer.createEl('textarea', { cls: 'shiki-code-editor' });
 		editor.value = this.block.code;
 		editor.spellcheck = false;
+		editor.setAttribute('autocapitalize', 'off');
+		editor.setAttribute('autocomplete', 'off');
+		editor.setAttribute('autocorrect', 'off');
 		editor.addEventListener('pointerdown', e => e.stopPropagation());
 		editor.addEventListener('click', e => e.stopPropagation());
+		editor.addEventListener('scroll', () => {
+			scrollContainer.scrollLeft = editor.scrollLeft;
+			scrollContainer.scrollTop = editor.scrollTop;
+		});
+		editor.addEventListener('input', renderEditorTokens);
 		editor.addEventListener('keydown', e => {
 			if (e.key !== 'Tab') {
 				return;
@@ -86,6 +102,7 @@ class ShikiLivePreviewWidget extends WidgetType {
 			const start = editor.selectionStart;
 			const end = editor.selectionEnd;
 			editor.setRangeText('\t', start, end, 'end');
+			renderEditorTokens();
 		});
 		editor.addEventListener('blur', () => {
 			container.classList.remove('is-editing');
@@ -112,14 +129,18 @@ class ShikiLivePreviewWidget extends WidgetType {
 		return container;
 	}
 
-	private async renderTokens(codeEl: HTMLElement, bodyEl: HTMLElement): Promise<void> {
-		const highlight = await this.plugin.highlighter.getHighlightTokens(this.block.code, this.block.language);
+	private async renderTokens(codeEl: HTMLElement, bodyEl: HTMLElement, code = this.block.code, shouldRender: () => boolean = () => true): Promise<void> {
+		const highlight = await this.plugin.highlighter.getHighlightTokens(code, this.block.language);
+		if (!shouldRender()) {
+			return;
+		}
+		codeEl.replaceChildren();
 		if (!highlight) {
-			codeEl.textContent = this.block.code;
+			codeEl.textContent = code;
 			return;
 		}
 
-		const lines = this.block.code.split('\n');
+		const lines = code.split('\n');
 
 		for (const lineNumbers of [...bodyEl.querySelectorAll('.shiki-line-numbers')]) {
 			lineNumbers.remove();

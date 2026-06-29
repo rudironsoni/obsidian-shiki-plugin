@@ -213,13 +213,16 @@ span.shiki-ul {
 }
 
 .shiki-code-scroll {
+	position: relative;
 	flex: 1;
 	overflow-x: auto;
 }
 
 .shiki-code-editor {
 	display: none;
-	flex: 1;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
 	min-width: 0;
 	width: 100%;
 	box-sizing: border-box;
@@ -232,10 +235,11 @@ span.shiki-ul {
 	outline: 0 !important;
 	padding: 0;
 	margin: 0;
-	background: var(--code-background) !important;
+	background: transparent !important;
 	background-image: none !important;
-	color: var(--code-normal) !important;
+	color: transparent !important;
 	caret-color: var(--text-normal);
+	-webkit-text-fill-color: transparent !important;
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
 	line-height: var(--line-height-normal);
@@ -243,10 +247,6 @@ span.shiki-ul {
 	white-space: pre;
 	overflow: auto;
 	tab-size: 4;
-}
-
-.shiki-live-preview-block.is-editing .shiki-code-scroll {
-	display: none;
 }
 
 .shiki-live-preview-block.is-editing .shiki-code-editor {
