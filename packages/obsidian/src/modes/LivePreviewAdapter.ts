@@ -191,7 +191,7 @@ export class LivePreviewAdapter {
 
 		this.livePreviewActive = true;
 
-		if (!update.docChanged && !update.viewportChanged) {
+		if (!update.docChanged && !update.viewportChanged && !update.selectionSet) {
 			return;
 		}
 
@@ -266,6 +266,18 @@ export class LivePreviewAdapter {
 		const builder = new RangeSetBuilder<Decoration>();
 		for (const block of this.blocks) {
 			if (block.openingFenceLine === undefined) {
+				continue;
+			}
+			const blockFrom = block.fenceFrom ?? block.codeFrom;
+			const blockTo = block.fenceTo ?? block.codeTo;
+			const blockIsSelected =
+				blockFrom !== undefined &&
+				blockTo !== undefined &&
+				this.view.state.selection.ranges.some(range =>
+					range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom,
+				);
+			if (blockIsSelected) {
+				this.plugin.codeBlockRegistry.upsert(block);
 				continue;
 			}
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {

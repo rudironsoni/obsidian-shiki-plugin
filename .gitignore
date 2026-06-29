@@ -48,5 +48,7 @@ test-obsidian.mjs
 
 # Runtime verification artifacts and ephemeral test environments
 tests/obsidian-test-user-data/
+tests/obsidian-test-vault/.obsidian/
+tests/obsidian-test-vault/codex-live-preview-redraw-loop.md
 planning/test-reports/runtime/
 tests/runtime-session/

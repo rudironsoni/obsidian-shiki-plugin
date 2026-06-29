@@ -106,9 +106,10 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('codeTo: block.range.charTo');
 	});
 
-	test('live preview adapter avoids selection-only rebuild churn', () => {
+	test('live preview adapter rebuilds on selection changes for editability', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged)');
+		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged && !update.selectionSet)');
+		expect(livePreview).toContain('blockIsSelected');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });
