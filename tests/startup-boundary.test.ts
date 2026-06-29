@@ -113,7 +113,9 @@ describe('startup module boundary', () => {
 		expect(livePreview).not.toContain('shiki-code-editor');
 		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged && !update.selectionSet)');
 		expect(livePreview).toContain('blockIsSelected');
-		expect(livePreview).toContain("className = 'shiki-editing-codeblock-active-line'");
+		expect(livePreview).toContain('shiki-editing-codeblock-active-line');
+		expect(livePreview).toContain('retokenizeSelectedBlock');
+		expect(livePreview).toContain('this.plugin.highlighter.getTokenStyle(token)');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });

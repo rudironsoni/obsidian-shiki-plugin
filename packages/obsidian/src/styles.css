@@ -283,6 +283,17 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-c
 	line-height: var(--line-height-normal);
 }
 
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap {
+	white-space: pre !important;
+	width: max-content;
+	min-width: max-content;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-wrap {
+	white-space: pre-wrap !important;
+	word-break: break-word;
+}
+
 /* Hide gutter numbers for rows replaced by Shiki content */
 .markdown-source-view.mod-cm6.is-live-preview .cm-lineNumbers .cm-gutterElement.shiki-gutter-line-hidden {
 	visibility: hidden !important;

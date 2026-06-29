@@ -1,8 +1,9 @@
 import { Decoration, WidgetType, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
-import { EditorSelection, RangeSetBuilder } from '@codemirror/state';
+import { EditorSelection, RangeSetBuilder, type Range } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
 import type ShikiPlugin from 'packages/obsidian/src/main';
+import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 
 const LIVE_PREVIEW_ADAPTER_OWNER = '__shikiLivePreviewAdapterOwner';
 
@@ -154,6 +155,8 @@ class ShikiLivePreviewWidget extends WidgetType {
 export class LivePreviewAdapter {
 	private static readonly HIDDEN_GUTTER_CLASS = 'shiki-gutter-line-hidden';
 	decorations: DecorationSet = Decoration.none;
+	private structuralDecorations: DecorationSet = Decoration.none;
+	private editTokenDecorations: DecorationSet = Decoration.none;
 	private readonly plugin: ShikiPlugin;
 	private readonly requestDecorationRefresh: () => void;
 	private readonly parser = new CodeBlockParser();
@@ -163,6 +166,7 @@ export class LivePreviewAdapter {
 	private destroyed = false;
 	private livePreviewActive = false;
 	private lastRootLivePreviewClass = false;
+	private tokenizationRequest = 0;
 
 	private readonly gutterObserver: MutationObserver;
 
@@ -187,7 +191,7 @@ export class LivePreviewAdapter {
 
 	update(update: ViewUpdate, isLivePreview: boolean): void {
 		if (this.destroyed || !this.plugin.isCurrentInstance()) {
-			this.decorations = Decoration.none;
+			this.clearDecorationSets();
 			return;
 		}
 
@@ -270,6 +274,7 @@ export class LivePreviewAdapter {
 			}),
 		);
 
+		let selectedBlock: CodeBlockModel | undefined;
 		const builder = new RangeSetBuilder<Decoration>();
 		for (const block of this.blocks) {
 			if (block.openingFenceLine === undefined) {
@@ -283,6 +288,9 @@ export class LivePreviewAdapter {
 				this.view.state.selection.ranges.some(range =>
 					range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom,
 				);
+			if (blockIsSelected) {
+				selectedBlock = block;
+			}
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
 				const line = this.view.state.doc.line(lineNumber);
 				let className: string;
@@ -291,7 +299,7 @@ export class LivePreviewAdapter {
 				} else if (lineNumber === block.closingFenceLine) {
 					className = 'shiki-editing-codeblock-fence shiki-editing-codeblock-closing-fence';
 				} else if (blockIsSelected) {
-					className = 'shiki-editing-codeblock-active-line';
+					className = `shiki-editing-codeblock-active-line ${this.plugin.loadedSettings.wrapLines ? 'shiki-editing-codeblock-active-line-wrap' : 'shiki-editing-codeblock-active-line-nowrap'}`;
 				} else {
 					className = 'shiki-editing-codeblock-line';
 				}
@@ -318,7 +326,78 @@ export class LivePreviewAdapter {
 			}
 			this.plugin.codeBlockRegistry.upsert(block);
 		}
-		this.decorations = builder.finish();
+		this.structuralDecorations = builder.finish();
+		this.refreshDecorationSet();
+		void this.retokenizeSelectedBlock(selectedBlock);
+	}
+
+	private async retokenizeSelectedBlock(block: CodeBlockModel | undefined): Promise<void> {
+		const requestId = ++this.tokenizationRequest;
+		if (block?.codeFrom === undefined || block.codeTo === undefined || !block.language || this.plugin.loadedSettings.disabledLanguages.includes(block.language)) {
+			this.editTokenDecorations = Decoration.none;
+			this.refreshDecorationSet();
+			this.requestDecorationRefresh();
+			return;
+		}
+
+		const theme = getActiveTheme(this.plugin);
+		const settingsSignature = JSON.stringify({ disabledLanguages: this.plugin.loadedSettings.disabledLanguages, theme });
+		const cached = this.plugin.sourceModeTokenizationCache.get({
+			sourcePath: block.sourcePath,
+			language: block.language,
+			theme,
+			contentHash: block.contentHash,
+			settingsSignature,
+		});
+		const highlight = cached ?? (await this.plugin.highlighter.getHighlightTokens(block.code, block.language));
+		if (!cached) {
+			this.plugin.sourceModeTokenizationCache.set(
+				{ sourcePath: block.sourcePath, language: block.language, theme, contentHash: block.contentHash, settingsSignature },
+				highlight,
+			);
+		}
+		if (requestId !== this.tokenizationRequest || !highlight || block.codeFrom === undefined || block.codeTo === undefined) {
+			return;
+		}
+
+		const builder = new RangeSetBuilder<Decoration>();
+		for (const lineTokens of highlight.tokens) {
+			for (const token of lineTokens) {
+				const from = block.codeFrom + token.offset;
+				const to = Math.min(from + token.content.length, block.codeTo);
+				if (to <= from) {
+					continue;
+				}
+				const tokenStyle = this.plugin.highlighter.getTokenStyle(token);
+				builder.add(
+					from,
+					to,
+					Decoration.mark({
+						attributes: {
+							style: tokenStyle.style,
+							class: tokenStyle.classes.join(' '),
+						},
+					}),
+				);
+			}
+		}
+
+		if (requestId !== this.tokenizationRequest) {
+			return;
+		}
+		this.editTokenDecorations = builder.finish();
+		this.refreshDecorationSet();
+		this.requestDecorationRefresh();
+	}
+
+	private refreshDecorationSet(): void {
+		const ranges: Range<Decoration>[] = [];
+		for (const set of [this.structuralDecorations, this.editTokenDecorations]) {
+			set.between(0, this.view.state.doc.length, (from, to, value) => {
+				ranges.push(value.range(from, to));
+			});
+		}
+		this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
 	}
 
 	public syncGutterVisibility(): void {
@@ -372,9 +451,16 @@ export class LivePreviewAdapter {
 
 	private clearLivePreviewState(): void {
 		this.livePreviewActive = false;
-		this.decorations = Decoration.none;
+		this.clearDecorationSets();
 		this.blocks = [];
 		window.requestAnimationFrame(() => this.syncGutterVisibility());
+	}
+
+	private clearDecorationSets(): void {
+		this.tokenizationRequest++;
+		this.structuralDecorations = Decoration.none;
+		this.editTokenDecorations = Decoration.none;
+		this.decorations = Decoration.none;
 	}
 
 	private getSourceViewRoot(): HTMLElement {
