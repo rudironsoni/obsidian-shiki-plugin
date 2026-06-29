@@ -116,6 +116,8 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('shiki-editing-codeblock-active-line');
 		expect(livePreview).toContain('retokenizeSelectedBlock');
 		expect(livePreview).toContain('this.plugin.highlighter.getTokenStyle(token)');
+		expect(livePreview).toContain('syncActiveLineHorizontalScroll');
+		expect(livePreview).toContain('otherLine.scrollLeft = line.scrollLeft');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });

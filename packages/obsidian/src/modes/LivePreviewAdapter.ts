@@ -167,6 +167,7 @@ export class LivePreviewAdapter {
 	private livePreviewActive = false;
 	private lastRootLivePreviewClass = false;
 	private tokenizationRequest = 0;
+	private readonly activeLineScrollHandlers = new Map<HTMLElement, EventListener>();
 
 	private readonly gutterObserver: MutationObserver;
 
@@ -235,13 +236,14 @@ export class LivePreviewAdapter {
 	}
 
 	refreshDomMounts(): void {
-		// No-op in Shiki-based live preview (no DOM mounts to refresh)
+		this.syncActiveLineHorizontalScroll();
 	}
 
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
 		this.gutterObserver.disconnect();
+		this.clearActiveLineScrollHandlers();
 		this.clearLivePreviewState();
 	}
 
@@ -400,6 +402,39 @@ export class LivePreviewAdapter {
 		this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
 	}
 
+	private syncActiveLineHorizontalScroll(): void {
+		const activeLines = Array.from(this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap'));
+		const activeLineSet = new Set(activeLines);
+		for (const [line, handler] of this.activeLineScrollHandlers) {
+			if (!activeLineSet.has(line)) {
+				line.removeEventListener('scroll', handler);
+				this.activeLineScrollHandlers.delete(line);
+			}
+		}
+
+		for (const line of activeLines) {
+			if (this.activeLineScrollHandlers.has(line)) {
+				continue;
+			}
+			const handler = (): void => {
+				for (const otherLine of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
+					if (otherLine !== line) {
+						otherLine.scrollLeft = line.scrollLeft;
+					}
+				}
+			};
+			line.addEventListener('scroll', handler, { passive: true });
+			this.activeLineScrollHandlers.set(line, handler);
+		}
+	}
+
+	private clearActiveLineScrollHandlers(): void {
+		for (const [line, handler] of this.activeLineScrollHandlers) {
+			line.removeEventListener('scroll', handler);
+		}
+		this.activeLineScrollHandlers.clear();
+	}
+
 	public syncGutterVisibility(): void {
 		const lines = Array.from(this.view.dom.querySelectorAll('.cm-line'));
 		const gutters = Array.from(this.view.dom.querySelectorAll('.cm-lineNumbers .cm-gutterElement'));
@@ -458,6 +493,7 @@ export class LivePreviewAdapter {
 
 	private clearDecorationSets(): void {
 		this.tokenizationRequest++;
+		this.clearActiveLineScrollHandlers();
 		this.structuralDecorations = Decoration.none;
 		this.editTokenDecorations = Decoration.none;
 		this.decorations = Decoration.none;
