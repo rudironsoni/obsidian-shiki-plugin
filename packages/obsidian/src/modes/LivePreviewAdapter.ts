@@ -16,6 +16,7 @@ class ShikiLivePreviewWidget extends WidgetType {
 		private readonly block: CodeBlockModel,
 		private readonly plugin: ShikiPlugin,
 		private readonly editorView: EditorView,
+		private readonly editing = false,
 	) {
 		super();
 		this.showLineNumbers = this.plugin.loadedSettings.showLineNumbers;
@@ -23,12 +24,15 @@ class ShikiLivePreviewWidget extends WidgetType {
 	}
 
 	eq(other: ShikiLivePreviewWidget): boolean {
-		return other.block.id === this.block.id && other.showLineNumbers === this.showLineNumbers && other.wrapLines === this.wrapLines;
+		return other.block.id === this.block.id && other.showLineNumbers === this.showLineNumbers && other.wrapLines === this.wrapLines && other.editing === this.editing;
 	}
 
 	toDOM(): HTMLElement {
 		const container = document.createElement('div');
 		container.className = 'shiki-live-preview-block';
+		if (this.editing) {
+			container.classList.add('is-editing');
+		}
 		container.dataset.shikiBlockId = this.block.id;
 		container.dataset.lang = this.block.language;
 
@@ -66,6 +70,9 @@ class ShikiLivePreviewWidget extends WidgetType {
 			e.stopPropagation();
 			navigator.clipboard.writeText(this.block.code).catch(() => {});
 		};
+		if (this.editing) {
+			return container;
+		}
 
 		// Body
 		const body = container.createDiv({ cls: 'shiki-block-body' });
@@ -191,7 +198,7 @@ export class LivePreviewAdapter {
 
 		this.livePreviewActive = true;
 
-		if (!update.docChanged && !update.viewportChanged) {
+		if (!update.docChanged && !update.viewportChanged && !update.selectionSet) {
 			return;
 		}
 
@@ -268,6 +275,14 @@ export class LivePreviewAdapter {
 			if (block.openingFenceLine === undefined) {
 				continue;
 			}
+			const blockFrom = block.fenceFrom ?? block.codeFrom;
+			const blockTo = block.fenceTo ?? block.codeTo;
+			const blockIsSelected =
+				blockFrom !== undefined &&
+				blockTo !== undefined &&
+				this.view.state.selection.ranges.some(range =>
+					range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom,
+				);
 			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
 				const line = this.view.state.doc.line(lineNumber);
 				let className: string;
@@ -275,6 +290,8 @@ export class LivePreviewAdapter {
 					className = 'shiki-editing-codeblock-fence';
 				} else if (lineNumber === block.closingFenceLine) {
 					className = 'shiki-editing-codeblock-fence shiki-editing-codeblock-closing-fence';
+				} else if (blockIsSelected) {
+					className = 'shiki-editing-codeblock-active-line';
 				} else {
 					className = 'shiki-editing-codeblock-line';
 				}
@@ -293,7 +310,7 @@ export class LivePreviewAdapter {
 						line.to,
 						line.to,
 						Decoration.widget({
-							widget: new ShikiLivePreviewWidget(block, this.plugin, this.view),
+							widget: new ShikiLivePreviewWidget(block, this.plugin, this.view, blockIsSelected),
 							side: 1,
 						}),
 					);

@@ -128,6 +128,11 @@ span.shiki-ul {
 	overflow: hidden;
 }
 
+.shiki-live-preview-block.is-editing {
+	border-bottom: 0;
+	border-radius: var(--code-radius) var(--code-radius) 0 0;
+}
+
 /* Hide Obsidian's native code block language label in live preview */
 .markdown-source-view.mod-cm6.is-live-preview .HyperMD-codeblock-lang,
 .markdown-source-view.mod-cm6.is-live-preview .code-block-lang,
@@ -269,6 +274,13 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-c
 	border: 0 !important;
 	line-height: 0 !important;
 	font-size: 0 !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line {
+	background: var(--code-background);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
 }
 
 /* Hide gutter numbers for rows replaced by Shiki content */

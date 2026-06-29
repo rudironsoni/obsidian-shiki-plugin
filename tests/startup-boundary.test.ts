@@ -111,8 +111,9 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('this.editorView.focus()');
 		expect(livePreview).toContain('selection: EditorSelection.cursor(this.block.codeFrom)');
 		expect(livePreview).not.toContain('shiki-code-editor');
-		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged)');
-		expect(livePreview).not.toContain('blockIsSelected');
+		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged && !update.selectionSet)');
+		expect(livePreview).toContain('blockIsSelected');
+		expect(livePreview).toContain("className = 'shiki-editing-codeblock-active-line'");
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });
