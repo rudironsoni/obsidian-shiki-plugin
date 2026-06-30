@@ -1,6 +1,6 @@
 {
 	"name": "advanced-code-block",
-	"version": "0.8.0-beta.232",
+	"version": "0.8.0-beta.233",
 	"description": "Advanced code block highlighting with Shiki.",
 	"main": "main.js",
 	"scripts": {
