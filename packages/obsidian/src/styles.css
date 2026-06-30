@@ -283,13 +283,13 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-c
 	line-height: var(--line-height-normal);
 }
 
-.markdown-source-view.mod-cm6.is-live-preview.shiki-live-preview-editing-nowrap .cm-scroller {
+body.is-mobile .markdown-source-view.mod-cm6.is-live-preview.shiki-live-preview-editing-nowrap .cm-scroller {
 	overflow-x: auto;
 	overscroll-behavior-x: contain;
 	-webkit-overflow-scrolling: touch;
 }
 
-.markdown-source-view.mod-cm6.is-live-preview.shiki-live-preview-editing-nowrap .cm-content {
+body.is-mobile .markdown-source-view.mod-cm6.is-live-preview.shiki-live-preview-editing-nowrap .cm-content {
 	min-width: 100%;
 	width: max-content !important;
 }
@@ -297,13 +297,22 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-c
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap {
 	display: block;
 	white-space: pre !important;
+	max-width: 100%;
+	overflow-x: auto;
+	overflow-y: hidden;
+	contain: paint;
+	overscroll-behavior-x: contain;
+	scrollbar-gutter: stable;
+	touch-action: pan-x pan-y;
+	-webkit-overflow-scrolling: touch;
+}
+
+body.is-mobile .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap {
 	min-width: 100% !important;
 	max-width: none !important;
 	width: max-content !important;
 	overflow-x: visible !important;
-	overflow-y: hidden;
-	contain: paint;
-	overscroll-behavior-x: contain;
+	touch-action: pan-y;
 }
 
 .markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap > span {
