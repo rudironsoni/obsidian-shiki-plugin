@@ -75,14 +75,8 @@ export default defineConfig(({ mode }) => {
 				output: {
 					dir: outDir,
 					entryFileNames: 'main.js',
-					chunkFileNames: '[name].js',
-					manualChunks(id) {
-						if (id.includes('/node_modules/shiki/') || id.includes('/node_modules/@shikijs/')) {
-							return 'shiki';
-						}
-					},
 					assetFileNames: 'styles.css',
-					codeSplitting: true,
+					codeSplitting: false,
 					exports: 'named',
 				},
 				external,
