@@ -132,6 +132,12 @@ span.shiki-ul {
 	width: max-content;
 	min-width: max-content;
 }
+
+.markdown-rendered .shiki-reading-block .shiki-block-body .copy-code-button,
+.markdown-rendered pre.shiki-reading-block .shiki-block-body .copy-code-button {
+	display: none !important;
+}
+
 .shiki-live-preview-block {
 	border-radius: var(--code-radius);
 	background: var(--code-background);

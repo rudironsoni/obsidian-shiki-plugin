@@ -253,6 +253,9 @@ async function verifyReadingMode(client) {
 			const pre = body?.querySelector('pre');
 			const code = body?.querySelector('code');
 			const preStyle = pre ? getComputedStyle(pre) : null;
+			const visibleNativeCopyButtons = body
+				? [...body.querySelectorAll('.copy-code-button')].filter(button => getComputedStyle(button).display !== 'none')
+				: [];
 			const beforeLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
 			const beforeCodeLeft = code?.getBoundingClientRect().left ?? null;
 			if (body) body.scrollLeft = 260;
@@ -270,6 +273,7 @@ async function verifyReadingMode(client) {
 				prePaddingTop: preStyle ? Number.parseFloat(preStyle.paddingTop) || 0 : null,
 				preBorderLeft: preStyle ? Number.parseFloat(preStyle.borderLeftWidth) || 0 : null,
 				preBorderTop: preStyle ? Number.parseFloat(preStyle.borderTopWidth) || 0 : null,
+				visibleNativeCopyButtonCount: visibleNativeCopyButtons.length,
 				lineMoved: beforeLineLeft !== null && afterLineLeft !== null ? beforeLineLeft - afterLineLeft : 0,
 				codeMoved: beforeCodeLeft !== null && afterCodeLeft !== null ? beforeCodeLeft - afterCodeLeft : 0,
 				noteScrollLeft: scroller?.scrollLeft ?? 0,
@@ -284,6 +288,7 @@ async function verifyReadingMode(client) {
 	assert(state.bodyScrollLeft > 0, 'Reading mode block body did not scroll', state);
 	assert(state.prePaddingLeft === 0 && state.prePaddingTop === 0, 'Reading mode kept native pre padding inside the Shiki block', state);
 	assert(state.preBorderLeft === 0 && state.preBorderTop === 0, 'Reading mode kept native pre border inside the Shiki block', state);
+	assert(state.visibleNativeCopyButtonCount === 0, 'Reading mode kept Obsidian native copy button inside the Shiki block body', state);
 	assert(state.lineMoved > 0 && state.codeMoved > 0, 'Reading mode did not scroll the whole block content together', state);
 	assert(state.codeScrollLeft === 0, 'Reading mode scrolled the inner code column instead of the block body', state);
 	assert(state.noteScrollLeft === 0, 'Reading mode moved the note horizontally', state);
