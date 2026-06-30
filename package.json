@@ -7,7 +7,7 @@
 		"dev": "vite build --mode=development --watch",
 		"clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
 		"build": "bun run clean:dist && bun run typecheck && SHIKI_BUILD_ENTRY=main vite build --mode=production",
-		"copy:test-vault": "cp dist/main.js tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/main.js && cp dist/styles.css tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/styles.css && cp manifest.json tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/manifest.json",
+		"copy:test-vault": "cp dist/*.js tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/ && cp dist/styles.css tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/styles.css && cp manifest.json tests/obsidian-test-vault/.obsidian/plugins/advanced-code-block/manifest.json",
 		"build:test": "bun run build && bun run copy:test-vault",
 		"typecheck": "tsc -noEmit -skipLibCheck",
 		"test": "bun test",

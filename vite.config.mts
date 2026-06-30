@@ -75,8 +75,9 @@ export default defineConfig(({ mode }) => {
 				output: {
 					dir: outDir,
 					entryFileNames: 'main.js',
+					chunkFileNames: '[name].js',
 					assetFileNames: 'styles.css',
-					codeSplitting: false,
+					codeSplitting: true,
 					exports: 'named',
 				},
 				external,

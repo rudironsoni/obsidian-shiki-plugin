@@ -5,28 +5,39 @@ describe('startup bundle', () => {
 	test('startup JavaScript stays small enough for fast Obsidian activation', () => {
 		const bytes = statSync(new URL('../dist/main.js', import.meta.url)).size;
 
-		// Shiki is bundled directly, so the bundle is larger than the old Monaco-split architecture
-		expect(bytes).toBeLessThanOrEqual(16 * 1024 * 1024);
+		// Shiki is lazy-loaded from sidecars; startup should stay far below the old all-in-one bundle.
+		expect(bytes).toBeLessThanOrEqual(128 * 1024);
 	});
 
-	test('startup JavaScript is a standalone Obsidian plugin entrypoint', () => {
+	test('startup JavaScript is the real Obsidian plugin entrypoint', () => {
 		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 
-		expect(startupBundle).not.toContain('require(`./');
-		expect(startupBundle).not.toContain("require('./");
-		expect(startupBundle).not.toContain('require("./');
+		expect(startupBundle).toMatch(/extends [a-zA-Z_$][\w$]*\.Plugin/);
+		expect(startupBundle).toContain('exports.default=');
+		expect(startupBundle).not.toContain('exports.default=require');
+		expect(startupBundle).not.toContain('exports.default=e.default');
 	});
 
-	test('startup bundle contains Shiki highlighter, not Monaco', () => {
+	test('startup bundle defers Shiki and excludes Monaco', () => {
 		const startupBundle = readFileSync(new URL('../dist/main.js', import.meta.url), 'utf8');
 		const manifest = readFileSync(new URL('../dist/manifest.json', import.meta.url), 'utf8');
 
-		// Check first 1MB for Shiki references (avoid searching entire 9.5MB bundle)
-		const head = startupBundle.slice(0, 1024 * 1024);
-		expect(head).toContain('codeToTokens');
+		expect(startupBundle).not.toContain('function createHighlighter');
+		expect(startupBundle).not.toContain('createHighlighterCore');
 		expect(startupBundle).not.toContain('monaco.editor.create');
 		expect(startupBundle).not.toContain('modern-monaco');
 		expect(manifest).not.toContain('shikiModernMonacoFallback');
+	});
+
+	test('Shiki is packaged in generated JavaScript sidecars', () => {
+		const sidecars = ['../dist/dist.js', '../dist/typescript.js', '../dist/github-dark.js'];
+
+		for (const sidecar of sidecars) {
+			expect(existsSync(new URL(sidecar, import.meta.url))).toBe(true);
+		}
+
+		const shikiSidecar = readFileSync(new URL('../dist/dist.js', import.meta.url), 'utf8');
+		expect(shikiSidecar).toContain('createHighlighter');
 	});
 
 	test('Shiki code block CSS owns horizontal scroll inside blocks', () => {

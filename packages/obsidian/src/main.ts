@@ -1,6 +1,7 @@
 import { debounce, Plugin, PluginSettingTab, TFile } from 'obsidian';
 import { DEFAULT_SETTINGS, type Settings } from 'packages/obsidian/src/settings/Settings';
 import { ShikiHighlighter } from 'packages/obsidian/src/ShikiHighlighter';
+import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/InlineCodeRegex';
 import type { CodeBlock } from 'packages/obsidian/src/CodeBlock';
 import type { InlineCodeBlock } from 'packages/obsidian/src/InlineCodeBlock';
 import { CodeBlockRegistry } from 'packages/obsidian/src/codeblocks/CodeBlockRegistry';
@@ -11,7 +12,6 @@ import type { ReadingViewAdapter } from 'packages/obsidian/src/modes/ReadingView
 
 import 'packages/obsidian/src/styles.css';
 
-export const SHIKI_INLINE_REGEX = /^\{([^\s]+)\} (.*)/i; // format: `{lang} code`
 const SHIKI_INSTANCE_KEY = '__shikiHighlighterInstanceId';
 
 type ShikiWindow = Window & { [SHIKI_INSTANCE_KEY]?: number };

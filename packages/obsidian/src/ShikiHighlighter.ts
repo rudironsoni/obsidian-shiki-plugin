@@ -1,4 +1,4 @@
-import { createHighlighter, type Highlighter, type TokensResult, type ThemedToken } from 'shiki';
+import type { Highlighter, TokensResult, ThemedToken } from 'shiki';
 import { getConfiguredThemes } from 'packages/obsidian/src/runtime/ThemeBridge';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { getObsidianSafeLanguageNames, resolveLanguageAliasFromMetadata } from 'packages/obsidian/src/runtime/LanguageMetadata';
@@ -13,6 +13,7 @@ export class ShikiHighlighter {
 	}
 
 	async init(): Promise<void> {
+		const { createHighlighter } = await import('shiki');
 		const themes = getConfiguredThemes(this.plugin);
 		this.highlighter = await createHighlighter({
 			themes: themes.length > 0 ? themes : ['github-dark', 'github-light'],
