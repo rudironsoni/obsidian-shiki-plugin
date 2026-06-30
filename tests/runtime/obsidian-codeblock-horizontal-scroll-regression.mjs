@@ -132,7 +132,8 @@ async function verifyLivePreviewViewing(client) {
 	assert(state.hasBlock, 'Live Preview viewing did not render a Shiki block', state);
 	assert(state.bodyScrollWidth > state.bodyClient, 'Live Preview viewing block body is not horizontally scrollable', state);
 	assert(state.bodyScrollLeft > 0, 'Live Preview viewing block body did not scroll', state);
-	assert(state.lineMoved > 0 && state.codeMoved > 0, 'Live Preview viewing did not scroll the whole block content together', state);
+	assert(Math.abs(state.lineMoved) < 1, 'Live Preview viewing moved line numbers horizontally', state);
+	assert(state.codeMoved > 0, 'Live Preview viewing did not move code content horizontally', state);
 	assert(state.codeScrollLeft === 0, 'Live Preview viewing scrolled the inner code column instead of the block body', state);
 	assert(state.noteScrollLeft === 0, 'Live Preview viewing moved the note horizontally', state);
 	return state;
@@ -289,7 +290,8 @@ async function verifyReadingMode(client) {
 	assert(state.prePaddingLeft === 0 && state.prePaddingTop === 0, 'Reading mode kept native pre padding inside the Shiki block', state);
 	assert(state.preBorderLeft === 0 && state.preBorderTop === 0, 'Reading mode kept native pre border inside the Shiki block', state);
 	assert(state.visibleNativeCopyButtonCount === 0, 'Reading mode kept Obsidian native copy button inside the Shiki block body', state);
-	assert(state.lineMoved > 0 && state.codeMoved > 0, 'Reading mode did not scroll the whole block content together', state);
+	assert(Math.abs(state.lineMoved) < 1, 'Reading mode moved line numbers horizontally', state);
+	assert(state.codeMoved > 0, 'Reading mode did not move code content horizontally', state);
 	assert(state.codeScrollLeft === 0, 'Reading mode scrolled the inner code column instead of the block body', state);
 	assert(state.noteScrollLeft === 0, 'Reading mode moved the note horizontally', state);
 	return state;

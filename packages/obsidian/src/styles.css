@@ -216,8 +216,12 @@ span.shiki-ul {
 .shiki-line-numbers {
 	display: flex;
 	flex-direction: column;
+	position: sticky;
+	left: 0;
+	z-index: 1;
 	text-align: right;
 	padding-right: 12px;
+	background: var(--code-background);
 	color: var(--text-faint);
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
