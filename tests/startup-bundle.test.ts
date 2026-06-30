@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 
 describe('startup bundle', () => {
 	test('startup JavaScript stays small enough for fast Obsidian activation', () => {
@@ -30,14 +30,22 @@ describe('startup bundle', () => {
 	});
 
 	test('Shiki is packaged in generated JavaScript sidecars', () => {
-		const sidecars = ['../dist/dist.js', '../dist/typescript.js', '../dist/github-dark.js'];
+		const sidecars = ['../dist/shiki.js', '../dist/Cm6_ViewPlugin.js', '../dist/CodeBlock.js'];
 
 		for (const sidecar of sidecars) {
 			expect(existsSync(new URL(sidecar, import.meta.url))).toBe(true);
 		}
 
-		const shikiSidecar = readFileSync(new URL('../dist/dist.js', import.meta.url), 'utf8');
+		const shikiSidecar = readFileSync(new URL('../dist/shiki.js', import.meta.url), 'utf8');
 		expect(shikiSidecar).toContain('createHighlighter');
+	});
+
+	test('generated JavaScript sidecars stay below GitHub release rate limits', () => {
+		const files = readdirSync(new URL('../dist/', import.meta.url)).filter(file => file.endsWith('.js'));
+
+		expect(files).toContain('main.js');
+		expect(files).toContain('shiki.js');
+		expect(files.length).toBeLessThanOrEqual(20);
 	});
 
 	test('Shiki code block CSS owns horizontal scroll inside blocks', () => {
