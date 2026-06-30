@@ -10,7 +10,7 @@ import { SourceModeAdapter } from 'packages/obsidian/src/modes/SourceModeAdapter
 import { type ThemedToken } from 'shiki';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-	export function createCm6Plugin(plugin: ShikiPlugin) {
+export function createCm6Plugin(plugin: ShikiPlugin) {
 	const activeViewPlugins = new Set<{
 		retokenizeSourceMode(): void;
 		refreshShikiContent(): void;
@@ -195,13 +195,13 @@ import { type ThemedToken } from 'shiki';
 		{ decorations: value => value.decorations },
 	);
 
-plugin.updateCm6Plugin = async (): Promise<void> => {
-	plugin.sourceModeTokenizationCache.clear();
-	for (const viewPlugin of activeViewPlugins) {
-		viewPlugin.refreshShikiContent();
-	}
-	plugin.app.workspace.updateOptions();
-};
+	plugin.updateCm6Plugin = async (): Promise<void> => {
+		plugin.sourceModeTokenizationCache.clear();
+		for (const viewPlugin of activeViewPlugins) {
+			viewPlugin.refreshShikiContent();
+		}
+		plugin.app.workspace.updateOptions();
+	};
 
 	return Prec.highest(cm6Plugin);
 }

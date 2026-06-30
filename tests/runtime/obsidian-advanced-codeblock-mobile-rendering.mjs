@@ -505,8 +505,7 @@ async function waitForRendering(client, mode, settings = {}) {
 			state.shiki.textLength > 20 &&
 			state.shiki.firstRect.width > 80 &&
 			state.shiki.firstRect.height > 80 &&
-			(typeof settings?.lineNumbers !== 'boolean' ||
-				(settings.lineNumbers ? state.shiki.lineNumbers > 0 : state.shiki.lineNumbers === 0))
+			(typeof settings?.lineNumbers !== 'boolean' || (settings.lineNumbers ? state.shiki.lineNumbers > 0 : state.shiki.lineNumbers === 0))
 		) {
 			return state;
 		}

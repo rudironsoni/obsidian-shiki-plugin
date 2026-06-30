@@ -32,7 +32,12 @@ class ShikiLivePreviewWidget extends WidgetType {
 	}
 
 	eq(other: ShikiLivePreviewWidget): boolean {
-		return other.block.id === this.block.id && other.showLineNumbers === this.showLineNumbers && other.wrapLines === this.wrapLines && other.editing === this.editing;
+		return (
+			other.block.id === this.block.id &&
+			other.showLineNumbers === this.showLineNumbers &&
+			other.wrapLines === this.wrapLines &&
+			other.editing === this.editing
+		);
 	}
 
 	toDOM(): HTMLElement {
@@ -341,7 +346,12 @@ export class LivePreviewAdapter {
 
 	private async retokenizeSelectedBlock(block: CodeBlockModel | undefined): Promise<void> {
 		const requestId = ++this.tokenizationRequest;
-		if (block?.codeFrom === undefined || block.codeTo === undefined || !block.language || this.plugin.loadedSettings.disabledLanguages.includes(block.language)) {
+		if (
+			block?.codeFrom === undefined ||
+			block.codeTo === undefined ||
+			!block.language ||
+			this.plugin.loadedSettings.disabledLanguages.includes(block.language)
+		) {
 			this.editTokenDecorations = Decoration.none;
 			this.refreshDecorationSet();
 			this.requestDecorationRefresh();
@@ -438,7 +448,9 @@ export class LivePreviewAdapter {
 				return undefined;
 			}
 			const target = event.target instanceof Element ? event.target : document.elementFromPoint(clientX, clientY);
-			const line = target?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap') ?? document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap');
+			const line =
+				target?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap') ??
+				document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap');
 			return line?.closest<HTMLElement>('.cm-scroller') ?? undefined;
 		};
 		const startDrag = (event: Event, clientX: number, clientY: number): void => {

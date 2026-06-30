@@ -2,15 +2,16 @@ import { describe, expect, test } from 'bun:test';
 import type { default as ShikiPlugin } from 'packages/obsidian/src/main';
 import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 
-const makePlugin = (isDarkMode: boolean): ShikiPlugin => ({
-	app: {
-		isDarkMode: () => isDarkMode,
-	},
-	loadedSettings: {
-		darkTheme: 'obsidian-theme',
-		lightTheme: 'obsidian-theme',
-	},
-} as ShikiPlugin);
+const makePlugin = (isDarkMode: boolean): ShikiPlugin =>
+	({
+		app: {
+			isDarkMode: () => isDarkMode,
+		},
+		loadedSettings: {
+			darkTheme: 'obsidian-theme',
+			lightTheme: 'obsidian-theme',
+		},
+	}) as ShikiPlugin;
 
 describe('ThemeBridge', () => {
 	test('prefers dark mode when the dark class is present', () => {

@@ -658,13 +658,15 @@ async function dispatchTouchTap(wsUrl, x, y) {
 				method: 'Input.dispatchTouchEvent',
 				params: {
 					type: 'touchStart',
-					touchPoints: [{
-						x: asFiniteNumber(x, 'dispatchTouchTap.x'),
-						y: asFiniteNumber(y, 'dispatchTouchTap.y'),
-						radiusX: 2,
-						radiusY: 2,
-						force: 1,
-					}],
+					touchPoints: [
+						{
+							x: asFiniteNumber(x, 'dispatchTouchTap.x'),
+							y: asFiniteNumber(y, 'dispatchTouchTap.y'),
+							radiusX: 2,
+							radiusY: 2,
+							force: 1,
+						},
+					],
 				},
 			}),
 		);
@@ -724,14 +726,16 @@ async function dispatchTouchDrag(wsUrl, fromX, fromY, toX, toY, steps = 8) {
 		};
 		await send('Input.dispatchTouchEvent', {
 			type: 'touchStart',
-			touchPoints: [{
-				x: normalized.fromX,
-				y: normalized.fromY,
-				radiusX: 2,
-				radiusY: 2,
-				force: 1,
-				id: 1,
-			}],
+			touchPoints: [
+				{
+					x: normalized.fromX,
+					y: normalized.fromY,
+					radiusX: 2,
+					radiusY: 2,
+					force: 1,
+					id: 1,
+				},
+			],
 		});
 		for (let step = 1; step <= steps; step++) {
 			const progress = step / steps;
@@ -1338,10 +1342,10 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 			return {};
 		})()`,
 	);
-			if (mobile) {
-				const livePreviewScrollTarget = await evaluate(
-					activeWsUrl,
-					`(() => {
+	if (mobile) {
+		const livePreviewScrollTarget = await evaluate(
+			activeWsUrl,
+			`(() => {
 				const app = window.app;
 				if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 				const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1367,25 +1371,19 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 				};
 			})()`,
 		);
-					if (livePreviewScrollTarget?.hasScrollContainer) {
-						let mobileScrollResolved = false;
-						const attempts = [
-							{ fromX: livePreviewScrollTarget.x + 160, toX: livePreviewScrollTarget.x - 160, delta: 320 },
-							{ fromX: livePreviewScrollTarget.x - 160, toX: livePreviewScrollTarget.x + 160, delta: 320 },
-							{ fromX: livePreviewScrollTarget.x + 220, toX: livePreviewScrollTarget.x - 220, delta: 440 },
-						];
-						for (let attempt = 0; attempt < attempts.length; attempt++) {
-						const candidate = attempts[attempt];
-						await dispatchTouchDrag(
-							activeWsUrl,
-							candidate.fromX,
-							livePreviewScrollTarget.y,
-							candidate.toX,
-							livePreviewScrollTarget.y,
-						);
-						const measurement = await evaluate(
-							activeWsUrl,
-							`(() => {
+		if (livePreviewScrollTarget?.hasScrollContainer) {
+			let mobileScrollResolved = false;
+			const attempts = [
+				{ fromX: livePreviewScrollTarget.x + 160, toX: livePreviewScrollTarget.x - 160, delta: 320 },
+				{ fromX: livePreviewScrollTarget.x - 160, toX: livePreviewScrollTarget.x + 160, delta: 320 },
+				{ fromX: livePreviewScrollTarget.x + 220, toX: livePreviewScrollTarget.x - 220, delta: 440 },
+			];
+			for (let attempt = 0; attempt < attempts.length; attempt++) {
+				const candidate = attempts[attempt];
+				await dispatchTouchDrag(activeWsUrl, candidate.fromX, livePreviewScrollTarget.y, candidate.toX, livePreviewScrollTarget.y);
+				const measurement = await evaluate(
+					activeWsUrl,
+					`(() => {
 								const app = window.app;
 								if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 								const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1407,23 +1405,23 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 									clientWidth: scrollContainer?.clientWidth ?? 0,
 								};
 								return globalThis.__shikiVerifyMobileScroll;
-							})()` ,
-						);
-						if (!measurement?.hasScrollContainer) break;
-								if (Math.abs((measurement.scrollLeftAfter ?? 0) - (measurement.scrollLeftBefore ?? 0)) > 0) {
-									mobileScrollResolved = true;
-									break;
-								}
-								if (attempt < attempts.length - 1) {
-									await new Promise(resolve => setTimeout(resolve, 250));
-								}
-							}
-										if (!mobileScrollResolved) {
-											const wheelAttempt = attempts.length + 1;
-											await dispatchHorizontalWheel(activeWsUrl, livePreviewScrollTarget.x, livePreviewScrollTarget.y, -320);
-											const wheelMeasurement = await evaluate(
-												activeWsUrl,
-								`(() => {
+							})()`,
+				);
+				if (!measurement?.hasScrollContainer) break;
+				if (Math.abs((measurement.scrollLeftAfter ?? 0) - (measurement.scrollLeftBefore ?? 0)) > 0) {
+					mobileScrollResolved = true;
+					break;
+				}
+				if (attempt < attempts.length - 1) {
+					await new Promise(resolve => setTimeout(resolve, 250));
+				}
+			}
+			if (!mobileScrollResolved) {
+				const wheelAttempt = attempts.length + 1;
+				await dispatchHorizontalWheel(activeWsUrl, livePreviewScrollTarget.x, livePreviewScrollTarget.y, -320);
+				const wheelMeasurement = await evaluate(
+					activeWsUrl,
+					`(() => {
 									const app = window.app;
 									if (!app?.vault) throw new Error('Obsidian app vault was not ready');
 									const editorRoot = app.workspace.activeLeaf?.view?.contentEl ?? document;
@@ -1454,14 +1452,14 @@ const livePreviewCodeBlocks = [...livePreviewRoot.querySelectorAll('.shiki-live-
 										globalThis.__shikiVerifyMobileScroll.scrollLeftAfter = scrollContainer.scrollLeft;
 									}
 									return globalThis.__shikiVerifyMobileScroll;
-								})()` ,
-							);
-							if (Math.abs((wheelMeasurement.scrollLeftAfter ?? 0) - (wheelMeasurement.scrollLeftBefore ?? 0)) > 0) {
-								mobileScrollResolved = true;
-							}
-						}
-					}
+								})()`,
+				);
+				if (Math.abs((wheelMeasurement.scrollLeftAfter ?? 0) - (wheelMeasurement.scrollLeftBefore ?? 0)) > 0) {
+					mobileScrollResolved = true;
 				}
+			}
+		}
+	}
 
 	if (mobile) {
 		const dragTarget = await evaluate(
