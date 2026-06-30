@@ -42,6 +42,7 @@ span.shiki-ul {
 .markdown-rendered .shiki-reading-block,
 .markdown-rendered pre.shiki-reading-block {
 	overflow: hidden;
+	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--code-radius);
 	background: var(--code-background);
 	margin: var(--p-spacing) 0;
@@ -120,6 +121,10 @@ span.shiki-ul {
 .markdown-rendered .shiki-reading-block .shiki-code-scroll pre,
 .markdown-rendered pre.shiki-reading-block .shiki-code-scroll pre {
 	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
 	line-height: var(--line-height-normal);
@@ -244,6 +249,10 @@ span.shiki-ul {
 
 .shiki-block-body pre {
 	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
 	line-height: var(--line-height-normal);

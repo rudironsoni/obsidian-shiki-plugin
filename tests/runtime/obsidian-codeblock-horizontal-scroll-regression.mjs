@@ -250,7 +250,9 @@ async function verifyReadingMode(client) {
 			const body = directBodies[0];
 			const codeScroll = body?.querySelector('.shiki-code-scroll');
 			const lineNumbers = body?.querySelector('.shiki-line-numbers');
+			const pre = body?.querySelector('pre');
 			const code = body?.querySelector('code');
+			const preStyle = pre ? getComputedStyle(pre) : null;
 			const beforeLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
 			const beforeCodeLeft = code?.getBoundingClientRect().left ?? null;
 			if (body) body.scrollLeft = 260;
@@ -264,6 +266,10 @@ async function verifyReadingMode(client) {
 				bodyScrollWidth: body?.scrollWidth ?? 0,
 				bodyScrollLeft: body?.scrollLeft ?? 0,
 				codeScrollLeft: codeScroll?.scrollLeft ?? 0,
+				prePaddingLeft: preStyle ? Number.parseFloat(preStyle.paddingLeft) || 0 : null,
+				prePaddingTop: preStyle ? Number.parseFloat(preStyle.paddingTop) || 0 : null,
+				preBorderLeft: preStyle ? Number.parseFloat(preStyle.borderLeftWidth) || 0 : null,
+				preBorderTop: preStyle ? Number.parseFloat(preStyle.borderTopWidth) || 0 : null,
 				lineMoved: beforeLineLeft !== null && afterLineLeft !== null ? beforeLineLeft - afterLineLeft : 0,
 				codeMoved: beforeCodeLeft !== null && afterCodeLeft !== null ? beforeCodeLeft - afterCodeLeft : 0,
 				noteScrollLeft: scroller?.scrollLeft ?? 0,
@@ -276,6 +282,8 @@ async function verifyReadingMode(client) {
 	assert(state.directBodyCount === 1, 'Reading mode rendered duplicate or missing direct block bodies', state);
 	assert(state.bodyScrollWidth > state.bodyClient, 'Reading mode block body is not horizontally scrollable', state);
 	assert(state.bodyScrollLeft > 0, 'Reading mode block body did not scroll', state);
+	assert(state.prePaddingLeft === 0 && state.prePaddingTop === 0, 'Reading mode kept native pre padding inside the Shiki block', state);
+	assert(state.preBorderLeft === 0 && state.preBorderTop === 0, 'Reading mode kept native pre border inside the Shiki block', state);
 	assert(state.lineMoved > 0 && state.codeMoved > 0, 'Reading mode did not scroll the whole block content together', state);
 	assert(state.codeScrollLeft === 0, 'Reading mode scrolled the inner code column instead of the block body', state);
 	assert(state.noteScrollLeft === 0, 'Reading mode moved the note horizontally', state);
