@@ -117,7 +117,8 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('retokenizeSelectedBlock');
 		expect(livePreview).toContain('this.plugin.highlighter.getTokenStyle(token)');
 		expect(livePreview).toContain('syncActiveLineHorizontalScroll');
-		expect(livePreview).toContain('otherLine.scrollLeft = line.scrollLeft');
+		expect(livePreview).toContain('shiki-live-preview-editing-nowrap');
+		expect(livePreview).not.toContain('otherLine.scrollLeft = line.scrollLeft');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
 });

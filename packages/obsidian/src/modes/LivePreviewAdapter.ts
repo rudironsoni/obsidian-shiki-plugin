@@ -8,13 +8,6 @@ import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 const LIVE_PREVIEW_ADAPTER_OWNER = '__shikiLivePreviewAdapterOwner';
 
 type LivePreviewOwnerElement = HTMLElement & { [LIVE_PREVIEW_ADAPTER_OWNER]?: LivePreviewAdapter };
-interface ActiveLineTouchHandlers {
-	touchStart: EventListener;
-	touchMove: EventListener;
-	end: EventListener;
-	pointerStart: EventListener;
-	pointerMove: EventListener;
-}
 
 class ShikiLivePreviewWidget extends WidgetType {
 	private readonly showLineNumbers: boolean;
@@ -173,9 +166,6 @@ export class LivePreviewAdapter {
 	private livePreviewActive = false;
 	private lastRootLivePreviewClass = false;
 	private tokenizationRequest = 0;
-	private readonly activeLineScrollHandlers = new Map<HTMLElement, EventListener>();
-	private activeLineTouchHandlers: ActiveLineTouchHandlers | undefined;
-	private activeLineScrollSyncing = false;
 
 	private readonly gutterObserver: MutationObserver;
 
@@ -412,181 +402,11 @@ export class LivePreviewAdapter {
 
 	private syncActiveLineHorizontalScroll(): void {
 		const activeLines = Array.from(this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap'));
-		const activeLineSet = new Set(activeLines);
-		for (const [line, handler] of this.activeLineScrollHandlers) {
-			if (!activeLineSet.has(line)) {
-				line.removeEventListener('scroll', handler);
-				this.clearActiveLineWidth(line);
-				this.activeLineScrollHandlers.delete(line);
-			}
-		}
-		if (activeLines.length === 0) {
-			this.clearActiveLineTouchHandlers();
-			return;
-		}
-		this.syncActiveLineTouchHandlers();
+		this.getSourceViewRoot().classList.toggle('shiki-live-preview-editing-nowrap', activeLines.length > 0);
 
 		for (const line of activeLines) {
-			this.syncActiveLineWidth(line);
-			if (this.activeLineScrollHandlers.has(line)) {
-				continue;
-			}
-			const handler = (): void => {
-				if (this.activeLineScrollSyncing) {
-					return;
-				}
-				this.activeLineScrollSyncing = true;
-				for (const otherLine of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
-					if (otherLine !== line) {
-						otherLine.scrollLeft = line.scrollLeft;
-					}
-				}
-				window.requestAnimationFrame(() => {
-					this.activeLineScrollSyncing = false;
-				});
-			};
-			line.addEventListener('scroll', handler, { passive: true });
-			this.activeLineScrollHandlers.set(line, handler);
-		}
-	}
-
-	private syncActiveLineTouchHandlers(): void {
-		if (this.activeLineTouchHandlers) {
-			return;
-		}
-
-		let activeLine: HTMLElement | undefined;
-		let activePointerId: number | undefined;
-		let startX = 0;
-		let startY = 0;
-		let startScrollLeft = 0;
-		let horizontalDrag = false;
-		const getActiveLine = (event: Event): HTMLElement | undefined => {
-			const target = event.target instanceof Element ? event.target : (event.target as Node | null)?.parentElement;
-			return target?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap') ?? undefined;
-		};
-		const startDrag = (event: Event, clientX: number, clientY: number): void => {
-			activeLine = getActiveLine(event) ?? document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap') ?? undefined;
-			if (!activeLine) {
-				return;
-			}
-			startX = clientX;
-			startY = clientY;
-			startScrollLeft = activeLine.scrollLeft;
-			horizontalDrag = false;
-		};
-		const moveDrag = (event: Event, clientX: number, clientY: number): void => {
-			if (!activeLine) {
-				return;
-			}
-			const deltaX = startX - clientX;
-			const deltaY = startY - clientY;
-			if (!horizontalDrag) {
-				if (Math.abs(deltaY) > Math.abs(deltaX)) {
-					return;
-				}
-				if (Math.abs(deltaX) < 8) {
-					return;
-				}
-				horizontalDrag = true;
-			}
-			event.preventDefault();
-			event.stopPropagation();
-			this.setActiveLineScrollLeft(startScrollLeft + deltaX);
-		};
-		const touchStart = ((event: TouchEvent): void => {
-			const touch = event.touches[0];
-			if (!touch) {
-				return;
-			}
-			startDrag(event, touch.clientX, touch.clientY);
-		}) as EventListener;
-		const touchMove = ((event: TouchEvent): void => {
-			const touch = event.touches[0];
-			if (!touch) {
-				return;
-			}
-			moveDrag(event, touch.clientX, touch.clientY);
-		}) as EventListener;
-		const pointerStart = ((event: PointerEvent): void => {
-			if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
-				return;
-			}
-			activePointerId = event.pointerId;
-			startDrag(event, event.clientX, event.clientY);
-		}) as EventListener;
-		const pointerMove = ((event: PointerEvent): void => {
-			if (activePointerId !== event.pointerId) {
-				return;
-			}
-			moveDrag(event, event.clientX, event.clientY);
-		}) as EventListener;
-		const end = (() => {
-			activeLine = undefined;
-			activePointerId = undefined;
-			horizontalDrag = false;
-		}) as EventListener;
-
-		window.addEventListener('touchstart', touchStart, { capture: true, passive: true });
-		window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
-		window.addEventListener('touchend', end, { capture: true, passive: true });
-		window.addEventListener('touchcancel', end, { capture: true, passive: true });
-		window.addEventListener('pointerdown', pointerStart, { capture: true, passive: true });
-		window.addEventListener('pointermove', pointerMove, { capture: true, passive: false });
-		window.addEventListener('pointerup', end, { capture: true, passive: true });
-		window.addEventListener('pointercancel', end, { capture: true, passive: true });
-		this.activeLineTouchHandlers = { touchStart, touchMove, end, pointerStart, pointerMove };
-	}
-
-	private clearActiveLineTouchHandlers(): void {
-		const handlers = this.activeLineTouchHandlers;
-		if (!handlers) {
-			return;
-		}
-		window.removeEventListener('touchstart', handlers.touchStart, true);
-		window.removeEventListener('touchmove', handlers.touchMove, true);
-		window.removeEventListener('touchend', handlers.end, true);
-		window.removeEventListener('touchcancel', handlers.end, true);
-		window.removeEventListener('pointerdown', handlers.pointerStart, true);
-		window.removeEventListener('pointermove', handlers.pointerMove, true);
-		window.removeEventListener('pointerup', handlers.end, true);
-		window.removeEventListener('pointercancel', handlers.end, true);
-		this.activeLineTouchHandlers = undefined;
-	}
-
-	private setActiveLineScrollLeft(scrollLeft: number): void {
-		this.activeLineScrollSyncing = true;
-		for (const line of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
-			line.scrollLeft = scrollLeft;
-		}
-		window.requestAnimationFrame(() => {
-			this.activeLineScrollSyncing = false;
-		});
-	}
-
-	private syncActiveLineWidth(line: HTMLElement): void {
-		const content = this.view.dom.querySelector<HTMLElement>('.cm-content');
-		const container = content ?? this.view.dom.querySelector<HTMLElement>('.cm-scroller');
-		if (!container) {
 			this.clearActiveLineWidth(line);
-			return;
 		}
-
-		const blockId = line.dataset.shikiEditingBlockId;
-		const block = blockId ? this.view.dom.querySelector<HTMLElement>(`.shiki-live-preview-block.is-editing[data-shiki-block-id="${CSS.escape(blockId)}"]`) : null;
-		const blockRight = block?.getBoundingClientRect().right;
-		const containerRect = container.getBoundingClientRect();
-		const lineRect = line.getBoundingClientRect();
-		const rightEdge = Math.min(containerRect.right, blockRight ?? containerRect.right);
-		const availableWidth = Math.floor(rightEdge - lineRect.left);
-		if (availableWidth <= 0) {
-			this.clearActiveLineWidth(line);
-			return;
-		}
-
-		line.style.boxSizing = 'border-box';
-		line.style.width = `${availableWidth}px`;
-		line.style.maxWidth = `${availableWidth}px`;
 	}
 
 	private clearActiveLineWidth(line: HTMLElement): void {
@@ -596,12 +416,10 @@ export class LivePreviewAdapter {
 	}
 
 	private clearActiveLineScrollHandlers(): void {
-		this.clearActiveLineTouchHandlers();
-		for (const [line, handler] of this.activeLineScrollHandlers) {
-			line.removeEventListener('scroll', handler);
+		this.getSourceViewRoot().classList.remove('shiki-live-preview-editing-nowrap');
+		for (const line of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
 			this.clearActiveLineWidth(line);
 		}
-		this.activeLineScrollHandlers.clear();
 	}
 
 	public syncGutterVisibility(): void {
