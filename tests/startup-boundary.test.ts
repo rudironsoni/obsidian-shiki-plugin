@@ -236,6 +236,10 @@ test('styles contain Shiki block styles and no Monaco styles', () => {
 	expect(styles).toContain('--shiki-editing-scroll-left');
 	expect(styles).toContain('transform: translateX');
 	expect(styles).toContain('overflow-x: visible');
+	expect(styles).toContain('body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body');
+	expect(styles).toContain('font-size: var(--font-text-size);');
+	expect(styles).toContain('font-size: var(--code-size);');
+	expect(styles).toContain('font-size: inherit;');
 	expect(styles).not.toContain('scrollbar-gutter: stable');
 	expect(styles).not.toContain('.shiki-monaco-block');
 	expect(styles).not.toContain('.shiki-monaco-editor');
