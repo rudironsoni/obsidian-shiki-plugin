@@ -6,6 +6,7 @@ import { SHIKI_INLINE_REGEX } from 'packages/obsidian/src/InlineCodeRegex';
 import type ShikiPlugin from 'packages/obsidian/src/main';
 import { syntaxTree } from '@codemirror/language';
 import { LivePreviewAdapter } from 'packages/obsidian/src/modes/LivePreviewAdapter';
+import { createLivePreviewStructureExtension } from 'packages/obsidian/src/modes/LivePreviewStructureExtension';
 import { SourceModeAdapter } from 'packages/obsidian/src/modes/SourceModeAdapter';
 import { type ThemedToken } from 'shiki';
 
@@ -203,5 +204,5 @@ export function createCm6Plugin(plugin: ShikiPlugin) {
 		plugin.app.workspace.updateOptions();
 	};
 
-	return Prec.highest(cm6Plugin);
+	return Prec.highest([createLivePreviewStructureExtension(plugin), cm6Plugin]);
 }

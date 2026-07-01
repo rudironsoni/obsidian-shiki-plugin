@@ -257,6 +257,11 @@ span.shiki-ul {
 	line-height: var(--line-height-normal);
 }
 
+.shiki-code-line {
+	display: block;
+	min-height: var(--line-height-normal);
+}
+
 /* Match Obsidian's code block font size when editor font sizing is enabled. */
 body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body,
 body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block .shiki-block-body {
@@ -275,26 +280,59 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block code {
 	font-size: inherit;
 }
 
-/* Hide raw code lines and closing fence; widget renders the full block */
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-line,
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-closing-fence {
-	height: 0 !important;
-	min-height: 0 !important;
-	overflow: hidden !important;
-	opacity: 0 !important;
-	pointer-events: none !important;
-	padding: 0 !important;
-	margin: 0 !important;
-	border: 0 !important;
-	line-height: 0 !important;
-	font-size: 0 !important;
+.markdown-source-view.mod-cm6.is-live-preview .shiki-live-preview-header {
+	margin-top: var(--shiki-code-block-spacing);
 }
 
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line {
+.markdown-source-view.mod-cm6:not(.is-live-preview) .shiki-live-preview-header {
+	display: none !important;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-live-preview-code-line {
+	display: block;
 	background: var(--shiki-code-background);
 	font-family: var(--font-monospace);
 	font-size: var(--code-size);
 	line-height: var(--line-height-normal);
+	white-space: pre !important;
+	width: 100% !important;
+	min-width: 100% !important;
+	max-width: 100% !important;
+	box-sizing: border-box;
+	overflow-x: hidden;
+	overflow-y: hidden;
+	contain: paint;
+	overscroll-behavior-x: contain;
+	touch-action: pan-y;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-live-preview-code-line-wrap {
+	white-space: pre-wrap !important;
+	word-break: break-word;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-live-preview-fence-line {
+	max-width: 100%;
+	position: relative;
+	overflow: hidden;
+}
+
+.markdown-source-view.mod-cm6.is-live-preview .shiki-live-preview-line-number {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	display: inline-block;
+	min-width: 3.5ch;
+	margin-right: 12px;
+	padding-right: 12px;
+	border-right: 1px solid var(--background-modifier-border);
+	background: var(--shiki-code-background);
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: var(--code-size);
+	line-height: var(--line-height-normal);
+	text-align: right;
+	user-select: none;
 }
 
 .markdown-source-view.mod-cm6:not(.is-live-preview) .cm-line.HyperMD-codeblock,
@@ -313,47 +351,15 @@ body.shiki-use-editor-font-size .markdown-rendered .shiki-reading-block code {
 	width: max-content !important;
 }
 
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap {
-	display: block;
-	white-space: pre !important;
-	width: 100% !important;
-	min-width: 100% !important;
-	max-width: 100% !important;
-	overflow-x: hidden;
-	overflow-y: hidden;
-	contain: paint;
-	overscroll-behavior-x: contain;
-	touch-action: pan-y;
-	-webkit-overflow-scrolling: touch;
-}
-
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-nowrap > * {
-	display: inline-block;
-	white-space: pre;
-	transform: translateX(calc(var(--shiki-editing-scroll-left, 0) * -1px));
-}
-
 .markdown-source-view.mod-cm6:not(.is-live-preview) .cm-line {
 	white-space: pre !important;
 	width: 100% !important;
 	min-width: 100% !important;
 }
 
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-active-line-wrap {
-	white-space: pre-wrap !important;
-	word-break: break-word;
-}
-
 /* Hide gutter numbers for rows replaced by Shiki content */
 .markdown-source-view.mod-cm6.is-live-preview .cm-lineNumbers .cm-gutterElement.shiki-gutter-line-hidden {
 	visibility: hidden !important;
-	overflow: hidden;
-}
-
-/* Keep opening fence line visible to host widget */
-.markdown-source-view.mod-cm6.is-live-preview .cm-line.shiki-editing-codeblock-fence {
-	max-width: 100%;
-	position: relative;
 	overflow: hidden;
 }
 

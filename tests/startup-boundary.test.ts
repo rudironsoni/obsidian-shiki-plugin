@@ -117,18 +117,26 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('codeTo: block.range.charTo');
 	});
 
-	test('live preview adapter keeps Obsidian editor focus for mobile toolbar', () => {
+	test('live preview uses whole-block scrolling while preserving native edit rows when selected', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
-		expect(livePreview).toContain('this.editorView.focus()');
-		expect(livePreview).toContain('selection: EditorSelection.cursor(this.block.codeFrom)');
+		const structure = read('packages/obsidian/src/modes/LivePreviewStructureExtension.ts');
 		expect(livePreview).not.toContain('shiki-code-editor');
+		expect(livePreview).not.toContain('new ShikiLivePreviewWidget');
+		expect(structure).not.toContain('BlockWrapper');
+		expect(structure).not.toContain('blockWrappers');
+		expect(structure).toContain('ShikiLivePreviewBlockWidget');
+		expect(structure).toContain('Decoration.replace');
+		expect(structure).toContain('shiki-live-preview-block');
+		expect(structure).toContain('shiki-block-body');
+		expect(structure).toContain('shiki-code-scroll');
+		expect(structure).toContain('ShikiLivePreviewHeaderWidget');
+		expect(structure).toContain('ShikiLivePreviewLineNumberWidget');
+		expect(structure).toContain('isBlockSelected');
 		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged && !update.selectionSet)');
-		expect(livePreview).toContain('blockIsSelected');
-		expect(livePreview).toContain('shiki-editing-codeblock-active-line');
-		expect(livePreview).toContain('retokenizeSelectedBlock');
+		expect(livePreview).toContain('retokenizeBlocks');
 		expect(livePreview).toContain('this.plugin.highlighter.getTokenStyle(token)');
-		expect(livePreview).toContain('syncActiveLineHorizontalScroll');
-		expect(livePreview).toContain('shiki-live-preview-editing-nowrap');
+		expect(livePreview).not.toContain('shiki-editing-codeblock-active-line');
+		expect(livePreview).not.toContain('syncActiveLineHorizontalScroll');
 		expect(livePreview).not.toContain('otherLine.scrollLeft = line.scrollLeft');
 		expect(livePreview).not.toContain('if (update.viewportChanged || update.selectionSet)');
 	});
@@ -233,8 +241,8 @@ test('styles contain Shiki block styles and no Monaco styles', () => {
 	expect(styles).toContain('.shiki-block-body');
 	expect(styles).toContain('.markdown-source-view.mod-cm6:not(.is-live-preview) .cm-scroller');
 	expect(styles).toContain('.markdown-source-view.mod-cm6:not(.is-live-preview) .cm-line');
-	expect(styles).toContain('--shiki-editing-scroll-left');
-	expect(styles).toContain('transform: translateX');
+	expect(styles).not.toContain('--shiki-editing-scroll-left');
+	expect(styles).not.toContain('transform: translateX');
 	expect(styles).toContain('overflow-x: visible');
 	expect(styles).toContain('body.shiki-use-editor-font-size .shiki-live-preview-block .shiki-block-body');
 	expect(styles).toContain('font-size: var(--font-text-size);');

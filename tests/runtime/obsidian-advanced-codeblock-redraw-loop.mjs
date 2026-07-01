@@ -192,13 +192,14 @@ async function setupFixture(client) {
 			if (!plugin) throw new Error('advanced-code-block is not loaded');
 			const content = ${JSON.stringify(fixtureContent())};
 			let file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-			if (!file) {
-				file = await globalThis.app.vault.create(${JSON.stringify(NOTE_PATH)}, content);
-			} else {
+			if (file) {
 				await globalThis.app.vault.modify(file, content);
+			} else {
+				await globalThis.app.vault.adapter.write(${JSON.stringify(NOTE_PATH)}, content);
+				file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
 			}
 			const originalSettings = structuredClone(plugin.settings);
-			return { originalSettings, activeFile: file.path };
+			return { originalSettings, activeFile: file?.path ?? ${JSON.stringify(NOTE_PATH)} };
 		})()`,
 	);
 }
@@ -229,6 +230,7 @@ async function applySettings(client, settings) {
 			plugin.settings.showLineNumbers = ${JSON.stringify(settings.lineNumbers)};
 			plugin.loadedSettings = structuredClone(plugin.settings);
 			await plugin.saveData(plugin.settings);
+			await plugin.updateCm6Plugin?.();
 			return {
 				wrap: plugin.loadedSettings.wrapLines,
 				lineNumbers: plugin.loadedSettings.showLineNumbers,
@@ -270,7 +272,8 @@ async function openMode(client, mode) {
 			};
 			let file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
 			if (!file) {
-				file = await globalThis.app.vault.create(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(fixtureContent())});
+				await globalThis.app.vault.adapter.write(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(fixtureContent())});
+				file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
 			}
 			// In fresh sessions there may be no ready tab group yet.
 			const isUsableLeaf = leaf => !!leaf && typeof leaf.setViewState === 'function' && typeof leaf.openFile === 'function';
@@ -286,6 +289,9 @@ async function openMode(client, mode) {
 				leaf = null;
 			}
 			if (!isUsableLeaf(leaf)) {
+				leaf = globalThis.app.workspace.getLeavesOfType?.('markdown')?.find(isUsableLeaf) ?? null;
+			}
+			if (!isUsableLeaf(leaf)) {
 				leaf = safeGetLeaf(() => globalThis.app.workspace.getLeaf('tab'));
 			}
 			if (!isUsableLeaf(leaf)) {
@@ -294,17 +300,17 @@ async function openMode(client, mode) {
 			if (!isUsableLeaf(leaf)) {
 				leaf = safeGetLeaf(() => globalThis.app.workspace.getLeaf(true));
 			}
-			if (!isUsableLeaf(leaf) && globalThis.app.workspace.openLinkText) {
-				await bounded(globalThis.app.workspace.openLinkText(${JSON.stringify(NOTE_PATH)}, '', true, { active: true }));
-				leaf = globalThis.app.workspace.activeLeaf;
-			}
 			if (!isUsableLeaf(leaf)) {
 				leaf = safeGetLeaf(() => globalThis.app.workspace.getLeaf('tab')) ?? safeGetLeaf(() => globalThis.app.workspace.activeLeaf);
 			}
-			if (!leaf || !leaf.setViewState || !leaf.openFile) {
-				throw new Error('Unable to acquire a valid workspace leaf');
+			if (!isUsableLeaf(leaf)) {
+				leaf = safeGetLeaf(() => globalThis.app.workspace.getLeaf()) ?? safeGetLeaf(() => globalThis.app.workspace.getLeaf('split')) ?? safeGetLeaf(() => globalThis.app.workspace.getLeaf(false));
 			}
-			await bounded(leaf.openFile(file, { active: true }));
+			if (!leaf || !leaf.setViewState || !leaf.openFile) {
+				globalThis.location.reload();
+				throw new Error('Execution context was destroyed');
+			}
+			if (file) await bounded(leaf.openFile(file, { active: true }));
 			await bounded(leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false }));
 			globalThis.app.workspace.setActiveLeaf?.(leaf, { focus: true });
 			for (const element of document.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-preview-view')) {
@@ -324,35 +330,37 @@ async function collectState(client) {
 			window.__shikiRedrawVerifierHostIds ??= new WeakMap();
 			window.__shikiRedrawVerifierNextHostId ??= 1;
 			const root = document.querySelector('.workspace-leaf.mod-active') ?? document;
+			const plugin = globalThis.app?.plugins?.plugins?.['advanced-code-block'];
+			const settings = plugin ? { showLineNumbers: plugin.loadedSettings?.showLineNumbers, wrapLines: plugin.loadedSettings?.wrapLines } : null;
 			const blocks = [...root.querySelectorAll('.shiki-live-preview-block')];
 			const block = blocks[0] ?? null;
-			const tokenSpans = block ? [...block.querySelectorAll('[style*="color:"]')] : [];
-			const hasLineNumbers = block ? !!block.querySelector('.shiki-line-numbers') : false;
-			const hasHeader = block ? !!block.querySelector('.shiki-block-header') : false;
-			const hasScrollContainer = block ? !!block.querySelector('.shiki-code-scroll') : false;
-			if (block && !window.__shikiRedrawVerifierHostIds.has(block)) {
-				window.__shikiRedrawVerifierHostIds.set(block, window.__shikiRedrawVerifierNextHostId++);
+			const headers = [...root.querySelectorAll('.shiki-live-preview-header')];
+			const header = headers[0] ?? null;
+			const body = block?.querySelector('.shiki-block-body') ?? null;
+			const codeLines = [...root.querySelectorAll('.cm-line.shiki-live-preview-code-line')];
+			const tokenSpans = settings?.wrapLines ? [...root.querySelectorAll('.cm-line.shiki-live-preview-code-line [style*="color:"]')] : [...(block?.querySelectorAll('[style*="color:"]') ?? [])];
+			const lineNumbers = settings?.wrapLines ? [...root.querySelectorAll('.shiki-live-preview-line-number')] : [...(block?.querySelectorAll('.shiki-line-numbers span') ?? [])];
+			const visibleGutters = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].filter(element => getComputedStyle(element).visibility !== 'hidden');
+			const host = block ?? header;
+			if (host && !window.__shikiRedrawVerifierHostIds.has(host)) {
+				window.__shikiRedrawVerifierHostIds.set(host, window.__shikiRedrawVerifierNextHostId++);
 			}
-			const blockRect = block?.getBoundingClientRect?.() ?? null;
-			const rawRows = [...root.querySelectorAll('.shiki-editing-codeblock-line[data-shiki-editing-block-id]')];
-			const visibleRawRows = rawRows.filter(row => {
+			const blockRect = (block ?? header)?.getBoundingClientRect?.() ?? null;
+			const visibleCodeRows = codeLines.filter(row => {
 				const rect = row.getBoundingClientRect();
 				const style = getComputedStyle(row);
 				return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
-					&& !row.classList.contains('shiki-editing-codeblock-line-hidden');
 			});
 			const noteScrollers = [...root.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-source-view')].map(element => ({
 				className: element.className,
 				scrollLeft: element.scrollLeft,
 				scrollTop: element.scrollTop,
 			}));
-			const plugin = globalThis.app?.plugins?.plugins?.['advanced-code-block'];
-			const settings = plugin ? { showLineNumbers: plugin.loadedSettings?.showLineNumbers } : null;
 			return {
 				activeFile: globalThis.app?.workspace?.getActiveFile?.()?.path ?? null,
 				isMobile: globalThis.app?.isMobile ?? false,
-				blocks: blocks.length,
-				blockId: block ? window.__shikiRedrawVerifierHostIds.get(block) : null,
+				blocks: settings?.wrapLines ? headers.length : blocks.length,
+				blockId: host ? window.__shikiRedrawVerifierHostIds.get(host) : null,
 				blockRect: blockRect ? {
 					left: blockRect.left,
 					top: blockRect.top,
@@ -361,10 +369,12 @@ async function collectState(client) {
 					bottom: blockRect.bottom,
 				} : null,
 				tokenSpans: tokenSpans.length,
-				hasLineNumbers,
-				hasHeader,
-				hasScrollContainer,
-				visibleRawRows: visibleRawRows.length,
+				hasLineNumbers: lineNumbers.length > 0,
+				hasHeader: settings?.wrapLines ? headers.length > 0 : !!block?.querySelector('.shiki-block-header'),
+				hasScrollContainer: !!body && body.scrollWidth > body.clientWidth + 1,
+				visibleRawRows: visibleCodeRows.length,
+				visibleGutters: visibleGutters.length,
+				blockScrollLeft: body?.scrollLeft ?? 0,
 				settings,
 				noteScrollLeft: Math.max(0, ...noteScrollers.map(scroller => scroller.scrollLeft ?? 0)),
 				noteScrollTop: Math.max(0, ...noteScrollers.map(scroller => scroller.scrollTop ?? 0)),
@@ -376,7 +386,7 @@ async function collectState(client) {
 
 function assertShikiReady(state, context) {
 	assert(state.activeFile === NOTE_PATH, `${context}: fixture note is not active`, state);
-	assert(state.blocks === 1, `${context}: expected exactly one Shiki live preview block`, state);
+	assert(state.blocks === 1, `${context}: expected exactly one Shiki live preview surface`, state);
 	assert(state.blockRect?.width > 20 && state.blockRect?.height > 20, `${context}: Shiki block has invalid geometry`, state);
 	assert(state.tokenSpans > 0, `${context}: Shiki block rendered no token spans`, state);
 	if (state.settings?.showLineNumbers === true) {
@@ -384,9 +394,14 @@ function assertShikiReady(state, context) {
 	} else if (state.settings?.showLineNumbers === false) {
 		assert(!state.hasLineNumbers, `${context}: Shiki block unexpectedly rendered line numbers`, state);
 	}
-	assert(state.hasHeader, `${context}: Shiki block missing header`, state);
-	assert(state.hasScrollContainer, `${context}: Shiki block missing scroll container`, state);
-	assert(state.visibleRawRows === 0, `${context}: raw CodeMirror code rows are visible after Shiki is ready`, state);
+	assert(state.hasHeader, `${context}: Shiki Live Preview missing header`, state);
+	if (state.settings?.wrapLines === false) {
+		assert(state.hasScrollContainer, `${context}: Shiki block body is not horizontally scrollable`, state);
+		assert(state.visibleRawRows === 0, `${context}: native CodeMirror code rows are visible in nowrap viewing mode`, state);
+	} else {
+		assert(state.visibleRawRows > 0, `${context}: native CodeMirror code rows are not visible in wrap viewing mode`, state);
+	}
+	assert(state.visibleGutters > 0, `${context}: native CodeMirror line gutters are not visible`, state);
 	assert(state.noteScrollLeft === 0, `${context}: note scroller moved horizontally`, state);
 }
 
@@ -426,31 +441,50 @@ async function assertStable(client, context) {
 
 async function verifyScroll(client, settings, context) {
 	const before = await waitForShikiReady(client, `${context} before scroll`);
-	await evaluate(
-		client,
-		`(() => {
+	await evaluate(client, `(async () => {
+		await globalThis.app?.plugins?.plugins?.['advanced-code-block']?.updateCm6Plugin?.();
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		return true;
+	})()`);
+	if (before.isMobile) {
+		await evaluate(client, `(() => { const body = document.querySelector('.workspace-leaf.mod-active .shiki-live-preview-block .shiki-block-body'); if (body) body.scrollLeft = 280; return true; })()`);
+	} else {
+		await evaluate(
+			client,
+			`(() => {
 			const root = document.querySelector('.workspace-leaf.mod-active') ?? document;
-			const block = root.querySelector('.shiki-live-preview-block');
-			const scrollContainer = block?.querySelector('.shiki-code-scroll');
-			if (scrollContainer) scrollContainer.scrollLeft = 280;
-			const scroller = [...root.querySelectorAll('.cm-scroller, .view-content, .markdown-source-view')]
-				.find(candidate => candidate.scrollHeight > candidate.clientHeight + 20);
-			if (scroller) scroller.scrollTop = Math.min(scroller.scrollTop + 260, scroller.scrollHeight - scroller.clientHeight);
+			const body = root.querySelector('.shiki-live-preview-block .shiki-block-body');
+			if (body) body.scrollLeft = 280;
 			for (const element of root.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-source-view')) {
 				element.scrollLeft = 0;
 			}
 			return true;
 		})()`,
+		);
+	}
+	await delay(300);
+	const afterHorizontal = await collectState(client);
+	assertShikiReady(afterHorizontal, `${context} after horizontal scroll`);
+	assert(afterHorizontal.noteScrollLeft === 0, `${context}: note moved horizontally during code scroll`, { before, after: afterHorizontal, settings });
+	if (!settings.wrap) {
+		const scrollLeft = afterHorizontal.blockScrollLeft;
+		assert(scrollLeft > 0, `${context}: Shiki block body did not scroll horizontally with wrap off`, { before, after: afterHorizontal, settings });
+	}
+	await evaluate(
+		client,
+		`(() => {
+			const root = document.querySelector('.workspace-leaf.mod-active') ?? document;
+			const scroller = [...root.querySelectorAll('.cm-scroller, .view-content, .markdown-source-view')]
+				.find(candidate => candidate.scrollHeight > candidate.clientHeight + 20);
+			if (scroller) scroller.scrollTop = Math.min(scroller.scrollTop + 260, scroller.scrollHeight - scroller.clientHeight);
+			for (const element of root.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-source-view')) element.scrollLeft = 0;
+			return true;
+		})()`,
 	);
 	await delay(300);
-	const after = await collectState(client);
-	assertShikiReady(after, `${context} after scroll`);
-	assert(after.noteScrollLeft === 0, `${context}: note moved horizontally during code scroll`, { before, after, settings });
-	if (!settings.wrap) {
-		const scrollLeft = await evaluate(client, `(() => document.querySelector('.shiki-live-preview-block .shiki-code-scroll')?.scrollLeft ?? 0)()`);
-		assert(scrollLeft > 0, `${context}: Shiki scroll container did not scroll horizontally with wrap off`, { before, after, settings });
-	}
-	assert(after.noteScrollTop > 0 || before.noteScrollTop > 0, `${context}: note did not move vertically during vertical scroll`, { before, after });
+	const afterVertical = await collectState(client);
+	assertShikiReady(afterVertical, `${context} after vertical scroll`);
+	assert(afterVertical.noteScrollTop > 0 || before.noteScrollTop > 0, `${context}: note did not move vertically during vertical scroll`, { before, after: afterVertical });
 }
 
 async function captureScreenshot(client, filename) {

@@ -1,5 +1,5 @@
-import { Decoration, WidgetType, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
-import { EditorSelection, RangeSetBuilder, type Range } from '@codemirror/state';
+import { Decoration, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
+import { RangeSetBuilder, type Range } from '@codemirror/state';
 import { CodeBlockParser } from 'packages/obsidian/src/codeblocks/CodeBlockParser';
 import type { CodeBlockLineInfo, CodeBlockModel } from 'packages/obsidian/src/codeblocks/CodeBlockModel';
 import type ShikiPlugin from 'packages/obsidian/src/main';
@@ -8,175 +8,8 @@ import { getActiveTheme } from 'packages/obsidian/src/runtime/ThemeBridge';
 const LIVE_PREVIEW_ADAPTER_OWNER = '__shikiLivePreviewAdapterOwner';
 
 type LivePreviewOwnerElement = HTMLElement & { [LIVE_PREVIEW_ADAPTER_OWNER]?: LivePreviewAdapter };
-interface ActiveEditScrollHandlers {
-	touchStart: EventListener;
-	touchMove: EventListener;
-	end: EventListener;
-	pointerStart: EventListener;
-	pointerMove: EventListener;
-	wheel: EventListener;
-}
-
-class ShikiLivePreviewWidget extends WidgetType {
-	private readonly showLineNumbers: boolean;
-	private readonly wrapLines: boolean;
-	private readonly activeTheme: string;
-	private readonly preferThemeColors: boolean;
-
-	constructor(
-		private readonly block: CodeBlockModel,
-		private readonly plugin: ShikiPlugin,
-		private readonly editorView: EditorView,
-		private readonly editing = false,
-	) {
-		super();
-		this.showLineNumbers = this.plugin.loadedSettings.showLineNumbers;
-		this.wrapLines = this.plugin.loadedSettings.wrapLines;
-		this.activeTheme = getActiveTheme(this.plugin);
-		this.preferThemeColors = this.plugin.loadedSettings.preferThemeColors;
-	}
-
-	eq(other: ShikiLivePreviewWidget): boolean {
-		return (
-			other.block.id === this.block.id &&
-			other.showLineNumbers === this.showLineNumbers &&
-			other.wrapLines === this.wrapLines &&
-			other.activeTheme === this.activeTheme &&
-			other.preferThemeColors === this.preferThemeColors &&
-			other.editing === this.editing
-		);
-	}
-
-	toDOM(): HTMLElement {
-		const container = document.createElement('div');
-		container.className = 'shiki-live-preview-block';
-		if (this.editing) {
-			container.classList.add('is-editing');
-		}
-		container.dataset.shikiBlockId = this.block.id;
-		container.dataset.lang = this.block.language;
-
-		if (this.plugin.loadedSettings.wrapLines) {
-			container.classList.add('wrap-lines');
-		}
-
-		const focusCodeBlockEditor = (e: Event): void => {
-			const clickedCopyButton = e.composedPath().some(node => (node as Element).closest?.('.shiki-copy-button'));
-			if (clickedCopyButton) {
-				return;
-			}
-			if (this.block.codeFrom === undefined) {
-				return;
-			}
-			e.preventDefault();
-			e.stopPropagation();
-			this.editorView.focus();
-			this.editorView.dispatch({
-				selection: EditorSelection.cursor(this.block.codeFrom),
-				scrollIntoView: true,
-			});
-		};
-
-		container.addEventListener('click', focusCodeBlockEditor);
-
-		// Header
-		const header = container.createDiv({ cls: 'shiki-block-header' });
-		const left = header.createDiv({ cls: 'shiki-header-left' });
-		left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
-		const right = header.createDiv({ cls: 'shiki-header-right' });
-		const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
-		copyBtn.onclick = (e): void => {
-			e.stopPropagation();
-			navigator.clipboard.writeText(this.block.code).catch(() => {});
-		};
-		if (this.editing) {
-			return container;
-		}
-
-		// Body
-		const body = container.createDiv({ cls: 'shiki-block-body' });
-		const scrollContainer = body.createDiv({ cls: 'shiki-code-scroll' });
-		scrollContainer.style.overflowX = 'auto';
-		const pre = scrollContainer.createEl('pre');
-		pre.style.margin = '0';
-		const codeEl = pre.createEl('code');
-
-		if (this.plugin.loadedSettings.wrapLines) {
-			pre.style.whiteSpace = 'pre-wrap';
-			codeEl.style.whiteSpace = 'pre-wrap';
-			codeEl.style.wordBreak = 'break-word';
-		} else {
-			pre.style.whiteSpace = 'pre';
-			codeEl.style.whiteSpace = 'pre';
-		}
-
-		// Render tokens asynchronously (with line numbers)
-		void this.renderTokens(codeEl, body);
-
-		return container;
-	}
-
-	private async renderTokens(codeEl: HTMLElement, bodyEl: HTMLElement): Promise<void> {
-		const highlight = await this.plugin.highlighter.getHighlightTokens(this.block.code, this.block.language);
-		if (!highlight) {
-			codeEl.textContent = this.block.code;
-			return;
-		}
-		const themeBackground = this.plugin.highlighter.getThemeBackground(highlight);
-		if (themeBackground) {
-			bodyEl.closest<HTMLElement>('.shiki-live-preview-block')?.style.setProperty('--shiki-code-background', themeBackground);
-		}
-
-		const lines = this.block.code.split('\n');
-
-		for (const lineNumbers of [...bodyEl.querySelectorAll('.shiki-line-numbers')]) {
-			lineNumbers.remove();
-		}
-		if (!this.plugin.loadedSettings.showLineNumbers) {
-			bodyEl.style.display = '';
-		}
-
-		// Add line numbers if enabled
-		if (this.plugin.loadedSettings.showLineNumbers) {
-			const lineNumbers = document.createElement('div');
-			lineNumbers.className = 'shiki-line-numbers';
-			for (let i = 1; i <= lines.length; i++) {
-				lineNumbers.createSpan({ text: String(i) });
-			}
-			bodyEl.insertBefore(lineNumbers, bodyEl.firstChild);
-		}
-
-		for (let i = 0; i < lines.length; i++) {
-			const lineTokens = highlight.tokens[i];
-			if (!lineTokens) {
-				codeEl.appendChild(document.createTextNode(lines[i] ?? ''));
-			} else {
-				for (const token of lineTokens) {
-					const span = codeEl.createSpan({
-						text: token.content,
-						attr: { style: `color: ${token.color ?? 'inherit'}` },
-					});
-					if (token.fontStyle) {
-						if (token.fontStyle & 1) span.style.fontStyle = 'italic';
-						if (token.fontStyle & 2) span.style.fontWeight = 'bold';
-						if (token.fontStyle & 4) span.style.textDecoration = 'underline';
-					}
-				}
-			}
-			if (i < lines.length - 1) {
-				codeEl.appendChild(document.createTextNode('\n'));
-			}
-		}
-	}
-
-	ignoreEvent(): boolean {
-		return true;
-	}
-}
-
 export class LivePreviewAdapter {
 	private static readonly HIDDEN_GUTTER_CLASS = 'shiki-gutter-line-hidden';
-	private static readonly EDIT_SCROLL_LEFT_BY_BLOCK_ID = new Map<string, number>();
 	decorations: DecorationSet = Decoration.none;
 	private structuralDecorations: DecorationSet = Decoration.none;
 	private editTokenDecorations: DecorationSet = Decoration.none;
@@ -190,7 +23,6 @@ export class LivePreviewAdapter {
 	private livePreviewActive = false;
 	private lastRootLivePreviewClass = false;
 	private tokenizationRequest = 0;
-	private activeEditScrollHandlers: ActiveEditScrollHandlers | undefined;
 
 	private readonly gutterObserver: MutationObserver;
 
@@ -211,7 +43,6 @@ export class LivePreviewAdapter {
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER]?.destroy();
 			sourceViewRoot[LIVE_PREVIEW_ADAPTER_OWNER] = this;
 		}
-		this.syncActiveEditScrollHandlers();
 	}
 
 	update(update: ViewUpdate, isLivePreview: boolean): void {
@@ -260,15 +91,13 @@ export class LivePreviewAdapter {
 	}
 
 	refreshDomMounts(): void {
-		this.syncActiveLineHorizontalScroll();
+		this.syncGutterVisibility();
 	}
 
 	destroy(): void {
 		this.destroyed = true;
 		this.modeClassObserver.disconnect();
 		this.gutterObserver.disconnect();
-		this.clearActiveLineScrollHandlers();
-		this.clearActiveEditScrollHandlers();
 		this.clearLivePreviewState();
 	}
 
@@ -301,74 +130,31 @@ export class LivePreviewAdapter {
 			}),
 		);
 
-		let selectedBlock: CodeBlockModel | undefined;
-		const builder = new RangeSetBuilder<Decoration>();
+		const tokenBlocks: CodeBlockModel[] = [];
 		for (const block of this.blocks) {
 			if (block.openingFenceLine === undefined) {
 				continue;
 			}
-			const blockFrom = block.fenceFrom ?? block.codeFrom;
-			const blockTo = block.fenceTo ?? block.codeTo;
-			const blockIsSelected =
-				blockFrom !== undefined &&
-				blockTo !== undefined &&
-				this.view.state.selection.ranges.some(range =>
-					range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom,
-				);
-			if (blockIsSelected) {
-				selectedBlock = block;
-			}
-			for (let lineNumber = block.openingFenceLine ?? 0; lineNumber <= (block.closingFenceLine ?? -1); lineNumber++) {
-				const line = this.view.state.doc.line(lineNumber);
-				let className: string;
-				if (lineNumber === block.openingFenceLine) {
-					className = 'shiki-editing-codeblock-fence';
-				} else if (lineNumber === block.closingFenceLine) {
-					className = 'shiki-editing-codeblock-fence shiki-editing-codeblock-closing-fence';
-				} else if (blockIsSelected) {
-					className = `shiki-editing-codeblock-active-line ${this.plugin.loadedSettings.wrapLines ? 'shiki-editing-codeblock-active-line-wrap' : 'shiki-editing-codeblock-active-line-nowrap'}`;
-				} else {
-					className = 'shiki-editing-codeblock-line';
-				}
-				builder.add(
-					line.from,
-					line.from,
-					Decoration.line({
-						attributes: {
-							class: className,
-							'data-shiki-editing-block-id': block.id,
-							...(blockIsSelected && !this.plugin.loadedSettings.wrapLines
-								? { style: `--shiki-editing-scroll-left: ${LivePreviewAdapter.EDIT_SCROLL_LEFT_BY_BLOCK_ID.get(block.id) ?? 0}` }
-								: {}),
-						},
-					}),
-				);
-				if (lineNumber === block.openingFenceLine) {
-					builder.add(
-						line.to,
-						line.to,
-						Decoration.widget({
-							widget: new ShikiLivePreviewWidget(block, this.plugin, this.view, blockIsSelected),
-							side: 1,
-						}),
-					);
-				}
-			}
+			tokenBlocks.push(block);
 			this.plugin.codeBlockRegistry.upsert(block);
 		}
-		this.structuralDecorations = builder.finish();
+		this.structuralDecorations = Decoration.none;
 		this.refreshDecorationSet();
-		void this.retokenizeSelectedBlock(selectedBlock);
+		void this.retokenizeBlocks(tokenBlocks);
 	}
 
-	private async retokenizeSelectedBlock(block: CodeBlockModel | undefined): Promise<void> {
+	private async retokenizeBlocks(blocks: CodeBlockModel[]): Promise<void> {
 		const requestId = ++this.tokenizationRequest;
-		if (
-			block?.codeFrom === undefined ||
-			block.codeTo === undefined ||
-			!block.language ||
-			this.plugin.loadedSettings.disabledLanguages.includes(block.language)
-		) {
+		const eligibleBlocks = blocks.filter(
+			(block): block is CodeBlockModel & { codeFrom: number; codeTo: number } =>
+				block.codeFrom !== undefined &&
+				block.codeTo !== undefined &&
+				!!block.language &&
+				!this.plugin.loadedSettings.disabledLanguages.includes(block.language) &&
+				block.codeTo >= this.view.viewport.from &&
+				block.codeFrom <= this.view.viewport.to,
+		);
+		if (eligibleBlocks.length === 0) {
 			this.editTokenDecorations = Decoration.none;
 			this.refreshDecorationSet();
 			this.requestDecorationRefresh();
@@ -377,43 +163,50 @@ export class LivePreviewAdapter {
 
 		const theme = getActiveTheme(this.plugin);
 		const settingsSignature = JSON.stringify({ disabledLanguages: this.plugin.loadedSettings.disabledLanguages, theme });
-		const cached = this.plugin.sourceModeTokenizationCache.get({
-			sourcePath: block.sourcePath,
-			language: block.language,
-			theme,
-			contentHash: block.contentHash,
-			settingsSignature,
-		});
-		const highlight = cached ?? (await this.plugin.highlighter.getHighlightTokens(block.code, block.language));
-		if (!cached) {
-			this.plugin.sourceModeTokenizationCache.set(
-				{ sourcePath: block.sourcePath, language: block.language, theme, contentHash: block.contentHash, settingsSignature },
-				highlight,
-			);
-		}
-		if (requestId !== this.tokenizationRequest || !highlight || block.codeFrom === undefined || block.codeTo === undefined) {
-			return;
-		}
-
 		const builder = new RangeSetBuilder<Decoration>();
-		for (const lineTokens of highlight.tokens) {
-			for (const token of lineTokens) {
-				const from = block.codeFrom + token.offset;
-				const to = Math.min(from + token.content.length, block.codeTo);
-				if (to <= from) {
-					continue;
-				}
-				const tokenStyle = this.plugin.highlighter.getTokenStyle(token);
-				builder.add(
-					from,
-					to,
-					Decoration.mark({
-						attributes: {
-							style: tokenStyle.style,
-							class: tokenStyle.classes.join(' '),
-						},
-					}),
+		const sourceViewRoot = this.getSourceViewRoot();
+		sourceViewRoot.style.removeProperty('--shiki-code-background');
+		for (const block of eligibleBlocks) {
+			const cached = this.plugin.sourceModeTokenizationCache.get({
+				sourcePath: block.sourcePath,
+				language: block.language,
+				theme,
+				contentHash: block.contentHash,
+				settingsSignature,
+			});
+			const highlight = cached ?? (await this.plugin.highlighter.getHighlightTokens(block.code, block.language));
+			if (!cached) {
+				this.plugin.sourceModeTokenizationCache.set(
+					{ sourcePath: block.sourcePath, language: block.language, theme, contentHash: block.contentHash, settingsSignature },
+					highlight,
 				);
+			}
+			if (requestId !== this.tokenizationRequest || !highlight) {
+				return;
+			}
+			const themeBackground = this.plugin.highlighter.getThemeBackground(highlight);
+			if (themeBackground) {
+				sourceViewRoot.style.setProperty('--shiki-code-background', themeBackground);
+			}
+			for (const lineTokens of highlight.tokens) {
+				for (const token of lineTokens) {
+					const from = block.codeFrom + token.offset;
+					const to = Math.min(from + token.content.length, block.codeTo);
+					if (to <= from) {
+						continue;
+					}
+					const tokenStyle = this.plugin.highlighter.getTokenStyle(token);
+					builder.add(
+						from,
+						to,
+						Decoration.mark({
+							attributes: {
+								style: tokenStyle.style,
+								class: tokenStyle.classes.join(' '),
+							},
+						}),
+					);
+				}
 			}
 		}
 
@@ -435,220 +228,10 @@ export class LivePreviewAdapter {
 		this.decorations = ranges.length ? Decoration.set(ranges, true) : Decoration.none;
 	}
 
-	private syncActiveLineHorizontalScroll(): void {
-		const activeLines = Array.from(this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap'));
-		this.getSourceViewRoot().classList.toggle('shiki-live-preview-editing-nowrap', activeLines.length > 0);
-		if (activeLines.length > 0) {
-			this.syncActiveEditScrollHandlers();
-		}
-
-		for (const line of activeLines) {
-			this.applyActiveLineScrollLeft(line);
-		}
-	}
-
-	private applyActiveLineScrollLeft(line: HTMLElement): void {
-		const blockId = line.getAttribute('data-shiki-editing-block-id');
-		if (!blockId) {
-			return;
-		}
-		const scrollLeft = LivePreviewAdapter.EDIT_SCROLL_LEFT_BY_BLOCK_ID.get(blockId) ?? 0;
-		line.style.setProperty('--shiki-editing-scroll-left', String(scrollLeft));
-	}
-
-	private syncActiveEditScrollHandlers(): void {
-		if (this.activeEditScrollHandlers) {
-			return;
-		}
-
-		let startX = 0;
-		let startY = 0;
-		let startScrollLeft = 0;
-		let activePointerId: number | undefined;
-		let activeBlockLines: HTMLElement[] = [];
-		let horizontalDrag = false;
-		const readScrollLeft = (line: HTMLElement): number => Number.parseFloat(line.style.getPropertyValue('--shiki-editing-scroll-left')) || 0;
-		const writeBlockScrollLeft = (scrollLeft: number): void => {
-			const maxScrollLeft = Math.max(0, ...activeBlockLines.map(line => line.scrollWidth - line.clientWidth));
-			const nextScrollLeft = Math.max(0, Math.min(scrollLeft, maxScrollLeft));
-			const blockId = activeBlockLines[0]?.getAttribute('data-shiki-editing-block-id');
-			if (blockId) {
-				LivePreviewAdapter.EDIT_SCROLL_LEFT_BY_BLOCK_ID.set(blockId, nextScrollLeft);
-			}
-			for (const line of activeBlockLines) {
-				line.style.setProperty('--shiki-editing-scroll-left', String(nextScrollLeft));
-			}
-		};
-		const getActiveBlockLines = (clientX: number, clientY: number, event: Event): HTMLElement[] => {
-			const target = event.target instanceof Element ? event.target : document.elementFromPoint(clientX, clientY);
-			const line =
-				target?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap') ??
-				document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap');
-			const blockId = line?.getAttribute('data-shiki-editing-block-id');
-			if (!blockId) {
-				return [];
-			}
-			return Array.from(
-				this.view.dom.querySelectorAll<HTMLElement>(
-					`.shiki-editing-codeblock-active-line-nowrap[data-shiki-editing-block-id="${CSS.escape(blockId)}"]`,
-				),
-			);
-		};
-		const startDrag = (event: Event, clientX: number, clientY: number): void => {
-			activeBlockLines = getActiveBlockLines(clientX, clientY, event);
-			if (activeBlockLines.length === 0) {
-				return;
-			}
-			startX = clientX;
-			startY = clientY;
-			startScrollLeft = readScrollLeft(activeBlockLines[0]);
-			horizontalDrag = false;
-		};
-		const moveDrag = (event: Event, clientX: number, clientY: number): void => {
-			if (activeBlockLines.length === 0) {
-				return;
-			}
-			const deltaX = startX - clientX;
-			const deltaY = startY - clientY;
-			if (!horizontalDrag) {
-				if (Math.abs(deltaY) > Math.abs(deltaX)) {
-					return;
-				}
-				if (Math.abs(deltaX) < 8) {
-					return;
-				}
-				horizontalDrag = true;
-			}
-			event.preventDefault();
-			event.stopPropagation();
-			if ('stopImmediatePropagation' in event) {
-				event.stopImmediatePropagation();
-			}
-			writeBlockScrollLeft(startScrollLeft + deltaX);
-		};
-		const wheel = ((event: WheelEvent): void => {
-			if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) {
-				return;
-			}
-			activeBlockLines = getActiveBlockLines(event.clientX, event.clientY, event);
-			if (activeBlockLines.length === 0) {
-				return;
-			}
-			event.preventDefault();
-			event.stopPropagation();
-			writeBlockScrollLeft(readScrollLeft(activeBlockLines[0]) + event.deltaX);
-		}) as EventListener;
-		const reset = (): void => {
-			activeBlockLines = [];
-			activePointerId = undefined;
-			horizontalDrag = false;
-		};
-		const touchStart = ((event: TouchEvent): void => {
-			const touch = event.touches[0];
-			if (touch) {
-				startDrag(event, touch.clientX, touch.clientY);
-			}
-		}) as EventListener;
-		const touchMove = ((event: TouchEvent): void => {
-			const touch = event.touches[0];
-			if (touch) {
-				moveDrag(event, touch.clientX, touch.clientY);
-			}
-		}) as EventListener;
-		const pointerStart = ((event: PointerEvent): void => {
-			if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
-				return;
-			}
-			activePointerId = event.pointerId;
-			startDrag(event, event.clientX, event.clientY);
-		}) as EventListener;
-		const pointerMove = ((event: PointerEvent): void => {
-			if (activePointerId === event.pointerId) {
-				moveDrag(event, event.clientX, event.clientY);
-			}
-		}) as EventListener;
-		const end = reset as EventListener;
-
-		window.addEventListener('wheel', wheel, { capture: true, passive: false });
-		window.addEventListener('touchstart', touchStart, { capture: true, passive: true });
-		window.addEventListener('touchmove', touchMove, { capture: true, passive: false });
-		window.addEventListener('touchend', end, { capture: true, passive: true });
-		window.addEventListener('touchcancel', end, { capture: true, passive: true });
-		window.addEventListener('pointerdown', pointerStart, { capture: true, passive: true });
-		window.addEventListener('pointermove', pointerMove, { capture: true, passive: false });
-		window.addEventListener('pointerup', end, { capture: true, passive: true });
-		window.addEventListener('pointercancel', end, { capture: true, passive: true });
-		this.activeEditScrollHandlers = { touchStart, touchMove, end, pointerStart, pointerMove, wheel };
-	}
-
-	private clearActiveEditScrollHandlers(): void {
-		const handlers = this.activeEditScrollHandlers;
-		if (!handlers) {
-			return;
-		}
-		window.removeEventListener('wheel', handlers.wheel, true);
-		window.removeEventListener('touchstart', handlers.touchStart, true);
-		window.removeEventListener('touchmove', handlers.touchMove, true);
-		window.removeEventListener('touchend', handlers.end, true);
-		window.removeEventListener('touchcancel', handlers.end, true);
-		window.removeEventListener('pointerdown', handlers.pointerStart, true);
-		window.removeEventListener('pointermove', handlers.pointerMove, true);
-		window.removeEventListener('pointerup', handlers.end, true);
-		window.removeEventListener('pointercancel', handlers.end, true);
-		this.activeEditScrollHandlers = undefined;
-	}
-
-	private clearActiveLineWidth(line: HTMLElement): void {
-		line.style.removeProperty('box-sizing');
-		line.style.removeProperty('width');
-		line.style.removeProperty('max-width');
-		line.style.removeProperty('--shiki-editing-scroll-left');
-	}
-
-	private clearActiveLineScrollHandlers(): void {
-		this.getSourceViewRoot().classList.remove('shiki-live-preview-editing-nowrap');
-		for (const line of this.view.dom.querySelectorAll<HTMLElement>('.shiki-editing-codeblock-active-line-nowrap')) {
-			this.clearActiveLineWidth(line);
-		}
-	}
-
 	public syncGutterVisibility(): void {
-		const lines = Array.from(this.view.dom.querySelectorAll('.cm-line'));
 		const gutters = Array.from(this.view.dom.querySelectorAll('.cm-lineNumbers .cm-gutterElement'));
-		if (!this.plugin.loadedSettings.showLineNumbers) {
-			for (const gutter of gutters) {
-				gutter.classList.remove(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
-			}
-			return;
-		}
 		for (const gutter of gutters) {
 			gutter.classList.remove(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
-		}
-		if (lines.length === 0 || gutters.length === 0) {
-			return;
-		}
-
-		const gutterLines = gutters.map(gutter => ({
-			element: gutter,
-			top: gutter.getBoundingClientRect().top,
-		}));
-
-		let gutterIndex = 0;
-		for (const line of lines) {
-			const lineTop = line.getBoundingClientRect().top;
-
-			while (gutterIndex + 1 < gutterLines.length && gutterLines[gutterIndex + 1].top <= lineTop) {
-				gutterIndex += 1;
-			}
-
-			const gutter = gutterLines[gutterIndex];
-			if (!gutter || Math.abs(gutter.top - lineTop) > 1) {
-				continue;
-			}
-
-			if (line.classList.contains('shiki-editing-codeblock-line') || line.classList.contains('shiki-editing-codeblock-closing-fence')) {
-				gutter.element.classList.add(LivePreviewAdapter.HIDDEN_GUTTER_CLASS);
-			}
 		}
 	}
 
@@ -670,7 +253,6 @@ export class LivePreviewAdapter {
 
 	private clearDecorationSets(): void {
 		this.tokenizationRequest++;
-		this.clearActiveLineScrollHandlers();
 		this.structuralDecorations = Decoration.none;
 		this.editTokenDecorations = Decoration.none;
 		this.decorations = Decoration.none;

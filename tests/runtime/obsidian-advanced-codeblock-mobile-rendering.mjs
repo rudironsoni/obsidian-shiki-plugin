@@ -466,10 +466,8 @@ async function openMode(client, mode) {
 				element.scrollLeft = 0;
 			}
 			for (const block of document.querySelectorAll(${JSON.stringify(SHIKI_BLOCK_SELECTOR)})) {
-				const scrollContainer = block.querySelector('.shiki-code-scroll');
-				if (scrollContainer) {
-					scrollContainer.scrollLeft = 0;
-				}
+				const scrollContainer = block.matches('.shiki-reading-block') ? block.querySelector('.shiki-block-body') : null;
+				if (scrollContainer) scrollContainer.scrollLeft = 0;
 			}
 			await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 			return leaf.view?.getState?.() ?? null;
@@ -521,33 +519,50 @@ async function getRenderState(client, mode, settings = {}) {
 			const active = window.app?.workspace?.activeLeaf?.view?.contentEl ?? document.querySelector('.workspace-leaf.mod-active') ?? document;
 			const sourceRoot = active.querySelector('.markdown-source-view.mod-cm6');
 			const previewRoot = active.querySelector('.markdown-preview-view');
-			const renderRoot = ${JSON.stringify(mode)} === 'reading' ? previewRoot : sourceRoot;
-			const blockSelector = ${JSON.stringify(mode)} === 'reading' ? '.shiki-reading-block' : '.shiki-live-preview-block';
+			const isReading = ${JSON.stringify(mode)} === 'reading';
+			const renderRoot = isReading ? previewRoot : sourceRoot;
 			const expectedLineNumbers = ${JSON.stringify(settings?.lineNumbers)};
 			const expectedWrap = ${JSON.stringify(settings?.wrap)};
-			const allBlocks = [...(renderRoot ?? active).querySelectorAll(blockSelector)].map(candidate => ({
-				candidate,
-				rect: candidate.getBoundingClientRect(),
-				lineNumbers: candidate.querySelectorAll('.shiki-line-numbers').length,
-				textLength: (candidate.textContent ?? '').trim().length,
-				scrollInfo: (() => {
-					const scrollContainer = candidate.querySelector('.shiki-code-scroll');
+			const allBlocks = isReading
+				? [...(renderRoot ?? active).querySelectorAll('.shiki-reading-block')].map(candidate => {
+					const scrollContainer = candidate.querySelector('.shiki-block-body');
 					return {
-						width: scrollContainer?.scrollWidth ?? null,
-						clientWidth: scrollContainer?.clientWidth ?? null,
-						scrollLeft: scrollContainer?.scrollLeft ?? null,
+						candidate,
+						rect: candidate.getBoundingClientRect(),
+						lineNumbers: candidate.querySelectorAll('.shiki-line-numbers').length,
+						textLength: (candidate.textContent ?? '').trim().length,
+						scrollInfo: {
+							width: scrollContainer?.scrollWidth ?? null,
+							clientWidth: scrollContainer?.clientWidth ?? null,
+							scrollLeft: scrollContainer?.scrollLeft ?? null,
+						},
 					};
-				})(),
-			}));
+				})
+				: [...(renderRoot ?? active).querySelectorAll('.shiki-live-preview-block')].map(candidate => {
+					const scrollContainer = candidate.querySelector('.shiki-block-body');
+					return {
+						candidate,
+						rect: candidate.getBoundingClientRect(),
+						lineNumbers: candidate.querySelectorAll('.shiki-line-numbers span').length,
+						textLength: (candidate.textContent ?? '').trim().length,
+						scrollInfo: {
+							width: scrollContainer?.scrollWidth ?? null,
+							clientWidth: scrollContainer?.clientWidth ?? null,
+							scrollLeft: scrollContainer?.scrollLeft ?? null,
+						},
+					};
+				});
 			const blocks = allBlocks.filter(({ rect }) => {
 				return rect.width > 0 && rect.height > 0;
 			});
-			let block = blocks
+			let blockItem = blocks
 				.slice()
-				.sort((first, second) => second.rect.width * second.rect.height - first.rect.width * first.rect.height)[0]?.candidate ?? null;
+				.sort((first, second) => second.rect.width * second.rect.height - first.rect.width * first.rect.height)[0] ?? null;
+			let block = blockItem?.candidate ?? null;
 			if (typeof expectedLineNumbers === 'boolean') {
 				const matching = blocks.find(blockItem => (expectedLineNumbers ? blockItem.lineNumbers > 0 : blockItem.lineNumbers === 0));
 				if (matching?.candidate) {
+					blockItem = matching;
 					block = matching.candidate;
 				}
 			}
@@ -563,19 +578,19 @@ async function getRenderState(client, mode, settings = {}) {
 						return best;
 					});
 					if ((byOverflow.scrollInfo.width ?? 0) - (byOverflow.scrollInfo.clientWidth ?? 0) > 1) {
+						blockItem = byOverflow;
 						block = byOverflow.candidate;
 					}
 				}
 			}
-			const blockRect = block?.getBoundingClientRect?.();
-			const scrollContainer = block?.querySelector('.shiki-code-scroll');
+			const blockRect = blockItem?.rect ?? block?.getBoundingClientRect?.();
+			const scrollContainer = block?.querySelector('.shiki-block-body');
 			const header = block?.querySelector('.shiki-block-header');
 			const tokenSpans = [...(block?.querySelectorAll('[style*="color:"]') ?? [])];
 			const visibleText = tokenSpans.map(span => span.textContent ?? '').join('');
 			const hiddenLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line-hidden, .cm-line.shiki-editing-codeblock-fence.shiki-editing-codeblock-line-hidden')];
-			const cmCodeLines = [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-editing-codeblock-line, .cm-line.shiki-editing-codeblock-fence')];
+			const cmCodeLines = isReading ? [] : [...(renderRoot ?? active).querySelectorAll('.cm-line.shiki-live-preview-code-line')];
 			const visibleCmCodeLines = cmCodeLines.filter(line => {
-			if (line.querySelector(blockSelector)) return false;
 				const rect = line.getBoundingClientRect();
 				const style = getComputedStyle(line);
 				return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
@@ -614,7 +629,11 @@ async function getRenderState(client, mode, settings = {}) {
 				source: {
 					className: sourceRoot?.className ?? null,
 					previewClassName: previewRoot?.className ?? null,
-					shikiBlocks: sourceRoot?.querySelectorAll('.shiki-live-preview-block').length ?? 0,
+					shikiBlocks: [...(sourceRoot?.querySelectorAll('.shiki-live-preview-block') ?? [])].filter(element => {
+						const rect = element.getBoundingClientRect();
+						const style = getComputedStyle(element);
+						return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+					}).length,
 					cmText: [...(sourceRoot ?? active).querySelectorAll('.cm-line')].map(line => line.textContent ?? '').join('\\n'),
 				},
 			shiki: {
@@ -644,7 +663,7 @@ async function getRenderState(client, mode, settings = {}) {
 					scrollTop: scrollContainer?.scrollTop ?? null,
 					scrollWidth: scrollContainer?.scrollWidth ?? null,
 					clientWidth: scrollContainer?.clientWidth ?? null,
-					lineNumbers: block?.querySelectorAll('.shiki-line-numbers').length ?? 0,
+					lineNumbers: block?.querySelectorAll('.shiki-line-numbers span').length ?? 0,
 				},
 			};
 		})()`,
@@ -889,7 +908,7 @@ function assertRenderState(mode, settings, state) {
 	assert(state.shiki.textLength > 20, `${mode}: Shiki rendered text is blank`, { settings, state });
 	assert(state.shiki.firstRect.width > 80, `${mode}: Shiki block width is unusable`, { settings, state });
 	assert(state.shiki.firstRect.height > 80, `${mode}: Shiki block height is unusable`, { settings, state });
-	assert(state.shiki.visibleCmCodeLines === 0, `${mode}: native CodeMirror code lines are visible under Shiki`, { settings, state });
+	assert(state.shiki.visibleCmCodeLines === 0, `${mode}: native CodeMirror code lines are visible under Shiki viewing surface`, { settings, state });
 	assert(state.shiki.scrollContainer, `${mode}: Shiki scroll container is missing`, { settings, state });
 	assert(settings.lineNumbers ? state.shiki.lineNumbers > 0 : state.shiki.lineNumbers === 0, `${mode}: line number visibility does not match setting`, {
 		settings,

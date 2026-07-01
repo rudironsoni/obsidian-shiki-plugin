@@ -149,15 +149,8 @@ export class ReadingViewAdapter {
 				codeElement.appendChild(document.createTextNode(lines[i] ?? ''));
 			} else {
 				for (const token of lineTokens) {
-					const span = codeElement.createSpan({
-						text: token.content,
-						attr: { style: `color: ${token.color ?? 'inherit'}` },
-					});
-					if (token.fontStyle) {
-						if (token.fontStyle & 1) span.style.fontStyle = 'italic';
-						if (token.fontStyle & 2) span.style.fontWeight = 'bold';
-						if (token.fontStyle & 4) span.style.textDecoration = 'underline';
-					}
+					const tokenStyle = this.plugin.highlighter.getTokenStyle(token);
+					codeElement.createSpan({ text: token.content, cls: tokenStyle.classes.join(' '), attr: { style: tokenStyle.style } });
 				}
 			}
 			if (i < lines.length - 1) {
