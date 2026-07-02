@@ -101,6 +101,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		}
 
 		container.empty();
+		this.renderNoteLineNumbers(container);
 
 		const header = container.createDiv({ cls: 'shiki-block-header' });
 		const left = header.createDiv({ cls: 'shiki-header-left' });
@@ -124,6 +125,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		this.renderPlainLines(code);
 		const editor = scroll.createEl('textarea', { cls: 'shiki-live-preview-editor' });
 		editor.value = this.block.code;
+		editor.wrap = 'off';
 		editor.spellcheck = false;
 		editor.autocapitalize = 'off';
 		editor.autocomplete = 'off';
@@ -143,6 +145,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 	}
 
 	private updateExistingContainer(container: HTMLElement, active: boolean, selectionStart: number, selectionEnd: number, scrollLeft: number): void {
+		this.renderNoteLineNumbers(container);
 		const lang = container.querySelector<HTMLElement>('.shiki-lang-name');
 		if (lang) lang.textContent = this.block.language;
 		const copyBtn = container.querySelector<HTMLButtonElement>('.shiki-copy-button');
@@ -172,6 +175,27 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			if (!container.isConnected) return;
 			this.restoreEditorState(editor, pre, body, active, selectionStart, selectionEnd, scrollLeft);
 		});
+	}
+
+	private renderNoteLineNumbers(container: HTMLElement): void {
+		let noteLineNumbers = container.querySelector<HTMLElement>(':scope > .shiki-note-line-numbers');
+		if (!noteLineNumbers) {
+			noteLineNumbers = document.createElement('div');
+			noteLineNumbers.className = 'shiki-note-line-numbers';
+			container.prepend(noteLineNumbers);
+		}
+		const openingLine = this.block.openingFenceLine;
+		const closingLine = this.block.closingFenceLine;
+		if (openingLine === undefined || closingLine === undefined || closingLine < openingLine) {
+			noteLineNumbers.empty();
+			return;
+		}
+		const expectedCount = closingLine - openingLine + 1;
+		if (noteLineNumbers.children.length === expectedCount && noteLineNumbers.firstElementChild?.textContent === String(openingLine)) return;
+		noteLineNumbers.empty();
+		for (let lineNumber = openingLine; lineNumber <= closingLine; lineNumber++) {
+			noteLineNumbers.createSpan({ text: String(lineNumber) });
+		}
 	}
 
 	private bindCopyButton(copyBtn: HTMLButtonElement): void {

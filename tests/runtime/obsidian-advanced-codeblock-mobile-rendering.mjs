@@ -436,6 +436,7 @@ async function applySettings(client, settings) {
 					await window.app.plugins.enablePlugin('advanced-code-block');
 					plugin = window.app.plugins.plugins['advanced-code-block'];
 				}
+				await plugin.updateCm6Plugin?.();
 				return {
 					wrap: plugin.loadedSettings.wrapLines,
 					lineNumbers: plugin.loadedSettings.showLineNumbers,

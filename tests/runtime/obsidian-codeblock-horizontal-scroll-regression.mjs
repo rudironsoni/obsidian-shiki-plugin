@@ -172,8 +172,10 @@ async function verifyLivePreviewViewing(client) {
 				return span ? getComputedStyle(span).color : null;
 			};
 			const lineNumbers = block?.querySelector('.shiki-line-numbers');
+			const noteLineNumbers = block?.querySelector('.shiki-note-line-numbers');
 			const visibleGutters = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].filter(el => getComputedStyle(el).visibility !== 'hidden');
 			const lineNumberStyle = lineNumbers ? getComputedStyle(lineNumbers) : null;
+			const noteLineNumberStyle = noteLineNumbers ? getComputedStyle(noteLineNumbers) : null;
 			if (body) body.scrollLeft = 0;
 			await new Promise(resolve => setTimeout(resolve, 50));
 			const beforeLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
@@ -193,6 +195,10 @@ async function verifyLivePreviewViewing(client) {
 				bodyScrollLeft: body?.scrollLeft ?? 0,
 				codeScrollLeft: codeScroll?.scrollLeft ?? 0,
 				lineNumberCount: lineNumbers?.querySelectorAll('span').length ?? 0,
+				lineNumberValues: [...(lineNumbers?.querySelectorAll('span') ?? [])].map(el => el.textContent),
+				noteLineNumberCount: noteLineNumbers?.querySelectorAll('span').length ?? 0,
+				noteLineNumberValues: [...(noteLineNumbers?.querySelectorAll('span') ?? [])].map(el => el.textContent),
+				noteLineNumberDisplay: noteLineNumberStyle?.display ?? null,
 				lineNumberBackground: lineNumberStyle?.backgroundColor ?? null,
 				lineMoved: beforeLineLeft !== null && afterLineLeft !== null ? beforeLineLeft - afterLineLeft : 0,
 				codeMoved: beforeCodeLeft !== null && afterCodeLeft !== null ? beforeCodeLeft - afterCodeLeft : 0,
@@ -212,7 +218,11 @@ async function verifyLivePreviewViewing(client) {
 	assert(state.bodyScrollWidth > state.bodyClient, 'Live Preview viewing block body is not horizontally scrollable', state);
 	assert(state.bodyScrollLeft > 0, 'Live Preview viewing block body did not scroll horizontally', state);
 	assert(state.codeScrollLeft === 0, 'Live Preview viewing scrolled an inner per-line/code scroll container', state);
-	assert(state.lineNumberCount >= 2, 'Live Preview viewing did not render internal line numbers', state);
+	assert(state.lineNumberCount === 2, 'Live Preview viewing internal line numbers include fence lines or omit code lines', state);
+	assert(JSON.stringify(state.lineNumberValues) === JSON.stringify(['1', '2']), 'Live Preview viewing internal line numbers do not count only code content lines', state);
+	assert(state.noteLineNumberCount === 4, 'Live Preview viewing did not render note line numbers for the full fenced range', state);
+	assert(JSON.stringify(state.noteLineNumberValues) === JSON.stringify(['3', '4', '5', '6']), 'Live Preview viewing note line numbers do not match the fenced document range', state);
+	assert(state.noteLineNumberDisplay === 'flex', 'Live Preview viewing note line number rail is not visible', state);
 	assert(Math.abs(state.lineMoved) < 1, 'Live Preview viewing moved line numbers horizontally', state);
 	assert(isOpaqueColor(state.lineNumberBackground), 'Live Preview viewing line number gutter is transparent', state);
 	assert(state.codeMoved > 0, 'Live Preview viewing did not move code content horizontally', state);
@@ -298,6 +308,7 @@ async function verifyLivePreviewEditing(client) {
 				editorValueIncludesEdit: updatedEditor?.value.includes('__EDIT__') ?? false,
 				contentIncludesEdit: content.includes('__EDIT__'),
 				cursor,
+				editorWrap: updatedEditor?.getAttribute('wrap') ?? null,
 				nativeLineCount: nativeLines.length,
 				scrollerScrollLeft: scroller?.scrollLeft ?? 0,
 				bodyScrollLeft: updatedBody?.scrollLeft ?? 0,
@@ -323,7 +334,8 @@ async function verifyLivePreviewEditing(client) {
 	assert(state.activeEditor, 'Live Preview editing did not keep focus in the block-level editor', state);
 	assert(state.editorValueIncludesEdit, 'Live Preview editing did not update the block-level editor value', state);
 	assert(state.contentIncludesEdit, 'Live Preview editing did not write through to the Obsidian document', state);
-	assert(state.cursor.line >= 3 && state.cursor.line <= 4, 'Live Preview editing click did not place the cursor inside the code block', state);
+	assert(state.cursor.line === 3, 'Live Preview editing click did not place the cursor on the first code content line', state);
+	assert(state.editorWrap === 'off', 'Live Preview editing overlay allows textarea wrapping and can displace the cursor', state);
 	assert(state.nativeLineCount === 0, 'Live Preview editing revealed native code rows instead of keeping the whole-block surface', state);
 	assert(state.scrollerScrollLeft === 0, 'Live Preview editing moved the whole editor horizontally', state);
 	assert(state.bodyScrollLeft > 0, 'Live Preview editing did not preserve whole-block horizontal scroll', state);
