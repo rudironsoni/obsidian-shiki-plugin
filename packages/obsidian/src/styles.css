@@ -224,6 +224,7 @@ span.shiki-ul {
 	overflow-x: visible;
 	padding-left: 12px;
 	min-width: max-content;
+	position: relative;
 }
 
 .shiki-live-preview-block:not(.wrap-lines) .shiki-block-body,
@@ -260,6 +261,29 @@ span.shiki-ul {
 .shiki-code-line {
 	display: block;
 	min-height: var(--line-height-normal);
+}
+
+.shiki-live-preview-editor {
+	position: absolute;
+	top: 0;
+	left: 12px;
+	display: block;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	resize: none;
+	overflow: hidden;
+	background: transparent;
+	color: transparent;
+	-webkit-text-fill-color: transparent;
+	caret-color: var(--text-normal);
+	font: inherit;
+	line-height: inherit;
+	white-space: pre;
+	tab-size: inherit;
+	box-shadow: none;
+	appearance: none;
 }
 
 /* Match Obsidian's code block font size when editor font sizing is enabled. */

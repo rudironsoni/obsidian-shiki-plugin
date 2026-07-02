@@ -74,25 +74,43 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 
 	toDOM(): HTMLElement {
 		const container = document.createElement('div');
+		this.renderContainer(container, true);
+		return container;
+	}
+
+	updateDOM(container: HTMLElement): boolean {
+		this.renderContainer(container, false);
+		return true;
+	}
+
+	private renderContainer(container: HTMLElement, rebuild: boolean): void {
+		const active = container.querySelector<HTMLTextAreaElement>('.shiki-live-preview-editor') === container.ownerDocument.activeElement;
+		const selectionStart = active ? container.querySelector<HTMLTextAreaElement>('.shiki-live-preview-editor')?.selectionStart ?? 0 : 0;
+		const selectionEnd = active ? container.querySelector<HTMLTextAreaElement>('.shiki-live-preview-editor')?.selectionEnd ?? selectionStart : selectionStart;
+		const scrollLeft = this.getPreservedScrollLeft(container);
+
 		container.className = 'shiki-live-preview-block';
 		if (this.wrapLines) {
 			container.classList.add('wrap-lines');
 		}
 		container.dataset.shikiBlockId = this.block.id;
 		container.dataset.lang = this.block.language;
+		if (!rebuild) {
+			this.updateExistingContainer(container, active, selectionStart, selectionEnd, scrollLeft);
+			return;
+		}
+
+		container.empty();
 
 		const header = container.createDiv({ cls: 'shiki-block-header' });
 		const left = header.createDiv({ cls: 'shiki-header-left' });
 		left.createSpan({ cls: 'shiki-lang-name', text: this.block.language });
 		const right = header.createDiv({ cls: 'shiki-header-right' });
 		const copyBtn = right.createEl('button', { cls: 'shiki-copy-button', text: 'Copy' });
-		copyBtn.onclick = (event): void => {
-			event.preventDefault();
-			event.stopPropagation();
-			navigator.clipboard.writeText(this.block.code).catch(() => {});
-		};
+		this.bindCopyButton(copyBtn);
 
 		const body = container.createDiv({ cls: 'shiki-block-body' });
+		this.bindBodyScroll(body, container);
 		if (this.showLineNumbers) {
 			const lineNumbers = body.createDiv({ cls: 'shiki-line-numbers' });
 			const lineCount = Math.max(1, this.block.code.split('\n').length);
@@ -104,17 +122,160 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		const pre = scroll.createEl('pre');
 		const code = pre.createEl('code');
 		this.renderPlainLines(code);
+		const editor = scroll.createEl('textarea', { cls: 'shiki-live-preview-editor' });
+		editor.value = this.block.code;
+		editor.spellcheck = false;
+		editor.setAttribute('aria-label', `${this.block.language || 'code'} code block editor`);
+		this.syncEditorSize(editor, pre);
+		this.bindEditor(editor);
 		this.renderCachedTokens(code, container);
 		void this.renderTokens(code, container);
 
-		container.addEventListener('click', event => {
+		this.bindContainerClick(container, editor);
+
+		requestAnimationFrame(() => {
+			if (!container.isConnected) return;
+			this.restoreEditorState(editor, pre, body, active, selectionStart, selectionEnd, scrollLeft);
+		});
+	}
+
+	private updateExistingContainer(container: HTMLElement, active: boolean, selectionStart: number, selectionEnd: number, scrollLeft: number): void {
+		const lang = container.querySelector<HTMLElement>('.shiki-lang-name');
+		if (lang) lang.textContent = this.block.language;
+		const copyBtn = container.querySelector<HTMLButtonElement>('.shiki-copy-button');
+		if (copyBtn) this.bindCopyButton(copyBtn);
+
+		const body = container.querySelector<HTMLElement>('.shiki-block-body');
+		const lineNumbers = container.querySelector<HTMLElement>('.shiki-line-numbers');
+		if (lineNumbers) this.updateLineNumbers(lineNumbers);
+		const pre = container.querySelector('pre');
+		const code = container.querySelector<HTMLElement>('code');
+		const editor = container.querySelector<HTMLTextAreaElement>('.shiki-live-preview-editor');
+		if (!body || !pre || !code || !editor) {
+			this.renderContainer(container, true);
+			return;
+		}
+		this.bindBodyScroll(body, container);
+
+		if (editor.value !== this.block.code) {
+			editor.value = this.block.code;
+		}
+		this.bindEditor(editor);
+		this.bindContainerClick(container, editor);
+		this.renderPlainLines(code);
+		this.renderCachedTokens(code, container);
+		void this.renderTokens(code, container);
+		requestAnimationFrame(() => {
+			if (!container.isConnected) return;
+			this.restoreEditorState(editor, pre, body, active, selectionStart, selectionEnd, scrollLeft);
+		});
+	}
+
+	private bindCopyButton(copyBtn: HTMLButtonElement): void {
+		copyBtn.onclick = (event): void => {
+			event.preventDefault();
+			event.stopPropagation();
+			navigator.clipboard.writeText(this.block.code).catch(() => {});
+		};
+	}
+
+	private bindEditor(editor: HTMLTextAreaElement): void {
+		editor.oninput = (): void => {
+			const body = editor.closest<HTMLElement>('.shiki-block-body');
+			const scrollLeft = this.getPreservedScrollLeft(editor.closest<HTMLElement>('.shiki-live-preview-block'));
+			this.replaceCode(editor.value, editor.selectionStart, editor.selectionEnd);
+			this.restoreBodyScroll(body, scrollLeft);
+		};
+		editor.onclick = (): void => {
+			const position = this.lineAndCharacterForOffset(editor.selectionStart);
+			this.syncSourceSelection(position.lineIndex, position.ch);
+		};
+		editor.onkeyup = (): void => {
+			const position = this.lineAndCharacterForOffset(editor.selectionStart);
+			this.syncSourceSelection(position.lineIndex, position.ch);
+		};
+		editor.onscroll = (): void => {
+			editor.scrollLeft = 0;
+			editor.scrollTop = 0;
+		};
+	}
+
+	private bindContainerClick(container: HTMLElement, editor: HTMLTextAreaElement): void {
+		container.onclick = (event): void => {
 			if (event.target instanceof Element && event.target.closest('.shiki-copy-button')) {
 				return;
 			}
-			this.focusSourceLine(event);
-		});
+			if (event.target instanceof Element && event.target.closest('.shiki-live-preview-editor')) {
+				return;
+			}
+			const targetLine = event.target instanceof Element ? event.target.closest<HTMLElement>('.shiki-code-line') : null;
+			const body = container.querySelector<HTMLElement>('.shiki-block-body');
+			const scrollLeft = body?.scrollLeft ?? 0;
+			container.dataset.shikiScrollLeft = String(scrollLeft);
+			container.dataset.shikiSuppressScrollPersist = 'true';
+			const lineIndex = Number.parseInt(targetLine?.dataset.lineIndex ?? '0', 10) || 0;
+			const ch = this.estimateCharacter(event, targetLine);
+			const offset = this.offsetForLineAndCharacter(lineIndex, ch);
+			editor.focus();
+			editor.setSelectionRange(offset, offset);
+			this.restoreBodyScroll(body, scrollLeft);
+			this.syncSourceSelection(lineIndex, ch);
+		};
+	}
 
-		return container;
+	private bindBodyScroll(body: HTMLElement, container: HTMLElement): void {
+		body.onscroll = (): void => {
+			if (container.dataset.shikiSuppressScrollPersist === 'true') return;
+			container.dataset.shikiScrollLeft = String(body.scrollLeft);
+		};
+	}
+
+	private getPreservedScrollLeft(container: HTMLElement | null): number {
+		const stored = Number.parseFloat(container?.dataset.shikiScrollLeft ?? '');
+		if (Number.isFinite(stored)) return stored;
+		return container?.querySelector<HTMLElement>('.shiki-block-body')?.scrollLeft ?? 0;
+	}
+
+	private restoreBodyScroll(body: HTMLElement | null, scrollLeft: number): void {
+		if (!body) return;
+		const container = body.closest<HTMLElement>('.shiki-live-preview-block');
+		if (container) container.dataset.shikiSuppressScrollPersist = 'true';
+		body.scrollLeft = scrollLeft;
+		if (container) container.dataset.shikiScrollLeft = String(scrollLeft);
+		requestAnimationFrame(() => {
+			if (body.isConnected) {
+				body.scrollLeft = scrollLeft;
+				requestAnimationFrame(() => {
+					if (container) delete container.dataset.shikiSuppressScrollPersist;
+				});
+			}
+		});
+	}
+
+	private updateLineNumbers(lineNumbers: HTMLElement): void {
+		const lineCount = Math.max(1, this.block.code.split('\n').length);
+		if (lineNumbers.children.length === lineCount) return;
+		lineNumbers.empty();
+		for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
+			lineNumbers.createSpan({ text: String(lineNumber) });
+		}
+	}
+
+	private restoreEditorState(
+		editor: HTMLTextAreaElement,
+		pre: Element,
+		body: HTMLElement,
+		active: boolean,
+		selectionStart: number,
+		selectionEnd: number,
+		scrollLeft: number,
+	): void {
+		this.syncEditorSize(editor, pre);
+		body.scrollLeft = scrollLeft;
+		if (active) {
+			editor.focus();
+			editor.setSelectionRange(Math.min(selectionStart, editor.value.length), Math.min(selectionEnd, editor.value.length));
+		}
 	}
 
 	private async renderTokens(code: HTMLElement, container: HTMLElement): Promise<void> {
@@ -168,6 +329,11 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			fragment.appendChild(line);
 		}
 		code.replaceChildren(fragment);
+		const pre = code.closest('pre');
+		const editor = code.closest('.shiki-code-scroll')?.querySelector<HTMLTextAreaElement>('.shiki-live-preview-editor');
+		if (pre && editor) {
+			this.syncEditorSize(editor, pre);
+		}
 	}
 
 	private getCachedHighlight(): { bg?: string; tokens: ThemedToken[][] } | undefined {
@@ -184,16 +350,78 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		};
 	}
 
-	private focusSourceLine(event: MouseEvent): void {
-		const editor = this.plugin.app.workspace.activeEditor?.editor;
-		if (!editor || this.block.openingFenceLine === undefined) {
+	private syncSourceSelection(lineIndex: number, ch: number): void {
+		const view = this.getActiveEditorView();
+		if (!view || this.block.openingFenceLine === undefined) {
 			return;
 		}
-		const targetLine = event.target instanceof Element ? event.target.closest<HTMLElement>('.shiki-code-line') : null;
-		const lineIndex = Number.parseInt(targetLine?.dataset.lineIndex ?? '0', 10) || 0;
-		const ch = this.estimateCharacter(event, targetLine);
-		editor.setCursor({ line: this.block.openingFenceLine + lineIndex, ch });
-		editor.focus();
+		const line = view.state.doc.line(Math.min(view.state.doc.lines, this.block.openingFenceLine + lineIndex + 1));
+		view.dispatch({ selection: { anchor: Math.min(line.to, line.from + ch) } });
+	}
+
+	private replaceCode(code: string, selectionStart: number, selectionEnd: number): void {
+		const view = this.getActiveEditorView();
+		const range = view ? this.getCurrentCodeRange(view.state) : null;
+		if (!view || !range) {
+			return;
+		}
+		view.dispatch({
+			changes: { from: range.from, to: range.to, insert: code },
+			selection: { anchor: range.from + selectionStart, head: range.from + selectionEnd },
+		});
+	}
+
+	private getActiveEditorView(): EditorView | null {
+		const sourceViewRoot = this.plugin.app.workspace.activeLeaf?.view?.containerEl.querySelector<HTMLElement>('.markdown-source-view.mod-cm6');
+		return (sourceViewRoot as { __shikiLivePreviewAdapterOwner?: { view?: EditorView } } | null)?.__shikiLivePreviewAdapterOwner?.view ?? null;
+	}
+
+	private getCurrentCodeRange(state: EditorState): { from: number; to: number } | null {
+		if (this.block.openingFenceLine === undefined || this.block.openingFenceLine >= state.doc.lines) {
+			return null;
+		}
+		const openingLine = state.doc.line(this.block.openingFenceLine);
+		const fence = /^\s*(```+|~~~+)/.exec(openingLine.text)?.[1];
+		if (!fence) {
+			return null;
+		}
+		for (let lineNumber = this.block.openingFenceLine + 1; lineNumber <= state.doc.lines; lineNumber++) {
+			const line = state.doc.line(lineNumber);
+			if (line.text.trimStart().startsWith(fence)) {
+				const startLine = state.doc.line(this.block.openingFenceLine + 1);
+				return { from: startLine.from, to: Math.max(startLine.from, line.from - 1) };
+			}
+		}
+		return null;
+	}
+
+	private offsetForLineAndCharacter(lineIndex: number, ch: number): number {
+		const lines = this.block.code.split('\n');
+		let offset = 0;
+		for (let index = 0; index < Math.min(lineIndex, lines.length); index++) {
+			offset += (lines[index]?.length ?? 0) + 1;
+		}
+		return Math.min(this.block.code.length, offset + ch);
+	}
+
+	private lineAndCharacterForOffset(offset: number): { lineIndex: number; ch: number } {
+		const lines = this.block.code.split('\n');
+		let remaining = Math.max(0, offset);
+		for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+			const lineLength = lines[lineIndex]?.length ?? 0;
+			if (remaining <= lineLength) {
+				return { lineIndex, ch: remaining };
+			}
+			remaining -= lineLength + 1;
+		}
+		const lastLineIndex = Math.max(0, lines.length - 1);
+		return { lineIndex: lastLineIndex, ch: lines[lastLineIndex]?.length ?? 0 };
+	}
+
+	private syncEditorSize(editor: HTMLTextAreaElement, pre: Element): void {
+		const rect = pre.getBoundingClientRect();
+		editor.style.width = `${Math.max(pre.scrollWidth, rect.width)}px`;
+		editor.style.height = `${Math.max(pre.scrollHeight, rect.height)}px`;
 	}
 
 	private estimateCharacter(event: MouseEvent, line: HTMLElement | null): number {
@@ -214,7 +442,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 	}
 
 	ignoreEvent(event: Event): boolean {
-		return event.type === 'mousedown' || event.type === 'mouseup' || event.type === 'click';
+		return event.target instanceof Element && event.target.closest('.shiki-live-preview-block') !== null;
 	}
 }
 
@@ -275,8 +503,7 @@ export function createLivePreviewStructureExtension(plugin: ShikiPlugin): Extens
 			}
 
 
-			const blockIsSelected = isBlockSelected(state, block);
-			if (!plugin.loadedSettings.wrapLines && !blockIsSelected && block.fenceTo !== undefined) {
+			if (!plugin.loadedSettings.wrapLines && block.fenceTo !== undefined) {
 				decorations.add(
 					block.fenceFrom,
 					block.fenceTo,
@@ -346,13 +573,4 @@ function collectLines(state: EditorState): CodeBlockLineInfo[] {
 		lines.push({ lineNumber, text: line.text, from: line.from, to: line.to });
 	}
 	return lines;
-}
-
-function isBlockSelected(state: EditorState, block: CodeBlockModel): boolean {
-	const blockFrom = block.fenceFrom ?? block.codeFrom;
-	const blockTo = block.fenceTo ?? block.codeTo;
-	if (blockFrom === undefined || blockTo === undefined) {
-		return false;
-	}
-	return state.selection.ranges.some(range => (range.empty ? range.from >= blockFrom && range.from <= blockTo : range.from <= blockTo && range.to >= blockFrom));
 }

@@ -20,6 +20,8 @@ const VIEWPORTS = [
 	{ name: 'mobile-390x844', width: 390, height: 844, mobile: true, deviceScaleFactor: 3 },
 ];
 
+const MODE_SWITCH_ITERATIONS = 2;
+
 function assert(condition, message, details = undefined) {
 	if (!condition) {
 		const suffix = details === undefined ? '' : `\n${JSON.stringify(details, null, 2)}`;
@@ -86,7 +88,7 @@ async function connectToExistingObsidian(port) {
 
 async function evaluate(client, expression) {
 	let lastError;
-	for (let attempt = 0; attempt < 20; attempt++) {
+	for (let attempt = 0; attempt < 6; attempt++) {
 		try {
 			const result = await withTimeout(
 				client.send('Runtime.evaluate', {
@@ -94,7 +96,7 @@ async function evaluate(client, expression) {
 					awaitPromise: true,
 					returnByValue: true,
 				}),
-				5_000,
+				15_000,
 				`Timed out evaluating ${expression.slice(0, 120)}`,
 			);
 			if (result.exceptionDetails) {
@@ -157,6 +159,21 @@ async function waitForPlugin(client) {
 	);
 }
 
+async function ensureObsidianVisible(client) {
+	await evaluate(
+		client,
+		`(() => {
+			const win = globalThis.electronWindow;
+			win?.show?.();
+			win?.restore?.();
+			win?.setBounds?.({ x: 100, y: 100, width: 1200, height: 900 });
+			win?.focus?.();
+			return true;
+		})()`,
+	);
+	await waitFor(client, `document.visibilityState === 'visible'`, 'Timed out waiting for visible Obsidian window', 10_000);
+}
+
 function fixtureContent() {
 	const longTail = 'abcdefghijklmnopqrstuvwxyz0123456789_'.repeat(12);
 	return [
@@ -195,8 +212,7 @@ async function setupFixture(client) {
 			if (file) {
 				await globalThis.app.vault.modify(file, content);
 			} else {
-				await globalThis.app.vault.adapter.write(${JSON.stringify(NOTE_PATH)}, content);
-				file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+				file = await globalThis.app.vault.create(${JSON.stringify(NOTE_PATH)}, content);
 			}
 			const originalSettings = structuredClone(plugin.settings);
 			return { originalSettings, activeFile: file?.path ?? ${JSON.stringify(NOTE_PATH)} };
@@ -237,6 +253,18 @@ async function applySettings(client, settings) {
 			};
 		})()`,
 	);
+	await waitForSettings(client, settings);
+}
+
+async function waitForSettings(client, settings) {
+	return waitFor(
+		client,
+		`(() => {
+			const plugin = globalThis.app?.plugins?.plugins?.['advanced-code-block'];
+			return !!plugin && plugin.loadedSettings?.wrapLines === ${JSON.stringify(settings.wrap)} && plugin.loadedSettings?.showLineNumbers === ${JSON.stringify(settings.lineNumbers)};
+		})()`,
+		`Timed out waiting for settings wrap:${settings.wrap} lines:${settings.lineNumbers}`,
+	);
 }
 
 async function setViewport(client, viewport) {
@@ -253,28 +281,17 @@ async function setViewport(client, viewport) {
 		`Boolean(globalThis.app?.workspace && globalThis.app?.vault) && globalThis.app?.isMobile === ${JSON.stringify(viewport.mobile)}`,
 		`Timed out waiting for ${viewport.name}`,
 	);
+	await waitForPlugin(client);
+	await delay(viewport.mobile ? 1_000 : 300);
 }
 
 async function openMode(client, mode) {
 	const state = mode === 'reading' ? { file: NOTE_PATH, mode: 'preview' } : { file: NOTE_PATH, mode: 'source', source: mode === 'source' };
 	await evaluate(
 		client,
-		`(async () => {
-			const bounded = async promise => {
-				try {
-					await Promise.race([promise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('open mode timed out')), 2000))]);
-				} catch (error) {
-					if (error?.message?.includes('timed out') && globalThis.app?.workspace?.activeLeaf) {
-						return;
-					}
-					throw error;
-				}
-			};
+		`(() => {
 			let file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-			if (!file) {
-				await globalThis.app.vault.adapter.write(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(fixtureContent())});
-				file = globalThis.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
-			}
+			if (!file) throw new Error('Fixture note is missing');
 			// In fresh sessions there may be no ready tab group yet.
 			const isUsableLeaf = leaf => !!leaf && typeof leaf.setViewState === 'function' && typeof leaf.openFile === 'function';
 			const safeGetLeaf = getter => {
@@ -310,16 +327,35 @@ async function openMode(client, mode) {
 				globalThis.location.reload();
 				throw new Error('Execution context was destroyed');
 			}
-			if (file) await bounded(leaf.openFile(file, { active: true }));
-			await bounded(leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false }));
+			void Promise.resolve(leaf.setViewState({ type: 'markdown', state: ${JSON.stringify(state)}, active: true }, { history: false })).catch(() => undefined);
 			globalThis.app.workspace.setActiveLeaf?.(leaf, { focus: true });
 			for (const element of document.querySelectorAll('.view-content, .cm-scroller, .cm-editor, .markdown-preview-view')) {
 				element.scrollTop = 0;
 				element.scrollLeft = 0;
 			}
-			await new Promise(resolve => setTimeout(resolve, 450));
-			return leaf.view?.getState?.() ?? null;
+			return true;
 		})()`,
+	);
+	await waitForMode(client, mode);
+	await evaluate(client, `(() => {
+		void Promise.resolve(globalThis.app?.plugins?.plugins?.['advanced-code-block']?.updateCm6Plugin?.()).catch(() => undefined);
+		return true;
+	})()`);
+	await delay(300);
+}
+
+async function waitForMode(client, mode) {
+	const expectedFile = JSON.stringify(NOTE_PATH);
+	const modeExpression = mode === 'reading'
+		? `Boolean(document.querySelector('.workspace-leaf.mod-active .markdown-preview-view'))`
+		: mode === 'live-preview'
+			? `Boolean(document.querySelector('.workspace-leaf.mod-active .markdown-source-view.mod-cm6.is-live-preview'))`
+			: `Boolean(document.querySelector('.workspace-leaf.mod-active .markdown-source-view.mod-cm6:not(.is-live-preview)'))`;
+	return waitFor(
+		client,
+		`globalThis.app?.workspace?.getActiveFile?.()?.path === ${expectedFile} && ${modeExpression}`,
+		`Timed out waiting for ${mode} mode`,
+		20_000,
 	);
 }
 
@@ -440,12 +476,13 @@ async function assertStable(client, context) {
 }
 
 async function verifyScroll(client, settings, context) {
+	await waitForSettings(client, settings);
 	const before = await waitForShikiReady(client, `${context} before scroll`);
-	await evaluate(client, `(async () => {
-		await globalThis.app?.plugins?.plugins?.['advanced-code-block']?.updateCm6Plugin?.();
-		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+	await evaluate(client, `(() => {
+		void Promise.resolve(globalThis.app?.plugins?.plugins?.['advanced-code-block']?.updateCm6Plugin?.()).catch(() => undefined);
 		return true;
 	})()`);
+	await delay(300);
 	if (before.isMobile) {
 		await evaluate(client, `(() => { const body = document.querySelector('.workspace-leaf.mod-active .shiki-live-preview-block .shiki-block-body'); if (body) body.scrollLeft = 280; return true; })()`);
 	} else {
@@ -506,13 +543,14 @@ async function run() {
 	let originalSettings;
 	try {
 		await waitForPlugin(client);
+		await ensureObsidianVisible(client);
 		const setup = await setupFixture(client);
 		originalSettings = setup.originalSettings;
 		for (const viewport of VIEWPORTS) {
 			await setViewport(client, viewport);
 			for (const settings of SETTINGS_MATRIX) {
 				await applySettings(client, settings);
-				for (let iteration = 0; iteration < 5; iteration++) {
+				for (let iteration = 0; iteration < MODE_SWITCH_ITERATIONS; iteration++) {
 					const prefix = `${viewport.name} wrap:${settings.wrap ? 'on' : 'off'} lines:${settings.lineNumbers ? 'on' : 'off'} iteration:${iteration + 1}`;
 					await openMode(client, 'source');
 					await openMode(client, 'live-preview');

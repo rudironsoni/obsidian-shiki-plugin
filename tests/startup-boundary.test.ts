@@ -117,10 +117,9 @@ describe('startup module boundary', () => {
 		expect(livePreview).toContain('codeTo: block.range.charTo');
 	});
 
-	test('live preview uses whole-block scrolling while preserving native edit rows when selected', () => {
+	test('live preview uses one whole-block scroll surface for nowrap viewing and editing', () => {
 		const livePreview = read('packages/obsidian/src/modes/LivePreviewAdapter.ts');
 		const structure = read('packages/obsidian/src/modes/LivePreviewStructureExtension.ts');
-		expect(livePreview).not.toContain('shiki-code-editor');
 		expect(livePreview).not.toContain('new ShikiLivePreviewWidget');
 		expect(structure).not.toContain('BlockWrapper');
 		expect(structure).not.toContain('blockWrappers');
@@ -129,9 +128,12 @@ describe('startup module boundary', () => {
 		expect(structure).toContain('shiki-live-preview-block');
 		expect(structure).toContain('shiki-block-body');
 		expect(structure).toContain('shiki-code-scroll');
+		expect(structure).toContain('shiki-live-preview-editor');
+		expect(structure).toContain('replaceCode');
+		expect(structure).toContain('getCurrentCodeRange');
 		expect(structure).toContain('ShikiLivePreviewHeaderWidget');
 		expect(structure).toContain('ShikiLivePreviewLineNumberWidget');
-		expect(structure).toContain('isBlockSelected');
+		expect(structure).not.toContain('isBlockSelected');
 		expect(livePreview).toContain('if (!update.docChanged && !update.viewportChanged && !update.selectionSet)');
 		expect(livePreview).toContain('retokenizeBlocks');
 		expect(livePreview).toContain('this.plugin.highlighter.getTokenStyle(token)');

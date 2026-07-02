@@ -61,6 +61,61 @@ async function evaluate(client, expression, label = 'evaluation') {
 	return result.result.value;
 }
 
+async function waitFor(client, expression, label, timeoutMs = 10000) {
+	const deadline = Date.now() + timeoutMs;
+	let lastValue;
+	while (Date.now() < deadline) {
+		lastValue = await evaluate(client, expression, label);
+		if (lastValue) return lastValue;
+		await delay(150);
+	}
+	throw new Error(`${label} timed out\nLast value:\n${JSON.stringify(lastValue, null, 2)}`);
+}
+
+async function requestMode(client, mode, source = false) {
+	await evaluate(
+		client,
+		`(() => {
+			const leaf = ${JSON.stringify(mode)} === 'preview' ? window.app.workspace.getLeaf('tab') : (window.app.workspace.activeLeaf ?? window.app.workspace.getLeaf(false));
+			const file = window.app.workspace.getActiveFile() ?? window.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+			if (${JSON.stringify(mode)} === 'preview') {
+				setTimeout(() => void Promise.resolve(leaf.openFile(file, { active: true, state: { mode: 'preview' } })).catch(() => undefined), 0);
+			}
+			void Promise.resolve(leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: ${JSON.stringify(mode)}, source: ${JSON.stringify(source)} }, active: true }, { history: false })).catch(() => undefined);
+			window.app.workspace.setActiveLeaf?.(leaf, { focus: true });
+			return true;
+		})()`,
+		`request ${mode}`,
+	);
+	const selector = mode === 'preview'
+		? '.markdown-preview-view'
+		: source
+			? '.markdown-source-view.mod-cm6:not(.is-live-preview)'
+			: '.markdown-source-view.mod-cm6.is-live-preview';
+	await waitFor(
+		client,
+		`window.app.workspace.getActiveFile()?.path === ${JSON.stringify(NOTE_PATH)} && Boolean(window.app.workspace.activeLeaf?.view?.containerEl?.querySelector(${JSON.stringify(selector)}))`,
+		`wait for ${mode}`,
+	);
+	await delay(500);
+}
+
+async function ensureObsidianVisible(client) {
+	await evaluate(
+		client,
+		`(() => {
+			const win = globalThis.electronWindow;
+			win?.show?.();
+			win?.restore?.();
+			win?.setBounds?.({ x: 100, y: 100, width: 1200, height: 900 });
+			win?.focus?.();
+			return true;
+		})()`,
+		'ensure Obsidian visible',
+	);
+	await waitFor(client, `document.visibilityState === 'visible'`, 'wait for visible Obsidian window', 10000);
+}
+
 async function setupFixture(client) {
 	const longA = `const insanelyLongValueName = "${'0123456789abcdefghijklmnopqrstuvwxyz'.repeat(10)}";`;
 	const longB = `const secondLongValueName = "${'ZYXWVUTSRQPONMLKJIHGFEDCBA9876543210'.repeat(8)}";`;
@@ -71,7 +126,7 @@ async function setupFixture(client) {
 			let file = window.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
 			if (!file) file = await window.app.vault.create(${JSON.stringify(NOTE_PATH)}, ${JSON.stringify(content)});
 			else await window.app.vault.modify(file, ${JSON.stringify(content)});
-			await window.app.workspace.getLeaf(false).openFile(file);
+			void Promise.resolve(window.app.workspace.getLeaf(false).openFile(file)).catch(() => undefined);
 			window.app.workspace.leftSplit?.collapse?.();
 			window.app.workspace.rightSplit?.collapse?.();
 			let style = document.getElementById('shiki-narrow-scroll-regression-style');
@@ -91,7 +146,6 @@ async function setupFixture(client) {
 			plugin?.registerInlineCodeProcessor?.();
 			plugin?.registerCodeBlockProcessors?.();
 			plugin?.registerCm6Plugin?.();
-			await plugin?.updateCm6Plugin?.();
 			return true;
 		})()`,
 		'setup fixture',
@@ -100,19 +154,11 @@ async function setupFixture(client) {
 }
 
 async function verifyLivePreviewViewing(client) {
+	await requestMode(client, 'source', false);
 	const state = await evaluate(
 		client,
 		`(async () => {
 			const leaf = window.app.workspace.activeLeaf;
-			const file = window.app.workspace.getActiveFile();
-			await Promise.race([
-				Promise.resolve(leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: false }, active: true }, { history: false })),
-				new Promise(resolve => setTimeout(resolve, 2000)),
-			]);
-			await new Promise(resolve => setTimeout(resolve, 1000));
-			const editor = leaf.view.editor;
-			editor.setCursor({ line: 0, ch: 0 });
-			await window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.();
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			const root = leaf.view.containerEl;
 			const scroller = root.querySelector('.cm-scroller');
@@ -125,11 +171,11 @@ async function verifyLivePreviewViewing(client) {
 			const visibleGutters = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].filter(el => getComputedStyle(el).visibility !== 'hidden');
 			const lineNumberStyle = lineNumbers ? getComputedStyle(lineNumbers) : null;
 			if (body) body.scrollLeft = 0;
-			await new Promise(resolve => requestAnimationFrame(resolve));
+			await new Promise(resolve => setTimeout(resolve, 50));
 			const beforeLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
 			const beforeCodeLeft = code?.getBoundingClientRect().left ?? null;
 			if (body) body.scrollLeft = 260;
-			await new Promise(resolve => requestAnimationFrame(resolve));
+			await new Promise(resolve => setTimeout(resolve, 50));
 			const afterLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
 			const afterCodeLeft = code?.getBoundingClientRect().left ?? null;
 			return {
@@ -170,85 +216,136 @@ async function verifyLivePreviewViewing(client) {
 }
 
 async function verifyLivePreviewEditing(client) {
+	await requestMode(client, 'source', false);
 	const state = await evaluate(
 		client,
 		`(async () => {
 			const leaf = window.app.workspace.activeLeaf;
-			const file = window.app.workspace.getActiveFile();
-			await Promise.race([
-				Promise.resolve(leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: false }, active: true }, { history: false })),
-				new Promise(resolve => setTimeout(resolve, 2000)),
-			]);
-			await new Promise(resolve => setTimeout(resolve, 1000));
-			await window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.();
+			void Promise.resolve(window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.()).catch(() => undefined);
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			const root = leaf.view.containerEl;
 			const scroller = root.querySelector('.cm-scroller');
 			if (scroller) scroller.scrollLeft = 0;
 			const block = root.querySelector('.shiki-live-preview-block');
+			const body = block?.querySelector('.shiki-block-body');
+			if (body) body.scrollLeft = 260;
+			await new Promise(resolve => setTimeout(resolve, 50));
+			const beforeTop = block?.getBoundingClientRect().top ?? null;
+			const beforeHeight = block?.getBoundingClientRect().height ?? null;
 			const codeLine = [...(block?.querySelectorAll('.shiki-code-line') ?? [])].find(el => el.textContent?.includes('insanelyLongValueName'));
 			const rect = codeLine?.getBoundingClientRect();
 			if (codeLine && rect) {
 				codeLine.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: rect.left + 80, clientY: rect.top + rect.height / 2 }));
 			}
 			await new Promise(resolve => setTimeout(resolve, 500));
+			const editor = block?.querySelector('.shiki-live-preview-editor');
+			const samples = [];
+			const firstBlock = root.querySelector('.shiki-live-preview-block');
+			const firstEditor = firstBlock?.querySelector('.shiki-live-preview-editor');
+			let sampling = true;
+			const sampler = new Promise(resolve => {
+				const tick = () => {
+					const currentBlock = root.querySelector('.shiki-live-preview-block');
+					const currentEditor = currentBlock?.querySelector('.shiki-live-preview-editor');
+					samples.push({
+						sameBlock: currentBlock === firstBlock,
+						sameEditor: currentEditor === firstEditor,
+						activeEditor: currentEditor === document.activeElement,
+						bodyScrollLeft: currentBlock?.querySelector('.shiki-block-body')?.scrollLeft ?? null,
+						nativeLineCount: root.querySelectorAll('.cm-line.shiki-live-preview-code-line').length,
+					});
+					if (sampling) setTimeout(tick, 16);
+					else resolve();
+				};
+				setTimeout(tick, 16);
+			});
+			if (editor) {
+				editor.setRangeText('__EDIT__', editor.selectionStart, editor.selectionEnd, 'end');
+				editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '__EDIT__' }));
+			}
+			await new Promise(resolve => setTimeout(resolve, 750));
+			sampling = false;
+			await sampler;
+			const updatedBlock = root.querySelector('.shiki-live-preview-block');
+			const updatedBody = updatedBlock?.querySelector('.shiki-block-body');
+			const updatedEditor = updatedBlock?.querySelector('.shiki-live-preview-editor');
 			const cursor = leaf.view.editor.getCursor();
-			const lines = [...root.querySelectorAll('.cm-line.shiki-live-preview-code-line')].filter(el => el.textContent?.includes('LongValueName'));
-			const tokenCount = lines.reduce((count, line) => count + line.querySelectorAll('[style*="color:"]').length, 0);
-			await window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.();
+			const nativeLines = [...root.querySelectorAll('.cm-line.shiki-live-preview-code-line')].filter(el => el.textContent?.includes('LongValueName'));
+			const tokenCount = updatedBlock?.querySelectorAll('.shiki-code-line [style*="color:"]').length ?? 0;
+			const content = leaf.view.editor.getValue();
 			await new Promise(resolve => setTimeout(resolve, 250));
 			return {
 				label: 'live-preview-editing',
 				hadBlock: !!block,
+				activeEditor: updatedEditor === document.activeElement,
+				editorValueIncludesEdit: updatedEditor?.value.includes('__EDIT__') ?? false,
+				contentIncludesEdit: content.includes('__EDIT__'),
 				cursor,
-				lineCount: lines.length,
+				nativeLineCount: nativeLines.length,
 				scrollerScrollLeft: scroller?.scrollLeft ?? 0,
+				bodyScrollLeft: updatedBody?.scrollLeft ?? 0,
 				tokenCount,
 				virtualScrollRows: root.querySelectorAll('.shiki-editing-codeblock-active-line-nowrap, .shiki-live-preview-code-line-nowrap[style*="--shiki-editing-scroll-left"]').length,
-				anyLineOwnScroll: lines.some(el => el.scrollLeft > 0),
-				bodyScrollLeft: document.scrollingElement?.scrollLeft ?? 0,
+				anyLineOwnScroll: nativeLines.some(el => el.scrollLeft > 0),
+				documentScrollLeft: document.scrollingElement?.scrollLeft ?? 0,
+				topDelta: beforeTop !== null && updatedBlock ? Math.abs(updatedBlock.getBoundingClientRect().top - beforeTop) : null,
+				heightDelta: beforeHeight !== null && updatedBlock ? Math.abs(updatedBlock.getBoundingClientRect().height - beforeHeight) : null,
+				unstableSampleCount: samples.filter(sample => !sample.sameBlock || !sample.sameEditor || !sample.activeEditor || sample.nativeLineCount !== 0 || Math.abs((sample.bodyScrollLeft ?? 0) - 260) > 1).length,
+				sampleCount: samples.length,
 			};
 		})()`,
 		'live preview editing',
 	);
 	assert(state.hadBlock, 'Live Preview editing did not start from a whole-block rendered surface', state);
+	assert(state.activeEditor, 'Live Preview editing did not keep focus in the block-level editor', state);
+	assert(state.editorValueIncludesEdit, 'Live Preview editing did not update the block-level editor value', state);
+	assert(state.contentIncludesEdit, 'Live Preview editing did not write through to the Obsidian document', state);
 	assert(state.cursor.line >= 3 && state.cursor.line <= 4, 'Live Preview editing click did not place the cursor inside the code block', state);
-	assert(state.lineCount >= 2, 'Live Preview editing did not reveal native code rows for editing', state);
+	assert(state.nativeLineCount === 0, 'Live Preview editing revealed native code rows instead of keeping the whole-block surface', state);
 	assert(state.scrollerScrollLeft === 0, 'Live Preview editing moved the whole editor horizontally', state);
-	assert(state.tokenCount > 0, 'Live Preview editing native rows are not Shiki-tokenized', state);
+	assert(state.bodyScrollLeft > 0, 'Live Preview editing did not preserve whole-block horizontal scroll', state);
+	assert(state.tokenCount > 0, 'Live Preview editing block is not Shiki-tokenized', state);
 	assert(state.virtualScrollRows === 0, 'Live Preview editing still uses virtual per-line horizontal scrolling', state);
 	assert(!state.anyLineOwnScroll, 'Live Preview editing left horizontal scroll on individual lines', state);
-	assert(state.bodyScrollLeft === 0, 'Live Preview editing moved the document horizontally', state);
+	assert(state.documentScrollLeft === 0, 'Live Preview editing moved the document horizontally', state);
+	assert(state.topDelta !== null && state.topDelta < 2, 'Live Preview editing moved the block vertically during input', state);
+	assert(state.heightDelta !== null && state.heightDelta < 2, 'Live Preview editing changed the block height during input', state);
+	assert(state.sampleCount > 0, 'Live Preview editing stability sampler did not run', state);
+	assert(state.unstableSampleCount === 0, 'Live Preview editing recreated the block editor, lost focus, reset scroll, or revealed native rows during input', state);
 	return state;
 }
 
 async function verifySourceMode(client) {
+	await requestMode(client, 'source', true);
 	const state = await evaluate(client, blockScrollExpression('source', true), 'source mode');
 	assertBlockScrollerState(state, 'Source mode');
 	return state;
 }
 
 async function verifyReadingMode(client) {
+	await requestMode(client, 'preview', false);
+	await evaluate(
+		client,
+		`(async () => {
+			const leaf = window.app.workspace.activeLeaf;
+			const file = window.app.vault.getAbstractFileByPath(${JSON.stringify(NOTE_PATH)});
+			await Promise.race([
+				Promise.resolve(leaf.openFile(file, { active: true, state: { mode: 'preview' } })),
+				new Promise(resolve => setTimeout(resolve, 4000)),
+			]);
+			return true;
+		})()`,
+		'reading mode open file',
+	);
 	const state = await evaluate(
 		client,
 		`(async () => {
 			const leaf = window.app.workspace.activeLeaf;
-			const file = window.app.workspace.getActiveFile();
-			await leaf.openFile(file, { active: true, state: { mode: 'preview' } });
-			await Promise.race([
-				Promise.resolve(leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'preview', source: false }, active: true }, { history: false })),
-				new Promise(resolve => setTimeout(resolve, 2000)),
-			]);
-			const preview = leaf.view.containerEl.querySelector('.markdown-preview-view');
-			for (let i = 0; i < 20 && !leaf.view.containerEl.querySelector('.shiki-reading-block'); i++) {
-				if (preview) {
-					preview.scrollTop = i % 2 === 0 ? 0 : 400;
-					preview.dispatchEvent(new Event('scroll'));
-				}
-				await new Promise(resolve => setTimeout(resolve, 250));
-			}
+			await new Promise(resolve => setTimeout(resolve, 1000));
 			const root = leaf.view.containerEl;
 			const scroller = root.querySelector('.markdown-preview-view');
+			const previewTextLength = scroller?.textContent?.trim().length ?? 0;
+			const nativePreCount = root.querySelectorAll('.markdown-preview-view pre').length;
 			if (scroller) scroller.scrollLeft = 0;
 			const blocks = [...root.querySelectorAll('.shiki-reading-block')];
 			const block = blocks[0];
@@ -271,6 +368,9 @@ async function verifyReadingMode(client) {
 			const afterLineLeft = lineNumbers?.getBoundingClientRect().left ?? null;
 			const afterCodeLeft = code?.getBoundingClientRect().left ?? null;
 			return {
+				skipped: blocks.length === 0 && previewTextLength === 0 && nativePreCount === 0,
+				previewTextLength,
+				nativePreCount,
 				blockCount: blocks.length,
 				directHeaderCount: directHeaders.length,
 				directBodyCount: directBodies.length,
@@ -314,17 +414,10 @@ async function verifyReadingMode(client) {
 function blockScrollExpression(label, source) {
 	return `(async () => {
 		const leaf = window.app.workspace.activeLeaf;
-		const file = window.app.workspace.getActiveFile();
-		await Promise.race([
-			Promise.resolve(leaf.setViewState({ type: 'markdown', state: { file: file.path, mode: 'source', source: ${source} }, active: true }, { history: false })),
-			new Promise(resolve => setTimeout(resolve, 2000)),
-		]);
-		await new Promise(resolve => setTimeout(resolve, 1000));
 		const editor = leaf.view.editor;
 		const line = editor.getValue().split('\\n').findIndex(value => value.includes('insanelyLongValueName'));
 		editor.setCursor({ line, ch: 20 });
 		editor.focus();
-		await window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.();
 		await new Promise(resolve => setTimeout(resolve, 1000));
 		const root = leaf.view.containerEl;
 		const scroller = root.querySelector('.cm-scroller');
@@ -375,6 +468,7 @@ async function main() {
 	const client = await connectToExistingObsidian();
 	try {
 		await client.send('Runtime.enable');
+		await ensureObsidianVisible(client);
 		await setupFixture(client);
 		const livePreviewViewing = await verifyLivePreviewViewing(client);
 		const livePreviewEditing = await verifyLivePreviewEditing(client);
