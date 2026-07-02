@@ -211,17 +211,9 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 
 	private syncNoteLineNumberPosition(container: HTMLElement): void {
 		const noteLineNumbers = container.querySelector<HTMLElement>(':scope > .shiki-note-line-numbers');
-		const sourceRoot = this.plugin.app.workspace.activeLeaf?.view?.containerEl.querySelector<HTMLElement>('.markdown-source-view.mod-cm6');
-		if (!noteLineNumbers || !sourceRoot) return;
-		const blockRect = container.getBoundingClientRect();
-		const gutterRows = [...sourceRoot.querySelectorAll<HTMLElement>('.cm-lineNumbers .cm-gutterElement')]
-			.filter(element => getComputedStyle(element).visibility !== 'hidden')
-			.map(element => ({ element, rect: element.getBoundingClientRect() }))
-			.filter(({ rect }) => rect.height > 0 && rect.bottom > blockRect.top && rect.top < blockRect.bottom);
-		const gutterRow = gutterRows.sort((first, second) => second.rect.height - first.rect.height)[0];
-		if (!gutterRow) return;
-		noteLineNumbers.style.left = `${gutterRow.rect.left - blockRect.left}px`;
-		noteLineNumbers.style.width = `${gutterRow.rect.width}px`;
+		if (!noteLineNumbers) return;
+		noteLineNumbers.style.removeProperty('left');
+		noteLineNumbers.style.removeProperty('width');
 	}
 
 	private renderFenceLine(container: HTMLElement, kind: 'opening' | 'closing'): void {
@@ -269,8 +261,8 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			editor.setSelectionRange(offset, offset);
 			this.syncSourceSelection(position.lineIndex, position.ch);
 			if (this.isMobileApp()) {
-				this.positionMobileCaret(container, position.lineIndex, position.ch);
-				this.focusSourceEditor();
+				editor.focus();
+				this.showMobileToolbar();
 			}
 		};
 		editor.onkeyup = (): void => {
@@ -343,10 +335,10 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			const ch = this.estimateCharacter(event, targetLine);
 			const offset = this.offsetForLineAndCharacter(lineIndex, ch);
 			if (this.isMobileApp()) {
+				editor.focus();
 				editor.setSelectionRange(offset, offset);
 				this.syncSourceSelection(lineIndex, ch);
-				this.positionMobileCaret(container, lineIndex, ch);
-				this.focusSourceEditor();
+				this.showMobileToolbar();
 			} else {
 				editor.focus();
 				editor.setSelectionRange(offset, offset);
@@ -492,44 +484,10 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		view.dispatch({ selection: { anchor: Math.min(line.to, line.from + ch) } });
 	}
 
-	private focusSourceEditor(): void {
-		const view = this.getActiveEditorView();
-		if (!view) return;
+	private showMobileToolbar(): void {
 		requestAnimationFrame(() => {
-			view.focus();
-			if (this.isMobileApp()) {
-				(this.plugin.app as { mobileToolbar?: { show?: () => void } }).mobileToolbar?.show?.();
-			}
+			(this.plugin.app as { mobileToolbar?: { show?: () => void } }).mobileToolbar?.show?.();
 		});
-	}
-
-	private positionMobileCaret(container: HTMLElement | null, lineIndex: number, ch: number): void {
-		if (!container) return;
-		const codeScroll = container.querySelector<HTMLElement>('.shiki-code-scroll');
-		const line = container.querySelector<HTMLElement>(`.shiki-code-line[data-line-index="${lineIndex}"]`);
-		if (!codeScroll || !line) return;
-		let caret = codeScroll.querySelector<HTMLElement>(':scope > .shiki-live-preview-mobile-caret');
-		if (!caret) {
-			caret = document.createElement('div');
-			caret.className = 'shiki-live-preview-mobile-caret';
-			codeScroll.appendChild(caret);
-		}
-		const lineRect = line.getBoundingClientRect();
-		const scrollRect = codeScroll.getBoundingClientRect();
-		const measure = document.createElement('span');
-		const lineStyle = getComputedStyle(line);
-		measure.textContent = (line.textContent ?? '').slice(0, Math.max(0, ch));
-		measure.style.position = 'absolute';
-		measure.style.visibility = 'hidden';
-		measure.style.whiteSpace = 'pre';
-		measure.style.font = lineStyle.font;
-		measure.style.letterSpacing = lineStyle.letterSpacing;
-		codeScroll.appendChild(measure);
-		const offsetLeft = measure.getBoundingClientRect().width;
-		measure.remove();
-		caret.style.left = `${lineRect.left - scrollRect.left + offsetLeft}px`;
-		caret.style.top = `${lineRect.top - scrollRect.top}px`;
-		caret.style.height = `${lineRect.height}px`;
 	}
 
 	private isMobileApp(): boolean {

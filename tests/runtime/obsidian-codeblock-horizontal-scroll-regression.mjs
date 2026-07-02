@@ -276,7 +276,7 @@ async function verifyLivePreviewEditing(client) {
 						samples.push({
 							sameBlock: currentBlock === firstBlock,
 							sameEditor: currentEditor === firstEditor,
-							activeEditor: currentEditor === document.activeElement || (isMobile && document.activeElement?.classList?.contains('cm-content')),
+							activeEditor: currentEditor === document.activeElement,
 						bodyScrollLeft: currentBlock?.querySelector('.shiki-block-body')?.scrollLeft ?? null,
 						nativeLineCount: root.querySelectorAll('.cm-line.shiki-live-preview-code-line').length,
 					});
@@ -345,7 +345,7 @@ async function verifyLivePreviewEditing(client) {
 	);
 	assert(state.hadBlock, 'Live Preview editing did not start from a whole-block rendered surface', state);
 	if (state.isMobile) {
-		assert(state.activeCodeMirror, 'Live Preview mobile editing did not focus the real CodeMirror editor', state);
+		assert(state.activeEditor, 'Live Preview mobile editing did not keep focus in the visible code editor', state);
 		assert(state.mobileToolbarOpen, 'Live Preview mobile editing did not open the Obsidian mobile editing toolbar', state);
 	} else {
 		assert(state.activeEditor, 'Live Preview editing did not keep focus in the block-level editor', state);
