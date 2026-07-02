@@ -130,12 +130,12 @@ span.shiki-ul {
 .markdown-source-view.mod-cm6.is-live-preview .shiki-live-preview-block .shiki-note-line-numbers {
 	position: absolute;
 	top: 0;
-	right: calc(100% + 24px);
+	left: -44px;
 	z-index: 2;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-end;
-	width: 20px;
+	width: 24px;
 	background: var(--background-primary);
 	color: var(--text-faint);
 	font-family: var(--font-monospace);
@@ -335,6 +335,16 @@ span.shiki-ul {
 	box-shadow: none !important;
 	appearance: none !important;
 	-webkit-appearance: none !important;
+}
+
+.shiki-live-preview-mobile-caret {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 2px;
+	background: var(--text-normal);
+	pointer-events: none;
+	z-index: 2;
 }
 
 /* Match Obsidian's code block font size when editor font sizing is enabled. */

@@ -161,6 +161,7 @@ async function verifyLivePreviewViewing(client) {
 			const leaf = window.app.workspace.activeLeaf;
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			const root = leaf.view.containerEl;
+			const isMobile = window.app.isMobile === true;
 			const scroller = root.querySelector('.cm-scroller');
 			if (scroller) scroller.scrollLeft = 0;
 			const block = root.querySelector('.shiki-live-preview-block');
@@ -245,6 +246,7 @@ async function verifyLivePreviewEditing(client) {
 		client,
 		`(async () => {
 			const leaf = window.app.workspace.activeLeaf;
+			const isMobile = window.app.isMobile === true;
 			void Promise.resolve(window.app.plugins.plugins['advanced-code-block']?.updateCm6Plugin?.()).catch(() => undefined);
 			await new Promise(resolve => setTimeout(resolve, 1000));
 			const root = leaf.view.containerEl;
@@ -271,10 +273,10 @@ async function verifyLivePreviewEditing(client) {
 				const tick = () => {
 					const currentBlock = root.querySelector('.shiki-live-preview-block');
 					const currentEditor = currentBlock?.querySelector('.shiki-live-preview-editor');
-					samples.push({
-						sameBlock: currentBlock === firstBlock,
-						sameEditor: currentEditor === firstEditor,
-						activeEditor: currentEditor === document.activeElement,
+						samples.push({
+							sameBlock: currentBlock === firstBlock,
+							sameEditor: currentEditor === firstEditor,
+							activeEditor: currentEditor === document.activeElement || (isMobile && document.activeElement?.classList?.contains('cm-content')),
 						bodyScrollLeft: currentBlock?.querySelector('.shiki-block-body')?.scrollLeft ?? null,
 						nativeLineCount: root.querySelectorAll('.cm-line.shiki-live-preview-code-line').length,
 					});
@@ -311,8 +313,11 @@ async function verifyLivePreviewEditing(client) {
 			await new Promise(resolve => setTimeout(resolve, 250));
 			return {
 				label: 'live-preview-editing',
+				isMobile,
 				hadBlock: !!block,
 				activeEditor: updatedEditor === document.activeElement,
+				activeCodeMirror: document.activeElement?.classList?.contains('cm-content') ?? false,
+				mobileToolbarOpen: document.body.classList.contains('mod-toolbar-open') && !!document.querySelector('.mobile-toolbar'),
 				editorValueIncludesEdit: updatedEditor?.value.includes('__EDIT__') ?? false,
 				contentIncludesEdit: content.includes('__EDIT__'),
 				cursor,
@@ -339,7 +344,12 @@ async function verifyLivePreviewEditing(client) {
 		'live preview editing',
 	);
 	assert(state.hadBlock, 'Live Preview editing did not start from a whole-block rendered surface', state);
-	assert(state.activeEditor, 'Live Preview editing did not keep focus in the block-level editor', state);
+	if (state.isMobile) {
+		assert(state.activeCodeMirror, 'Live Preview mobile editing did not focus the real CodeMirror editor', state);
+		assert(state.mobileToolbarOpen, 'Live Preview mobile editing did not open the Obsidian mobile editing toolbar', state);
+	} else {
+		assert(state.activeEditor, 'Live Preview editing did not keep focus in the block-level editor', state);
+	}
 	assert(state.editorValueIncludesEdit, 'Live Preview editing did not update the block-level editor value', state);
 	assert(state.contentIncludesEdit, 'Live Preview editing did not write through to the Obsidian document', state);
 	assert(state.cursor.line === 3, 'Live Preview editing click did not place the cursor on the first code content line', state);

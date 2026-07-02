@@ -142,6 +142,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 
 		requestAnimationFrame(() => {
 			if (!container.isConnected) return;
+			this.syncNoteLineNumberPosition(container);
 			this.restoreEditorState(editor, pre, body, active, selectionStart, selectionEnd, scrollLeft);
 		});
 	}
@@ -180,6 +181,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		void this.renderTokens(code, container);
 		requestAnimationFrame(() => {
 			if (!container.isConnected) return;
+			this.syncNoteLineNumberPosition(container);
 			this.restoreEditorState(editor, pre, body, active, selectionStart, selectionEnd, scrollLeft);
 		});
 	}
@@ -205,6 +207,21 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		for (let lineNumber = openingLine; lineNumber <= closingLine; lineNumber++) {
 			noteLineNumbers.createSpan({ text: String(lineNumber) });
 		}
+	}
+
+	private syncNoteLineNumberPosition(container: HTMLElement): void {
+		const noteLineNumbers = container.querySelector<HTMLElement>(':scope > .shiki-note-line-numbers');
+		const sourceRoot = this.plugin.app.workspace.activeLeaf?.view?.containerEl.querySelector<HTMLElement>('.markdown-source-view.mod-cm6');
+		if (!noteLineNumbers || !sourceRoot) return;
+		const blockRect = container.getBoundingClientRect();
+		const gutterRows = [...sourceRoot.querySelectorAll<HTMLElement>('.cm-lineNumbers .cm-gutterElement')]
+			.filter(element => getComputedStyle(element).visibility !== 'hidden')
+			.map(element => ({ element, rect: element.getBoundingClientRect() }))
+			.filter(({ rect }) => rect.height > 0 && rect.bottom > blockRect.top && rect.top < blockRect.bottom);
+		const gutterRow = gutterRows.sort((first, second) => second.rect.height - first.rect.height)[0];
+		if (!gutterRow) return;
+		noteLineNumbers.style.left = `${gutterRow.rect.left - blockRect.left}px`;
+		noteLineNumbers.style.width = `${gutterRow.rect.width}px`;
 	}
 
 	private renderFenceLine(container: HTMLElement, kind: 'opening' | 'closing'): void {
@@ -243,9 +260,18 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			this.replaceCode(editor.value, editor.selectionStart, editor.selectionEnd);
 			this.restoreBodyScroll(body, scrollLeft);
 		};
-		editor.onclick = (): void => {
-			const position = this.lineAndCharacterForOffset(editor.selectionStart);
+		editor.onclick = (event): void => {
+			const container = editor.closest<HTMLElement>('.shiki-live-preview-block');
+			const position = this.isMobileApp()
+				? (this.positionForPointer(container, event) ?? this.lineAndCharacterForOffset(editor.selectionStart))
+				: this.lineAndCharacterForOffset(editor.selectionStart);
+			const offset = this.offsetForLineAndCharacter(position.lineIndex, position.ch);
+			editor.setSelectionRange(offset, offset);
 			this.syncSourceSelection(position.lineIndex, position.ch);
+			if (this.isMobileApp()) {
+				this.positionMobileCaret(container, position.lineIndex, position.ch);
+				this.focusSourceEditor();
+			}
 		};
 		editor.onkeyup = (): void => {
 			const position = this.lineAndCharacterForOffset(editor.selectionStart);
@@ -316,10 +342,17 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			const lineIndex = Number.parseInt(targetLine?.dataset.lineIndex ?? '0', 10) || 0;
 			const ch = this.estimateCharacter(event, targetLine);
 			const offset = this.offsetForLineAndCharacter(lineIndex, ch);
-			editor.focus();
-			editor.setSelectionRange(offset, offset);
+			if (this.isMobileApp()) {
+				editor.setSelectionRange(offset, offset);
+				this.syncSourceSelection(lineIndex, ch);
+				this.positionMobileCaret(container, lineIndex, ch);
+				this.focusSourceEditor();
+			} else {
+				editor.focus();
+				editor.setSelectionRange(offset, offset);
+				this.syncSourceSelection(lineIndex, ch);
+			}
 			this.restoreBodyScroll(body, scrollLeft);
-			this.syncSourceSelection(lineIndex, ch);
 		};
 	}
 
@@ -459,6 +492,50 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		view.dispatch({ selection: { anchor: Math.min(line.to, line.from + ch) } });
 	}
 
+	private focusSourceEditor(): void {
+		const view = this.getActiveEditorView();
+		if (!view) return;
+		requestAnimationFrame(() => {
+			view.focus();
+			if (this.isMobileApp()) {
+				(this.plugin.app as { mobileToolbar?: { show?: () => void } }).mobileToolbar?.show?.();
+			}
+		});
+	}
+
+	private positionMobileCaret(container: HTMLElement | null, lineIndex: number, ch: number): void {
+		if (!container) return;
+		const codeScroll = container.querySelector<HTMLElement>('.shiki-code-scroll');
+		const line = container.querySelector<HTMLElement>(`.shiki-code-line[data-line-index="${lineIndex}"]`);
+		if (!codeScroll || !line) return;
+		let caret = codeScroll.querySelector<HTMLElement>(':scope > .shiki-live-preview-mobile-caret');
+		if (!caret) {
+			caret = document.createElement('div');
+			caret.className = 'shiki-live-preview-mobile-caret';
+			codeScroll.appendChild(caret);
+		}
+		const lineRect = line.getBoundingClientRect();
+		const scrollRect = codeScroll.getBoundingClientRect();
+		const measure = document.createElement('span');
+		const lineStyle = getComputedStyle(line);
+		measure.textContent = (line.textContent ?? '').slice(0, Math.max(0, ch));
+		measure.style.position = 'absolute';
+		measure.style.visibility = 'hidden';
+		measure.style.whiteSpace = 'pre';
+		measure.style.font = lineStyle.font;
+		measure.style.letterSpacing = lineStyle.letterSpacing;
+		codeScroll.appendChild(measure);
+		const offsetLeft = measure.getBoundingClientRect().width;
+		measure.remove();
+		caret.style.left = `${lineRect.left - scrollRect.left + offsetLeft}px`;
+		caret.style.top = `${lineRect.top - scrollRect.top}px`;
+		caret.style.height = `${lineRect.height}px`;
+	}
+
+	private isMobileApp(): boolean {
+		return (this.plugin.app as { isMobile?: boolean }).isMobile === true;
+	}
+
 	private replaceCode(code: string, selectionStart: number, selectionEnd: number): void {
 		const view = this.getActiveEditorView();
 		const range = view ? this.getCurrentCodeRange(view.state) : null;
@@ -546,6 +623,25 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 		const charWidth = Math.max(1, sample.getBoundingClientRect().width / 10);
 		sample.remove();
 		return Math.max(0, Math.round((event.clientX - rect.left + scroll) / charWidth));
+	}
+
+	private positionForPointer(container: HTMLElement | null, event: MouseEvent): { lineIndex: number; ch: number } | null {
+		if (!container) return null;
+		const lines = [...container.querySelectorAll<HTMLElement>('.shiki-code-line')];
+		if (lines.length === 0) return null;
+		let bestLine: HTMLElement | null = null;
+		let bestDistance = Number.POSITIVE_INFINITY;
+		for (const line of lines) {
+			const rect = line.getBoundingClientRect();
+			const distance = event.clientY < rect.top ? rect.top - event.clientY : event.clientY > rect.bottom ? event.clientY - rect.bottom : 0;
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				bestLine = line;
+			}
+		}
+		if (!bestLine) return null;
+		const lineIndex = Number.parseInt(bestLine.dataset.lineIndex ?? '0', 10) || 0;
+		return { lineIndex, ch: this.estimateCharacter(event, bestLine) };
 	}
 
 	ignoreEvent(event: Event): boolean {
