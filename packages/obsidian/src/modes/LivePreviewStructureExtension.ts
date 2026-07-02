@@ -180,6 +180,7 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 	}
 
 	private bindEditor(editor: HTMLTextAreaElement): void {
+		this.bindEditorHorizontalPan(editor);
 		editor.oninput = (): void => {
 			const body = editor.closest<HTMLElement>('.shiki-block-body');
 			const scrollLeft = this.getPreservedScrollLeft(editor.closest<HTMLElement>('.shiki-live-preview-block'));
@@ -198,6 +199,49 @@ class ShikiLivePreviewBlockWidget extends WidgetType {
 			editor.scrollLeft = 0;
 			editor.scrollTop = 0;
 		};
+	}
+
+	private bindEditorHorizontalPan(editor: HTMLTextAreaElement): void {
+		let pointerId: number | null = null;
+		let startX = 0;
+		let startY = 0;
+		let startScrollLeft = 0;
+		let isHorizontalPan = false;
+
+		editor.onpointerdown = (event): void => {
+			if (event.pointerType === 'mouse' && event.button !== 0) return;
+			const body = editor.closest<HTMLElement>('.shiki-block-body');
+			if (!body || body.scrollWidth <= body.clientWidth) return;
+			pointerId = event.pointerId;
+			startX = event.clientX;
+			startY = event.clientY;
+			startScrollLeft = body.scrollLeft;
+			isHorizontalPan = false;
+			editor.setPointerCapture?.(event.pointerId);
+		};
+
+		editor.onpointermove = (event): void => {
+			if (pointerId !== event.pointerId) return;
+			const body = editor.closest<HTMLElement>('.shiki-block-body');
+			if (!body) return;
+			const deltaX = event.clientX - startX;
+			const deltaY = event.clientY - startY;
+			if (!isHorizontalPan && Math.abs(deltaX) > 6 && Math.abs(deltaX) > Math.abs(deltaY)) {
+				isHorizontalPan = true;
+			}
+			if (!isHorizontalPan) return;
+			event.preventDefault();
+			this.restoreBodyScroll(body, Math.max(0, startScrollLeft - deltaX));
+		};
+
+		const endPan = (event: PointerEvent): void => {
+			if (pointerId !== event.pointerId) return;
+			editor.releasePointerCapture?.(event.pointerId);
+			pointerId = null;
+			isHorizontalPan = false;
+		};
+		editor.onpointerup = endPan;
+		editor.onpointercancel = endPan;
 	}
 
 	private bindContainerClick(container: HTMLElement, editor: HTMLTextAreaElement): void {

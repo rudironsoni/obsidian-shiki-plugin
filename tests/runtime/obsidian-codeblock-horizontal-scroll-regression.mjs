@@ -167,6 +167,10 @@ async function verifyLivePreviewViewing(client) {
 			const body = block?.querySelector('.shiki-block-body');
 			const codeScroll = block?.querySelector('.shiki-code-scroll');
 			const code = block?.querySelector('code');
+			const tokenColor = token => {
+				const span = [...(block?.querySelectorAll('.shiki-code-line [style*="color:"]') ?? [])].find(el => el.textContent === token);
+				return span ? getComputedStyle(span).color : null;
+			};
 			const lineNumbers = block?.querySelector('.shiki-line-numbers');
 			const visibleGutters = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].filter(el => getComputedStyle(el).visibility !== 'hidden');
 			const lineNumberStyle = lineNumbers ? getComputedStyle(lineNumbers) : null;
@@ -194,6 +198,8 @@ async function verifyLivePreviewViewing(client) {
 				codeMoved: beforeCodeLeft !== null && afterCodeLeft !== null ? beforeCodeLeft - afterCodeLeft : 0,
 				anyLineOwnScroll: [...root.querySelectorAll('.cm-line')].some(el => el.scrollLeft > 0),
 				noteScrollLeft: scroller?.scrollLeft ?? 0,
+				constColor: tokenColor('const'),
+				identifierColor: tokenColor('insanelyLongValueName'),
 			};
 		})()`,
 		'live preview viewing',
@@ -273,6 +279,14 @@ async function verifyLivePreviewEditing(client) {
 			const nativeLines = [...root.querySelectorAll('.cm-line.shiki-live-preview-code-line')].filter(el => el.textContent?.includes('LongValueName'));
 			const tokenCount = updatedBlock?.querySelectorAll('.shiki-code-line [style*="color:"]').length ?? 0;
 			const content = leaf.view.editor.getValue();
+			if (updatedBody && updatedEditor) {
+				updatedBody.scrollLeft = 0;
+				const editorRect = updatedEditor.getBoundingClientRect();
+				const pointerInit = { bubbles: true, cancelable: true, pointerId: 42, pointerType: 'touch', clientX: editorRect.left + 180, clientY: editorRect.top + 12 };
+				updatedEditor.dispatchEvent(new PointerEvent('pointerdown', pointerInit));
+				updatedEditor.dispatchEvent(new PointerEvent('pointermove', { ...pointerInit, clientX: editorRect.left + 40, clientY: editorRect.top + 14 }));
+				updatedEditor.dispatchEvent(new PointerEvent('pointerup', { ...pointerInit, clientX: editorRect.left + 40, clientY: editorRect.top + 14 }));
+			}
 			await new Promise(resolve => setTimeout(resolve, 250));
 			return {
 				label: 'live-preview-editing',
@@ -284,6 +298,7 @@ async function verifyLivePreviewEditing(client) {
 				nativeLineCount: nativeLines.length,
 				scrollerScrollLeft: scroller?.scrollLeft ?? 0,
 				bodyScrollLeft: updatedBody?.scrollLeft ?? 0,
+				pointerPanScrollLeft: updatedBody?.scrollLeft ?? 0,
 				tokenCount,
 				virtualScrollRows: root.querySelectorAll('.shiki-editing-codeblock-active-line-nowrap, .shiki-live-preview-code-line-nowrap[style*="--shiki-editing-scroll-left"]').length,
 				anyLineOwnScroll: nativeLines.some(el => el.scrollLeft > 0),
@@ -304,6 +319,7 @@ async function verifyLivePreviewEditing(client) {
 	assert(state.nativeLineCount === 0, 'Live Preview editing revealed native code rows instead of keeping the whole-block surface', state);
 	assert(state.scrollerScrollLeft === 0, 'Live Preview editing moved the whole editor horizontally', state);
 	assert(state.bodyScrollLeft > 0, 'Live Preview editing did not preserve whole-block horizontal scroll', state);
+	assert(state.pointerPanScrollLeft > 0, 'Live Preview editing touch pan did not move the whole-block scroller', state);
 	assert(state.tokenCount > 0, 'Live Preview editing block is not Shiki-tokenized', state);
 	assert(state.virtualScrollRows === 0, 'Live Preview editing still uses virtual per-line horizontal scrolling', state);
 	assert(!state.anyLineOwnScroll, 'Live Preview editing left horizontal scroll on individual lines', state);
@@ -354,6 +370,10 @@ async function verifyReadingMode(client) {
 			const body = directBodies[0];
 			const codeScroll = body?.querySelector('.shiki-code-scroll');
 			const lineNumbers = body?.querySelector('.shiki-line-numbers');
+			const tokenColor = token => {
+				const span = [...(body?.querySelectorAll('[style*="color:"]') ?? [])].find(el => el.textContent === token);
+				return span ? getComputedStyle(span).color : null;
+			};
 			const pre = body?.querySelector('pre');
 			const code = body?.querySelector('code');
 			const preStyle = pre ? getComputedStyle(pre) : null;
@@ -389,6 +409,8 @@ async function verifyReadingMode(client) {
 				lineMoved: beforeLineLeft !== null && afterLineLeft !== null ? beforeLineLeft - afterLineLeft : 0,
 				codeMoved: beforeCodeLeft !== null && afterCodeLeft !== null ? beforeCodeLeft - afterCodeLeft : 0,
 				noteScrollLeft: scroller?.scrollLeft ?? 0,
+				constColor: tokenColor('const'),
+				identifierColor: tokenColor('insanelyLongValueName'),
 			};
 		})()`,
 		'reading mode',
@@ -425,6 +447,10 @@ function blockScrollExpression(label, source) {
 		if (scroller) scroller.scrollLeft = 0;
 		const lines = [...root.querySelectorAll(${source ? "'.cm-content .cm-line'" : "'.shiki-editing-codeblock-active-line-nowrap'"})].filter(el => el.textContent?.includes('LongValueName'));
 		const codeLines = ${source ? "[...root.querySelectorAll('.cm-content .cm-line.HyperMD-codeblock, .cm-content .cm-line.HyperMD-codeblock-bg')]" : '[]'};
+		const tokenColor = token => {
+			const span = [...root.querySelectorAll('.cm-content .cm-line.HyperMD-codeblock [style*="color:"]')].find(el => el.textContent === token);
+			return span ? getComputedStyle(span).color : null;
+		};
 		const before = lines.map(el => el.getBoundingClientRect().left);
 		if (scroller) scroller.scrollLeft = 300;
 		const after = lines.map(el => el.getBoundingClientRect().left);
@@ -439,8 +465,29 @@ function blockScrollExpression(label, source) {
 			lineMoved: before.map((left, index) => left - after[index]),
 			anyLineOwnScroll: lines.some(el => el.scrollLeft > 0),
 			bodyScrollLeft: document.scrollingElement?.scrollLeft ?? 0,
+			constColor: tokenColor('const'),
+			identifierColor: tokenColor('insanelyLongValueName'),
 		};
 	})()`;
+}
+
+function assertColorParity(livePreview, sourceMode, readingMode) {
+	assert(livePreview.constColor && sourceMode.constColor && readingMode.constColor, 'Missing const token color in one or more modes', { livePreview, sourceMode, readingMode });
+	assert(livePreview.identifierColor && sourceMode.identifierColor && readingMode.identifierColor, 'Missing identifier token color in one or more modes', {
+		livePreview,
+		sourceMode,
+		readingMode,
+	});
+	assert(
+		livePreview.constColor === sourceMode.constColor && sourceMode.constColor === readingMode.constColor,
+		'const token color differs across Live Preview, Source, and Reading modes',
+		{ livePreview, sourceMode, readingMode },
+	);
+	assert(
+		livePreview.identifierColor === sourceMode.identifierColor && sourceMode.identifierColor === readingMode.identifierColor,
+		'identifier token color differs across Live Preview, Source, and Reading modes',
+		{ livePreview, sourceMode, readingMode },
+	);
 }
 
 function assertBlockScrollerState(state, label) {
@@ -474,6 +521,7 @@ async function main() {
 		const livePreviewEditing = await verifyLivePreviewEditing(client);
 		const sourceMode = await verifySourceMode(client);
 		const readingMode = await verifyReadingMode(client);
+		assertColorParity(livePreviewViewing, sourceMode, readingMode);
 		console.log(JSON.stringify({ ok: true, livePreviewViewing, livePreviewEditing, sourceMode, readingMode }, null, 2));
 	} finally {
 		client.close();

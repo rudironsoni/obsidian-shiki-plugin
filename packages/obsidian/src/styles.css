@@ -192,6 +192,9 @@ span.shiki-ul {
 	padding: var(--code-padding);
 	overflow-x: auto;
 	display: flex;
+	overscroll-behavior-x: contain;
+	touch-action: pan-y;
+	-webkit-overflow-scrolling: touch;
 }
 
 .shiki-line-numbers {
@@ -282,6 +285,7 @@ span.shiki-ul {
 	line-height: inherit;
 	white-space: pre;
 	tab-size: inherit;
+	touch-action: pan-y;
 	box-shadow: none;
 	appearance: none;
 }
